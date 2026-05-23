@@ -439,44 +439,72 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
     history.reverse()
 
     # Build AI messages
-    system_prompt = f"""You are NeuraLearn's AI Tutor — an exceptionally brilliant, patient, and adaptive mentor for CBSE Class {session['class_level']} students.
+    class_num = int(session['class_level']) if session['class_level'].isdigit() else 9
+    age_guidance = (
+        "Student is 10-12 years old. Use playful energy, games, stories, and magic. Make concepts feel like exciting discoveries."
+        if class_num <= 7 else
+        "Student is 13-14 years old. Mix fun with substance. Use pop culture, sports, space, tech references. Build exam awareness naturally."
+        if class_num <= 9 else
+        "Student is 15-18 years old. Respect their intelligence. Deep conceptual insights, problem-solving strategies, board exam excellence. Be precise but engaging."
+    )
+    exam_focus = "🎯 BOARD EXAM FOCUS — This topic has high exam weightage! Mention exam patterns when relevant." if session['class_level'] in ['10', '12'] else "Build strong conceptual foundations."
 
-You are currently teaching: **{session['subject']}** — Chapter: **{session['chapter']}**
+    system_prompt = f"""You are NeuraLearn's Elite AI Tutor — a world-class educator who makes every student fall in love with learning.
 
-YOUR TEACHING PHILOSOPHY:
-- Always explain WHY concepts work, not just WHAT they are
-- Use the Socratic method: guide through questions, never just dump answers  
-- Start with a relatable real-world example or analogy that students can connect with
-- Build intuition before introducing formulas or definitions
-- Frequently ask small conceptual questions to check understanding
-- Celebrate curiosity and good attempts enthusiastically
+CURRENT LESSON: Class {session['class_level']} | {session['subject']} | {session['chapter']}
+STUDENT PROFILE: {age_guidance}
+EXAM CONTEXT: {exam_focus}
 
-ADAPTIVE TEACHING:
-- Detect confusion and re-explain from a completely different angle
-- Adjust complexity for Class {session['class_level']} level
-- Use simple analogies, stories, and real-world examples
-- Keep responses conversational and engaging, never textbook-like
+═══════ YOUR TEACHING IDENTITY ═══════
+You have the intellectual brilliance of Feynman, the storytelling of Neil deGrasse Tyson, the patience of a saint, and the energy of the best TED speaker you've ever seen. You're not a textbook — you're the coolest, smartest mentor a student could have.
 
-RESPONSE FORMAT:
-- Use **bold** for key terms and concepts
-- Use numbered lists for step-by-step processes
-- Keep paragraphs short and punchy (max 3-4 lines each)
-- End substantive explanations with "Quick Check:" + a simple question
-- When you detect understanding issues, use a new analogy
+═══════ CORE TEACHING RULES ═══════
+• NEVER start two consecutive responses the same way — vary your openings constantly
+• ALWAYS build intuition BEFORE introducing formulas or definitions
+• Use the Socratic method — ask questions that make students DISCOVER answers
+• Vary your style: storytelling → analogy → thought experiment → visual description → challenge
+• Detect confusion instantly and pivot to a COMPLETELY different explanation angle
 
-QUIZ GENERATION:
-When you want to test understanding, embed a quiz using this exact format (include the tags):
+═══════ GLOBAL EXAMPLES (MANDATORY) ═══════
+Draw examples from DIVERSE global contexts — NOT just Indian examples:
+• Sports: NBA finals, Formula 1 physics, soccer aerodynamics, Olympic swimming
+• Technology: SpaceX launches, iPhone engineering, Minecraft physics, video game mechanics
+• Movies/Shows: Marvel science, Inception dreams, Interstellar black holes, Avatar biology
+• Nature: Amazon rainforest, Arctic ice, ocean depths, volcanic eruptions, space
+• History: Ancient Rome engineering, Wright Brothers, Marie Curie, Tesla vs Edison
+• Daily Life: Coffee cooling, music speakers, bike riding, cooking chemistry
+Rotate through these — never default to only local examples.
+
+═══════ RESPONSE ENERGY ═══════
+• Use phrases like: "Here's where it gets mind-blowing...", "Plot twist:", "The wild part is...", "Think about this:", "Here's a secret the textbook won't tell you:"
+• Celebrate understanding: "YES! That's exactly it!", "You're thinking like a scientist now!"
+• Handle confusion warmly: "Great attempt! Let me show you a trick...", "You're SO close!"
+
+═══════ FORMAT RULES ═══════
+• **Bold** key terms on first use
+• Short punchy paragraphs (3 lines max)
+• Numbered lists for processes
+• Always keep energy HIGH
+
+═══════ QUIZ FORMAT (embed when testing understanding) ═══════
 [QUIZ]
-{{"question": "...", "options": ["A. ...", "B. ...", "C. ...", "D. ..."], "correct": "A", "explanation": "..."}}
+{{"question": "...", "options": ["A. ...", "B. ...", "C. ...", "D. ..."], "correct": "A", "explanation": "Short, satisfying explanation why..."}}
 [/QUIZ]
 
-PERSONALITY:
-- Warm, enthusiastic, and genuinely excited about the subject
-- Use phrases like "Great question!", "Let me show you something cool about this...", "Here's the key insight..."
-- Patient with confusion — never dismissive
-- Celebrate every correct answer, guide every wrong one
+═══════ YOUTUBE VISUAL FORMAT (use when concept benefits from visuals) ═══════
+[YOUTUBE]best search query for educational video on this exact concept[/YOUTUBE]
+Use this for: complex diagrams, scientific phenomena, mathematical animations, historical events, anything 3D or visual.
 
-Remember: You're not a textbook. You're a brilliant, caring friend who knows everything about CBSE curriculum."""
+═══════ MANDATORY NEXT STEP (end EVERY response with exactly one) ═══════
+Choose the most natural continuation:
+⚡ **Challenge:** [one slightly harder question to test application]
+OR 🎯 **Quick Check:** [fast conceptual question]
+OR 🚀 **Coming Up:** [what's the exciting next concept to explore]
+OR 🎬 **Visual Boost:** [suggest specific thing to visualize or look up]
+OR 📝 **Exam Tip:** [a real pattern that appears in CBSE exams on this topic]
+
+Remember: Your goal is not just to teach — it's to create a moment where the student thinks "wait, that's actually AMAZING." Make every response unforgettable."""
+
 
     ai_messages = [{"role": "system", "content": system_prompt}]
     for msg in history[:-1]:  # exclude the user message we just saved
@@ -805,6 +833,231 @@ async def get_gamification_stats(request: Request):
     }
 
 
+# ==================== LEADERBOARD ====================
+
+@api_router.get("/leaderboard")
+async def get_leaderboard(request: Request):
+    users = await db.users.find({}, {"_id": 0, "user_id": 1, "name": 1, "xp": 1, "streak": 1, "class_level": 1}).sort("xp", -1).limit(50).to_list(50)
+    leaderboard = []
+    for i, u in enumerate(users):
+        xp = u.get("xp", 0)
+        leaderboard.append({
+            "rank": i + 1,
+            "user_id": u["user_id"],
+            "name": u.get("name", "Anonymous"),
+            "xp": xp,
+            "level": max(1, xp // 500 + 1),
+            "streak": u.get("streak", 0),
+            "class_level": u.get("class_level", "?"),
+            "badge": "gold" if i == 0 else "silver" if i == 1 else "bronze" if i == 2 else None
+        })
+    user_rank = None
+    current_user_entry = None
+    try:
+        user = await get_current_user(request)
+        for entry in leaderboard:
+            if entry["user_id"] == user["user_id"]:
+                user_rank = entry["rank"]
+                current_user_entry = entry
+                break
+    except Exception:
+        pass
+    return {"leaderboard": leaderboard[:20], "user_rank": user_rank, "current_user": current_user_entry, "total_users": len(users)}
+
+
+# ==================== MOCK EXAM ====================
+
+class MockExamRequest(BaseModel):
+    class_level: str
+    subject: str
+    duration_minutes: int = 60
+    num_questions: int = 20
+
+@api_router.post("/mock-exam/generate")
+async def generate_mock_exam(body: MockExamRequest, request: Request):
+    user = await get_current_user(request)
+    is_board = body.class_level in ["10", "12"]
+    sec_a = max(4, body.num_questions // 2)
+    sec_b = max(3, body.num_questions // 4)
+    sec_c = body.num_questions - sec_a - sec_b
+
+    prompt = f"""Generate a CBSE Class {body.class_level} {body.subject} mock exam paper with {body.num_questions} questions total.
+Structure: Section A ({sec_a} MCQs, 1 mark each), Section B ({sec_b} questions, 2 marks each), Section C ({sec_c} questions, 3 marks each).
+{"Focus on board exam patterns with HOTS questions." if is_board else "Cover fundamental concepts suitable for internal assessments."}
+
+Return ONLY valid JSON:
+{{
+  "title": "Class {body.class_level} {body.subject} Mock Examination",
+  "duration_minutes": {body.duration_minutes},
+  "sections": [
+    {{
+      "section": "A", "title": "Multiple Choice Questions", "marks_per_question": 1,
+      "questions": [{{"id":"A1","question":"...","options":["A. ...","B. ...","C. ...","D. ..."],"correct":"A","marks":1,"difficulty":"easy","topic":"...","explanation":"..."}}]
+    }},
+    {{
+      "section": "B", "title": "Short Answer (MCQ Format)", "marks_per_question": 2,
+      "questions": [{{"id":"B1","question":"...","options":["A. ...","B. ...","C. ...","D. ..."],"correct":"A","marks":2,"difficulty":"medium","topic":"...","explanation":"..."}}]
+    }},
+    {{
+      "section": "C", "title": "Application Based Questions", "marks_per_question": 3,
+      "questions": [{{"id":"C1","question":"...","options":["A. ...","B. ...","C. ...","D. ..."],"correct":"A","marks":3,"difficulty":"hard","topic":"...","explanation":"..."}}]
+    }}
+  ]
+}}
+Generate EXACTLY {sec_a} questions in Section A, {sec_b} in Section B, {sec_c} in Section C. Cover different chapters."""
+
+    response = await openai_client.chat.completions.create(
+        model="gpt-4o", messages=[{"role": "system", "content": "Expert CBSE question paper setter."}, {"role": "user", "content": prompt}],
+        response_format={"type": "json_object"}, temperature=0.7, max_tokens=4000
+    )
+    exam_data = json.loads(response.choices[0].message.content)
+    exam_id = f"exam_{uuid.uuid4().hex[:12]}"
+    now = datetime.now(timezone.utc).isoformat()
+    exam_doc = {
+        "exam_id": exam_id, "user_id": user["user_id"], "class_level": body.class_level,
+        "subject": body.subject, "duration_minutes": body.duration_minutes,
+        "title": exam_data.get("title", f"Class {body.class_level} {body.subject} Mock Exam"),
+        "sections": exam_data.get("sections", []), "completed": False, "score": None, "created_at": now
+    }
+    await db.mock_exams.insert_one(exam_doc)
+    exam_doc.pop("_id", None)
+    return exam_doc
+
+@api_router.get("/mock-exam/history")
+async def get_mock_exam_history(request: Request):
+    user = await get_current_user(request)
+    exams = await db.mock_exams.find({"user_id": user["user_id"]}, {"_id": 0, "sections": 0}).sort("created_at", -1).limit(10).to_list(10)
+    return exams
+
+@api_router.post("/mock-exam/{exam_id}/submit")
+async def submit_mock_exam(exam_id: str, body: QuizSubmitRequest, request: Request):
+    user = await get_current_user(request)
+    exam = await db.mock_exams.find_one({"exam_id": exam_id, "user_id": user["user_id"]}, {"_id": 0})
+    if not exam:
+        raise HTTPException(status_code=404, detail="Exam not found")
+    total_marks = earned_marks = 0
+    section_results = []
+    weak_topics = []
+    for section in exam.get("sections", []):
+        s_earned = s_total = 0
+        s_correct = s_questions = 0
+        for q in section.get("questions", []):
+            marks = q.get("marks", 1)
+            s_total += marks; total_marks += marks; s_questions += 1
+            if body.answers.get(q["id"]) == q.get("correct"):
+                s_earned += marks; earned_marks += marks; s_correct += 1
+            else:
+                if q.get("topic"): weak_topics.append(q["topic"])
+        section_results.append({"section": section["section"], "title": section.get("title", ""), "correct": s_correct, "total": s_questions, "marks_earned": s_earned, "marks_total": s_total, "percentage": int(s_earned / s_total * 100) if s_total > 0 else 0})
+    score_pct = int(earned_marks / total_marks * 100) if total_marks > 0 else 0
+    xp_earned = int(score_pct * 1.5)
+    await db.mock_exams.update_one({"exam_id": exam_id}, {"$set": {"completed": True, "score": score_pct, "earned_marks": earned_marks, "total_marks": total_marks, "section_results": section_results, "weak_topics": list(set(weak_topics))[:5], "completed_at": datetime.now(timezone.utc).isoformat()}})
+    await db.users.update_one({"user_id": user["user_id"]}, {"$inc": {"xp": xp_earned}})
+    return {"score": score_pct, "earned_marks": earned_marks, "total_marks": total_marks, "xp_earned": xp_earned, "section_results": section_results, "weak_topics": list(set(weak_topics))[:5]}
+
+
+# ==================== STUDY PLAN ====================
+
+class StudyPlanRequest(BaseModel):
+    exam_date: str
+    target_score: int = 90
+    daily_hours: float = 2.0
+    class_level: str
+    subjects: List[str] = []
+
+@api_router.post("/study-plan")
+async def create_study_plan(body: StudyPlanRequest, request: Request):
+    user = await get_current_user(request)
+    try:
+        exam_dt = datetime.fromisoformat(body.exam_date.replace("Z", "+00:00"))
+        days_until = max(1, (exam_dt.replace(tzinfo=None) - datetime.now()).days)
+    except Exception:
+        days_until = 30
+    weeks = max(1, days_until // 7)
+    subjects_str = ', '.join(body.subjects) if body.subjects else 'All subjects'
+    prompt = f"""Create a CBSE exam study plan. Class {body.class_level}, {days_until} days left, target {body.target_score}%, {body.daily_hours}h/day, subjects: {subjects_str}.
+Return JSON only:
+{{"overview":"2-line strategy","weeks":[{{"week":1,"theme":"Foundation","focus":["topic1"],"daily_tasks":[{{"day":"Mon","subject":"...","topic":"...","hours":2,"type":"learn"}}],"goal":"..."}}],"exam_week":"strategy","tips":["tip1","tip2","tip3"]}}
+Max {weeks} weeks. Prioritize high-weightage topics. Be specific and actionable."""
+    response = await openai_client.chat.completions.create(
+        model="gpt-4o", messages=[{"role": "user", "content": prompt}],
+        response_format={"type": "json_object"}, temperature=0.7, max_tokens=2500
+    )
+    plan_data = json.loads(response.choices[0].message.content)
+    now = datetime.now(timezone.utc).isoformat()
+    await db.study_plans.update_one({"user_id": user["user_id"]}, {"$set": {"user_id": user["user_id"], "exam_date": body.exam_date, "target_score": body.target_score, "daily_hours": body.daily_hours, "class_level": body.class_level, "subjects": body.subjects, "plan": plan_data, "updated_at": now}}, upsert=True)
+    await db.users.update_one({"user_id": user["user_id"]}, {"$set": {"exam_date": body.exam_date, "target_score": body.target_score}})
+    return {"plan": plan_data, "days_until_exam": days_until, "exam_date": body.exam_date}
+
+@api_router.get("/study-plan")
+async def get_study_plan(request: Request):
+    user = await get_current_user(request)
+    plan = await db.study_plans.find_one({"user_id": user["user_id"]}, {"_id": 0})
+    if not plan:
+        return {"plan": None}
+    if plan.get("exam_date"):
+        try:
+            exam_dt = datetime.fromisoformat(plan["exam_date"].replace("Z", "+00:00"))
+            plan["days_remaining"] = max(0, (exam_dt.replace(tzinfo=None) - datetime.now()).days)
+        except Exception:
+            pass
+    return plan
+
+
+# ==================== RECOMMENDATIONS ====================
+
+@api_router.get("/recommendations")
+async def get_recommendations(request: Request):
+    user = await get_current_user(request)
+    progress = await db.progress.find({"user_id": user["user_id"]}, {"_id": 0}).to_list(50)
+    recent_sessions = await db.chat_sessions.find({"user_id": user["user_id"]}, {"_id": 0}).sort("updated_at", -1).limit(3).to_list(3)
+    quiz_results = await db.quizzes.find({"user_id": user["user_id"], "completed": True}, {"_id": 0}).sort("created_at", -1).limit(3).to_list(3)
+    recs = []
+    if recent_sessions:
+        s = recent_sessions[0]
+        recs.append({"type": "resume", "icon": "play", "title": f"Continue: {s['chapter']}", "description": f"Pick up where you left off in {s['subject']}", "action": "chat", "data": {"session_id": s["session_id"]}})
+    weak = [p for p in progress if p.get("mastery", 100) < 50]
+    if weak:
+        w = weak[0]
+        recs.append({"type": "revision", "icon": "refresh", "title": f"Revise: {w['chapter_name']}", "description": f"Only {w.get('mastery',0)}% mastery — quick revision will boost your confidence!", "action": "chat", "data": {"subject": w.get("subject"), "chapter_id": w.get("chapter_id"), "chapter": w.get("chapter_name"), "class_level": w.get("class_level")}})
+    low_quiz = [q for q in quiz_results if q.get("score", 100) < 70]
+    if low_quiz:
+        q = low_quiz[0]
+        recs.append({"type": "practice", "icon": "target", "title": f"Practice: {q.get('topic','Quiz topic')}", "description": f"Scored {q.get('score',0)}% — let's improve it with focused practice!", "action": "quiz"})
+    recs.append({"type": "mock_exam", "icon": "trophy", "title": "Take a Mock Exam", "description": "Challenge yourself with a CBSE-pattern timed examination", "action": "mock_exam"})
+    recs.append({"type": "explore", "icon": "book", "title": "Explore New Chapter", "description": "Browse the full CBSE syllabus and start something new", "action": "syllabus"})
+    return {"recommendations": recs[:4]}
+
+
+# ==================== REFERRAL ====================
+
+@api_router.get("/referral/code")
+async def get_referral_code(request: Request):
+    user = await get_current_user(request)
+    code = user.get("referral_code")
+    if not code:
+        code = user["user_id"][-6:].upper()
+        await db.users.update_one({"user_id": user["user_id"]}, {"$set": {"referral_code": code}})
+    count = await db.referrals.count_documents({"referrer_id": user["user_id"]})
+    return {"code": code, "referral_count": count, "xp_per_referral": 150, "referred_xp": 100}
+
+@api_router.post("/referral/apply")
+async def apply_referral(body: dict, request: Request):
+    user = await get_current_user(request)
+    code = body.get("code", "").upper().strip()
+    if await db.referrals.find_one({"referred_id": user["user_id"]}):
+        raise HTTPException(status_code=400, detail="You've already used a referral code")
+    referrer = await db.users.find_one({"referral_code": code}, {"_id": 0})
+    if not referrer:
+        raise HTTPException(status_code=404, detail="Invalid referral code")
+    if referrer["user_id"] == user["user_id"]:
+        raise HTTPException(status_code=400, detail="Can't use your own code")
+    await db.users.update_one({"user_id": user["user_id"]}, {"$inc": {"xp": 100}})
+    await db.users.update_one({"user_id": referrer["user_id"]}, {"$inc": {"xp": 150}})
+    await db.referrals.insert_one({"referrer_id": referrer["user_id"], "referred_id": user["user_id"], "applied_at": datetime.now(timezone.utc).isoformat()})
+    return {"message": "Referral applied! You earned 100 XP!", "xp_earned": 100}
+
+
 # ==================== MIDDLEWARE + APP SETUP ====================
 
 app.add_middleware(
@@ -830,6 +1083,10 @@ async def startup_event():
     await db.progress.create_index([("user_id", 1), ("chapter_id", 1)])
     await db.quizzes.create_index("user_id")
 
+    await db.mock_exams.create_index("user_id")
+    await db.study_plans.create_index("user_id", unique=True)
+    await db.referrals.create_index("referred_id")
+    await db.referrals.create_index("referrer_id")
     # Seed admin
     admin_email = os.environ.get("ADMIN_EMAIL", "admin@neuralearn.ai")
     admin_password = os.environ.get("ADMIN_PASSWORD", "Admin@123456")
