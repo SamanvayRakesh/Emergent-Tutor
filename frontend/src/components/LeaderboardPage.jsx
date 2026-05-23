@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trophy, Medal, Crown, Flame, Zap, TrendingUp, Star, Users } from 'lucide-react';
+import { Trophy, Medal, Crown, Flame, Zap, TrendingUp, Star, Users, Globe2, GraduationCap } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -76,68 +76,105 @@ function LeaderRow({ entry, isCurrentUser, index }) {
 
 export default function LeaderboardPage() {
   const { user } = useAuth();
+  const [scope, setScope] = useState('global');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    axios.get(`${API}/leaderboard`, { withCredentials: true })
+    setLoading(true);
+    axios.get(`${API}/leaderboard`, { params: { scope }, withCredentials: true })
       .then(r => setData(r.data))
+      .catch(() => setData({ leaderboard: [], total_users: 0 }))
       .finally(() => setLoading(false));
-  }, []);
+  }, [scope]);
 
-  if (loading) return (
-    <div className="p-6 space-y-3">
-      {[...Array(6)].map((_, i) => <div key={i} className="h-14 rounded-xl shimmer bg-zinc-900" />)}
-    </div>
-  );
+  const TABS = [
+    { id: 'global',  label: 'Global',  icon: Globe2,         color: '#22d3ee' },
+    { id: 'class',   label: `Class ${user?.class_level || '?'}`, icon: GraduationCap, color: '#8b5cf6' },
+    { id: 'friends', label: 'Friends', icon: Users,          color: '#f59e0b' },
+  ];
 
   const top3 = data?.leaderboard?.slice(0, 3) || [];
-  const rest = data?.leaderboard?.slice(3) || [];
 
   return (
     <div className="p-4 sm:p-6 max-w-2xl mx-auto">
-      <div className="mb-6">
+      <div className="mb-5">
         <h1 className="text-2xl sm:text-3xl font-heading font-black text-white flex items-center gap-3">
           <Trophy size={28} className="text-amber-400" /> Rankings
         </h1>
         <p className="text-zinc-500 text-sm font-body mt-1">
-          <span className="text-cyan-400 font-semibold">{data?.total_users || 0}</span> learners competing worldwide
+          {scope === 'global' && <><span className="text-cyan-400 font-semibold">{data?.total_users || 0}</span> learners competing worldwide</>}
+          {scope === 'class' && <>Top performers in <span className="text-violet-400 font-semibold">Class {data?.class_level || user?.class_level}</span></>}
+          {scope === 'friends' && <><span className="text-amber-400 font-semibold">{data?.total_users || 1}</span> friends in your circle</>}
           {data?.user_rank && <span> • You're ranked <span className="text-amber-400 font-bold">#{data.user_rank}</span></span>}
         </p>
       </div>
 
-      {/* Podium */}
-      {top3.length >= 3 && (
-        <div className="mb-6 py-6 glass rounded-2xl border border-white/5">
-          <div className="flex items-end justify-center gap-3">
-            {[top3[1], top3[0], top3[2]].map((entry, i) => (
-              <PodiumCard key={entry?.user_id} entry={entry} height={i === 1 ? 120 : i === 0 ? 100 : 80} />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Current user not in top 3 */}
-      {data?.user_rank && data.user_rank > 3 && data.current_user && (
-        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-          className="mb-4 p-3 rounded-xl border border-cyan-500/20 bg-cyan-500/5">
-          <p className="text-zinc-500 text-xs font-body mb-2">Your Position</p>
-          <LeaderRow entry={data.current_user} isCurrentUser={true} index={0} />
-        </motion.div>
-      )}
-
-      {/* Full List */}
-      <div className="space-y-2">
-        {data?.leaderboard?.map((entry, i) => (
-          <LeaderRow key={entry.user_id} entry={entry} isCurrentUser={entry.user_id === user?.user_id} index={i} />
-        ))}
+      {/* Scope tabs */}
+      <div className="flex gap-2 mb-5 p-1 rounded-2xl bg-zinc-900/60 border border-white/5" data-testid="leaderboard-tabs">
+        {TABS.map(t => {
+          const T = t.icon;
+          const active = scope === t.id;
+          return (
+            <button key={t.id} onClick={() => setScope(t.id)} data-testid={`tab-${t.id}`}
+              className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-body font-semibold transition-all ${active ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
+              style={active ? { background: t.color + '20', border: `1px solid ${t.color}40` } : {}}>
+              <T size={14} style={active ? { color: t.color } : {}} />
+              {t.label}
+            </button>
+          );
+        })}
       </div>
 
-      {!data?.leaderboard?.length && (
-        <div className="text-center py-16 text-zinc-600 font-body">
-          <Users size={40} className="mx-auto mb-3 opacity-30" />
-          <p>Be the first on the leaderboard!</p>
+      {loading ? (
+        <div className="space-y-2">
+          {[...Array(6)].map((_, i) => <div key={i} className="h-14 rounded-xl shimmer bg-zinc-900" />)}
         </div>
+      ) : (
+        <>
+          {/* Podium */}
+          {top3.length >= 3 && (
+            <div className="mb-6 py-6 glass rounded-2xl border border-white/5">
+              <div className="flex items-end justify-center gap-3">
+                {[top3[1], top3[0], top3[2]].map((entry, i) => (
+                  <PodiumCard key={entry?.user_id} entry={entry} height={i === 1 ? 120 : i === 0 ? 100 : 80} />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Current user not in top 3 */}
+          {data?.user_rank && data.user_rank > 3 && data.current_user && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+              className="mb-4 p-3 rounded-xl border border-cyan-500/20 bg-cyan-500/5">
+              <p className="text-zinc-500 text-xs font-body mb-2">Your Position</p>
+              <LeaderRow entry={data.current_user} isCurrentUser={true} index={0} />
+            </motion.div>
+          )}
+
+          {/* Full List */}
+          <div className="space-y-2">
+            {data?.leaderboard?.map((entry, i) => (
+              <LeaderRow key={entry.user_id} entry={entry} isCurrentUser={entry.user_id === user?.user_id} index={i} />
+            ))}
+          </div>
+
+          {!data?.leaderboard?.length && (
+            <div className="text-center py-16 text-zinc-600 font-body">
+              <Users size={40} className="mx-auto mb-3 opacity-30" />
+              {scope === 'friends' ? (
+                <>
+                  <p className="mb-1">No friends in your circle yet</p>
+                  <p className="text-xs text-zinc-700">Share your referral code on the Study Plan page to invite friends!</p>
+                </>
+              ) : scope === 'class' ? (
+                <p>Be the first ranked student in Class {user?.class_level}!</p>
+              ) : (
+                <p>Be the first on the leaderboard!</p>
+              )}
+            </div>
+          )}
+        </>
       )}
     </div>
   );

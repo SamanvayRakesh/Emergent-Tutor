@@ -4,6 +4,7 @@ import { motion } from 'framer-motion';
 import { MessageSquare, BookOpen, Trophy, TrendingUp, Flame, Zap, Star, ArrowRight, Play, Calendar, Target, RefreshCw, Sparkles, Compass, FileText } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
+import StreakReminderBanner from './StreakReminderBanner';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -113,6 +114,9 @@ export default function Dashboard() {
 
   return (
     <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-6">
+      {/* Streak Reminder Banner — appears when streak is at risk, broken, or active ≥2 days */}
+      <StreakReminderBanner />
+
       {/* Hero greeting */}
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
         className="relative overflow-hidden rounded-2xl p-6 glass border border-white/5"
