@@ -37,25 +37,27 @@ backend/
 - Gamification: XP, levels, streaks, achievements
 
 ### Phase 2 (Feb 2026)
-- **Leaderboard / Rankings** — global ranking, podium, current user position
+- **Leaderboard / Rankings** — Global / Class-level / Friends scopes via `?scope=` query. Friends = bidirectional referral graph + self. 3-tab toggle UI on Rankings page.
 - **Mock Exam** — AI-generated CBSE-pattern paper with 3 sections, timer, scoring, weak-topic detection
 - **Adaptive Follow-up Quiz** — `POST /api/mock-exam/{exam_id}/followup-quiz` generates a 5-Q MCQ laser-focused on the user's weak topics; inline UI on the result screen, full submission flow with XP
 - **Study Plan** — exam-date input → AI weekly plan with daily tasks, exam-week strategy, tips
 - **Referrals & Rewards** — referral code + apply flow (rejects self/duplicate), XP bonus for both sides
 - **AI Chat: YouTube Visual Boost + Next Step** — system prompt emits `[YOUTUBE]…[/YOUTUBE]` tags and a mandatory Next-Step marker (⚡/🎯/🚀/🎬/📝). Frontend renders an inline YouTube embed card.
-- **Dashboard: Today's Missions widget** — personalized recommendation cards from `/api/recommendations` (resume / revise / practice / mock exam / explore), each clickable to the right route
+- **Dashboard: Today's Missions widget** — personalized recommendation cards from `/api/recommendations` (resume / revise / practice / mock exam / explore)
+- **Streak Reminder** — `GET /api/streak-reminder` returns streak state with at_risk/broken flags + AI-personalized message (only when at-risk). Sticky banner on Dashboard with daily dismiss + native Browser Notification API opt-in.
+- **Signup with class selection** — `POST /api/auth/register` now accepts `class_level` field (default "9")
 
 ### Testing
-- **19/19 pytest backend tests pass** — `/app/backend/tests/test_phase2.py` (13) + `/app/backend/tests/test_followup_quiz.py` (6)
-- Full Playwright walkthrough on Dashboard + Mock Exam end-to-end (generate → take → submit → weak-areas → follow-up quiz → submit)
+- **30/31 pytest backend tests pass** across `test_phase2.py`, `test_followup_quiz.py`, `test_leaderboard_scopes.py`, `test_streak_reminder.py` (1 occasional skip due to OpenAI generation variability)
+- Full Playwright walkthrough on Dashboard + Mock Exam end-to-end
 
 ## Prioritized Backlog
 
 ### P1 (Next)
 - Real YouTube Data API v3 integration (thumbnails + verified videos vs current no-API search embed)
-- Daily streak email/push reminders
-- Class-level + Friends leaderboards (currently global only)
 - Cosmetic unlocks tied to referral milestones (avatar borders, profile themes)
+- Email/push reminders (needs RESEND_API_KEY or SENDGRID_API_KEY — backend hook + service worker for true off-session delivery)
+- Class selector dropdown on signup form (backend already accepts class_level)
 
 ### P2 (Future)
 - Multi-language (Hindi medium)

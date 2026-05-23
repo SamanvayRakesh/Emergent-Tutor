@@ -31,7 +31,7 @@ async def register(body: UserRegister, response: Response):
         "password_hash": hash_password(body.password),
         "role": "student", "avatar": None,
         "xp": 0, "level": 1, "streak": 0, "longest_streak": 0,
-        "last_active": now, "class_level": "9",
+        "last_active": now, "class_level": body.class_level or "9",
         "achievements": [], "created_at": now, "auth_type": "jwt",
     }
     await db.users.insert_one(user_doc)
