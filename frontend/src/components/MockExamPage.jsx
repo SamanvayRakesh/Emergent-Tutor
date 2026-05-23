@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FileText, Clock, Sparkles, ChevronDown, CheckCircle, XCircle, AlertCircle, Zap, RotateCcw, BookOpen } from 'lucide-react';
+import { FileText, Clock, Sparkles, ChevronDown, CheckCircle, XCircle, AlertCircle, Zap, RotateCcw, BookOpen, Target } from 'lucide-react';
 import axios from 'axios';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -47,6 +47,8 @@ export default function MockExamPage() {
   const [currentSection, setCurrentSection] = useState(0);
   const [timerRunning, setTimerRunning] = useState(false);
   const [history, setHistory] = useState([]);
+  const [followUp, setFollowUp] = useState(null); // { quiz, answers, results }
+  const [followUpLoading, setFollowUpLoading] = useState(false);
 
   useEffect(() => {
     axios.get(`${API}/syllabus/classes`, { withCredentials: true }).then(r => setClasses(r.data));
@@ -94,7 +96,31 @@ export default function MockExamPage() {
     setLoading(false);
   };
 
-  const reset = () => { setPhase('setup'); setExam(null); setResult(null); setAnswers({}); setTimerRunning(false); };
+  const reset = () => { setPhase('setup'); setExam(null); setResult(null); setAnswers({}); setTimerRunning(false); setFollowUp(null); };
+
+  const startFollowUp = async () => {
+    if (!exam) return;
+    setFollowUpLoading(true);
+    try {
+      const { data } = await axios.post(`${API}/mock-exam/${exam.exam_id}/followup-quiz`, {}, { withCredentials: true });
+      setFollowUp({ quiz: data, answers: {}, submitted: null });
+    } catch (e) {
+      console.error(e);
+    }
+    setFollowUpLoading(false);
+  };
+
+  const submitFollowUp = async () => {
+    if (!followUp?.quiz) return;
+    setFollowUpLoading(true);
+    try {
+      // Convert {0: 'A', 1: 'B'...} answers to backend format
+      const { data } = await axios.post(`${API}/quiz/${followUp.quiz.quiz_id}/submit`,
+        { quiz_id: followUp.quiz.quiz_id, answers: followUp.answers }, { withCredentials: true });
+      setFollowUp(p => ({ ...p, submitted: data }));
+    } catch (e) { console.error(e); }
+    setFollowUpLoading(false);
+  };
 
   // Count answered
   const allQs = exam?.sections?.flatMap(s => s.questions) || [];
@@ -286,12 +312,72 @@ export default function MockExamPage() {
                   <AlertCircle size={16} className="text-orange-400" />
                   <p className="text-white font-body font-semibold text-sm">Areas to Improve</p>
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2 mb-3">
                   {result.weak_topics.map(t => (
                     <span key={t} className="px-2.5 py-1 rounded-full text-xs font-body border border-orange-500/20 bg-orange-500/8 text-orange-300">{t}</span>
                   ))}
                 </div>
+                {!followUp && (
+                  <button onClick={startFollowUp} disabled={followUpLoading} data-testid="start-followup-btn"
+                    className="w-full py-2.5 rounded-xl bg-orange-500/15 hover:bg-orange-500/25 border border-orange-500/30 text-orange-300 font-heading font-bold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-50">
+                    {followUpLoading ? <><div className="w-4 h-4 border-2 border-orange-300/30 border-t-orange-300 rounded-full animate-spin" /> Crafting adaptive practice...</> : <><Target size={14} /> Practice Weak Areas (5 Qs)</>}
+                  </button>
+                )}
               </div>
+            )}
+
+            {/* Follow-up quiz */}
+            {followUp?.quiz && !followUp.submitted && (
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                className="glass rounded-2xl p-5 border border-orange-500/20 mb-5 space-y-4" data-testid="followup-quiz">
+                <div className="flex items-center gap-2">
+                  <Target size={18} className="text-orange-400" />
+                  <p className="text-white font-heading font-bold">{followUp.quiz.title}</p>
+                </div>
+                {followUp.quiz.questions?.map((q, qi) => (
+                  <div key={qi} className="p-3 rounded-xl bg-zinc-900/40 border border-white/5">
+                    <p className="text-white text-sm font-body leading-relaxed mb-2.5">
+                      <span className="text-orange-400 font-heading font-bold mr-2">{qi + 1}.</span>{q.question}
+                    </p>
+                    <div className="grid sm:grid-cols-2 gap-2">
+                      {q.options?.map((opt, oi) => {
+                        const letter = opt.charAt(0);
+                        const isSel = followUp.answers[String(qi)] === letter;
+                        return (
+                          <button key={oi} data-testid={`followup-opt-${qi}-${letter}`}
+                            onClick={() => setFollowUp(p => ({ ...p, answers: { ...p.answers, [String(qi)]: letter } }))}
+                            className={`text-left px-3 py-2 rounded-lg border text-sm font-body flex items-center gap-2 transition-all ${isSel ? 'border-orange-400/60 bg-orange-500/15 text-white' : 'border-white/8 bg-zinc-900/30 text-zinc-300 hover:border-white/15'}`}>
+                            <span className={`w-5 h-5 rounded-full border flex-shrink-0 flex items-center justify-center text-xs font-bold ${isSel ? 'border-orange-400 text-orange-400' : 'border-zinc-600 text-zinc-500'}`}>{letter}</span>
+                            <span className="flex-1">{opt.slice(3)}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+                <button onClick={submitFollowUp} disabled={followUpLoading || Object.keys(followUp.answers).length === 0} data-testid="submit-followup-btn"
+                  className="w-full py-2.5 rounded-xl bg-orange-500 hover:bg-orange-400 text-black font-heading font-bold text-sm transition-all disabled:opacity-40 flex items-center justify-center gap-2">
+                  {followUpLoading ? <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" /> : <><CheckCircle size={14} /> Submit Practice Quiz</>}
+                </button>
+              </motion.div>
+            )}
+
+            {followUp?.submitted && (
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                className="glass rounded-2xl p-5 border border-orange-500/20 mb-5 text-center" data-testid="followup-result">
+                <div className="text-5xl font-heading font-black mb-2"
+                  style={{ color: followUp.submitted.score >= 80 ? '#10b981' : followUp.submitted.score >= 60 ? '#f59e0b' : '#ef4444' }}>
+                  {followUp.submitted.score}%
+                </div>
+                <p className="text-white font-heading font-bold mb-1">
+                  {followUp.submitted.score >= 80 ? 'Mastered!' : followUp.submitted.score >= 60 ? 'Getting Stronger!' : 'Keep Practicing!'}
+                </p>
+                <p className="text-zinc-500 text-sm font-body mb-3">{followUp.submitted.correct_count}/{followUp.submitted.total_questions} correct</p>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-400/15 border border-amber-400/30">
+                  <Zap size={14} className="text-amber-400" />
+                  <span className="text-amber-400 font-heading font-bold text-sm">+{followUp.submitted.xp_earned} XP</span>
+                </div>
+              </motion.div>
             )}
 
             <button onClick={reset} data-testid="new-exam-btn"

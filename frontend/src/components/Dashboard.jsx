@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { MessageSquare, BookOpen, Trophy, TrendingUp, Flame, Zap, Star, ArrowRight, Play, Calendar, Target } from 'lucide-react';
+import { MessageSquare, BookOpen, Trophy, TrendingUp, Flame, Zap, Star, ArrowRight, Play, Calendar, Target, RefreshCw, Sparkles, Compass, FileText } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -12,6 +12,39 @@ const SUBJECT_COLORS = {
   Chemistry: '#d946ef', Biology: '#10b981', English: '#f59e0b',
   'Social Science': '#3b82f6', 'Computer Science': '#ef4444'
 };
+
+// Map recommendation icon/action names to lucide icons + accent colours
+const REC_META = {
+  play:    { Icon: Play,        color: '#22d3ee' },
+  refresh: { Icon: RefreshCw,   color: '#f59e0b' },
+  target:  { Icon: Target,      color: '#ef4444' },
+  trophy:  { Icon: FileText,    color: '#8b5cf6' },
+  book:    { Icon: Compass,     color: '#10b981' },
+};
+
+function MissionCard({ rec, onClick, delay }) {
+  const meta = REC_META[rec.icon] || { Icon: Sparkles, color: '#22d3ee' };
+  const { Icon, color } = meta;
+  return (
+    <motion.button
+      initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay }}
+      onClick={onClick} data-testid={`mission-${rec.type}`}
+      className="group relative overflow-hidden rounded-2xl p-4 border text-left transition-all hover:-translate-y-0.5 card-3d"
+      style={{ background: color + '0d', borderColor: color + '30' }}>
+      <div className="absolute -top-8 -right-8 w-24 h-24 rounded-full blur-2xl opacity-40 pointer-events-none" style={{ background: color }} />
+      <div className="relative z-10 flex items-start gap-3">
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: color + '25', border: `1px solid ${color}40` }}>
+          <Icon size={18} style={{ color }} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-white font-heading font-bold text-sm leading-tight mb-1">{rec.title}</p>
+          <p className="text-zinc-400 text-xs font-body leading-snug">{rec.description}</p>
+        </div>
+        <ArrowRight size={14} className="text-zinc-600 group-hover:text-white transition-colors flex-shrink-0 mt-1" />
+      </div>
+    </motion.button>
+  );
+}
 
 function StatCard({ icon: Icon, label, value, color, delay = 0 }) {
   return (
@@ -33,22 +66,41 @@ export default function Dashboard() {
   const nav = useNavigate();
   const [stats, setStats] = useState(null);
   const [recentSessions, setRecentSessions] = useState([]);
+  const [recommendations, setRecommendations] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const [statsRes, sessionsRes] = await Promise.all([
+        const [statsRes, sessionsRes, recsRes] = await Promise.all([
           axios.get(`${API}/gamification/stats`, { withCredentials: true }),
-          axios.get(`${API}/chat/sessions`, { withCredentials: true })
+          axios.get(`${API}/chat/sessions`, { withCredentials: true }),
+          axios.get(`${API}/recommendations`, { withCredentials: true })
         ]);
         setStats(statsRes.data);
         setRecentSessions(sessionsRes.data.slice(0, 4));
+        setRecommendations(recsRes.data?.recommendations || []);
       } catch {}
       setLoading(false);
     };
     load();
   }, []);
+
+  const handleMissionClick = (rec) => {
+    switch (rec.action) {
+      case 'chat': {
+        const d = rec.data || {};
+        if (d.session_id) nav(`/chat/${d.session_id}`);
+        else if (d.subject) nav('/chat', { state: { subject: d.subject, chapter: d.chapter, chapterId: d.chapter_id, classLevel: d.class_level } });
+        else nav('/chat');
+        break;
+      }
+      case 'quiz': nav('/quiz'); break;
+      case 'mock_exam': nav('/mock-exams'); break;
+      case 'syllabus': nav('/syllabus'); break;
+      default: nav('/chat');
+    }
+  };
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
@@ -114,6 +166,24 @@ export default function Dashboard() {
               transition={{ duration: 1.2, delay: 0.4 }} />
           </div>
           <p className="text-zinc-600 text-xs font-body mt-2">{stats.xp_to_next} XP to Level {stats.level + 1}</p>
+        </motion.div>
+      )}
+
+      {/* Today's Missions — AI Recommendations */}
+      {recommendations.length > 0 && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.32 }} data-testid="missions-section">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Sparkles size={18} className="text-fuchsia-400" />
+              <h2 className="text-white font-heading font-bold">Today's Missions</h2>
+            </div>
+            <span className="text-zinc-600 text-xs font-body uppercase tracking-wider">Personalized for you</span>
+          </div>
+          <div className="grid sm:grid-cols-2 gap-3">
+            {recommendations.map((rec, i) => (
+              <MissionCard key={rec.type + i} rec={rec} delay={0.4 + i * 0.06} onClick={() => handleMissionClick(rec)} />
+            ))}
+          </div>
         </motion.div>
       )}
 

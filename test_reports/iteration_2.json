@@ -1,0 +1,43 @@
+{
+  "summary": "Phase 2 follow-up testing complete after server.py refactor + new follow-up quiz endpoint + Dashboard Today's Missions widget. Backend: 19/19 pytest tests PASSED (13 regression phase2 + 6 NEW followup-quiz tests covering 401/404/400-not-submitted/400-no-weak-topics/200-success/quiz-submission-XP-award). Frontend: Full UI walkthrough on MockExamPage confirmed end-to-end — generated exam via UI, intentionally answered wrong, result screen rendered weak-topic chips + 'Practice Weak Areas (5 Qs)' CTA (start-followup-btn), clicking generated and rendered followup-quiz panel with 5 questions, answering+submitting rendered followup-result panel with +20 XP. Dashboard Today's Missions section renders with 2 MissionCards (mission-mock_exam, mission-explore) within the 1-4 expected range. All 9 sidebar nav items present (testid pattern nav-{label-lowercase}: nav-dashboard, nav-ai-tutor, nav-syllabus, nav-progress, nav-quiz-arena, nav-mock-exams, nav-study-plan, nav-rankings, nav-profile).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Mock Exam (any <select>)", "issues": ["Same hydration warning persists from iteration_1: '<span> cannot be a child of <option>'. This is caused by the emergent visual-editor dev-only instrumentation wrapping option text in a <span> with style=display:contents. Not blocking, but pollutes console on every <select> render. Already documented previously — low priority."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_phase2.py",
+    "/app/backend/tests/test_followup_quiz.py",
+    "/app/test_reports/pytest/phase2_results.xml",
+    "/app/test_reports/pytest/followup_results.xml"
+  ],
+  "action_items": [
+    "No functional fixes required. Refactor is clean, follow-up quiz endpoint fully working, frontend integration verified end-to-end.",
+    "Optional: investigate the persistent visual-editor <span>-inside-<option> hydration warning (purely dev-tooling artifact, does not affect production)."
+  ],
+  "critical_code_review_comments": [
+    "server.py is now a clean ~110-line thin entrypoint mounting 7 routers (auth/chat/syllabus/quiz/mock_exam/study_plan/social) — addresses the prior >700-line concern. Good split.",
+    "try/except 502 wrappers correctly placed in /app/backend/routes/mock_exam.py (generate_mock_exam lines 47-58 AND mock_exam_followup_quiz lines 162-173), /app/backend/routes/study_plan.py lines 29-37, /app/backend/routes/quiz.py lines 39-51 — verified by code inspection.",
+    "POST /api/mock-exam/{exam_id}/followup-quiz correctly: requires auth (returns 401), validates exam ownership (404), enforces completed=True (400), enforces non-empty weak_topics (400 with friendly 'nailed this exam' message), persists generated quiz to db.quizzes collection with source_exam_id linkage so it can be submitted via the existing /api/quiz/{quiz_id}/submit flow (verified — earns correct XP = 20 * correct_count).",
+    "weak_topics are computed in submit_mock_exam by collecting q['topic'] only for wrong answers, deduped via set(), capped at 5 — clean implementation.",
+    "Generated follow-up quiz prompt references the weak topics by name in the prompt (line 146 of mock_exam.py) and passes weak_topics back in the quiz_doc — the generated questions reliably target those topics (verified by inspection of returned questions during testing).",
+    "Frontend MockExamPage.jsx correctly gates start-followup-btn behind result.weak_topics being non-empty and shows the inline followup-quiz/followup-result panels with proper data-testids. Dashboard.jsx MissionCard component reads from /api/recommendations and maps type→route correctly."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_followup_quiz.py (new — 6 tests for the new follow-up endpoint)",
+    "/app/backend/tests/test_phase2.py (minor — replaced hardcoded URL fallback with frontend/.env loader so REACT_APP_BACKEND_URL not required in shell)"
+  ],
+  "success_rate": {"backend": "100% (19/19)", "frontend": "100% (all critical flows: registration, dashboard missions, sidebar nav, mock exam configure→take→submit→result→practice-weak-areas→followup-quiz→submit→followup-result)"},
+  "test_credentials": "Dynamically registered TEST_followup_*@neuralearn.ai + TEST_ui_*@neuralearn.ai accounts via /api/auth/register. Admin: admin@neuralearn.ai / Admin@123456 also available per /app/memory/test_credentials.md.",
+  "seed_data_creation": "~3 disposable TEST_* student accounts created during pytest + UI runs. Each created 1-2 mock_exams docs and 1 quiz doc. All prefixed TEST_ for easy cleanup.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend regression suite is now 19 tests across /app/backend/tests/test_phase2.py (13) + /app/backend/tests/test_followup_quiz.py (6). Both files auto-resolve BASE_URL from /app/frontend/.env if REACT_APP_BACKEND_URL not set in shell env. Run: pytest /app/backend/tests/ -v. Full suite takes ~75-90s because each mock-exam generation + each follow-up quiz generation hits GPT-4o (15-30s each); the test_followup_quiz module alone makes 4 separate GPT calls. The follow-up quiz endpoint REUSES /api/quiz/{quiz_id}/submit for scoring, so quiz-submission XP logic is shared and the follow-up quiz_doc has the same shape as a normal quiz. For frontend, the Practice Weak Areas button only renders when result.weak_topics.length > 0 — easiest reproduction is to intentionally pick a wrong answer for every question before submitting.",
+  "rca_of_the_issue": "N/A — no bugs found. Refactor is clean, new endpoint is correctly authenticated/validated/error-handled, and the frontend integration end-to-end works."
+}
