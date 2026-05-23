@@ -14,6 +14,9 @@ import SyllabusPage from './components/SyllabusPage';
 import ProgressPage from './components/ProgressPage';
 import QuizArena from './components/QuizArena';
 import ProfilePage from './components/ProfilePage';
+import LeaderboardPage from './components/LeaderboardPage';
+import MockExamPage from './components/MockExamPage';
+import StudyPlanPage from './components/StudyPlanPage';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -52,6 +55,9 @@ function AppRouter() {
         <Route path="syllabus" element={<SyllabusPage />} />
         <Route path="progress" element={<ProgressPage />} />
         <Route path="quiz" element={<QuizArena />} />
+        <Route path="leaderboard" element={<LeaderboardPage />} />
+        <Route path="mock-exams" element={<MockExamPage />} />
+        <Route path="study-plan" element={<StudyPlanPage />} />
         <Route path="profile" element={<ProfilePage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

@@ -3,7 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Send, Plus, BookOpen, ChevronDown, Trash2, Sparkles, CheckCircle, XCircle, MessageSquare, Brain, ArrowLeft } from 'lucide-react';
+import { Send, Plus, BookOpen, ChevronDown, Trash2, Sparkles, CheckCircle, XCircle, MessageSquare, Brain, ArrowLeft, Youtube, ExternalLink } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -17,20 +17,66 @@ const SUBJECT_COLORS = {
 
 function parseQuizBlocks(content) {
   const parts = [];
-  const regex = /\[QUIZ\]([\s\S]*?)\[\/QUIZ\]/g;
+  // Combined regex: matches either [QUIZ]...[/QUIZ] or [YOUTUBE]...[/YOUTUBE]
+  const regex = /\[QUIZ\]([\s\S]*?)\[\/QUIZ\]|\[YOUTUBE\]([\s\S]*?)\[\/YOUTUBE\]/g;
   let lastIdx = 0, match;
   while ((match = regex.exec(content)) !== null) {
     if (match.index > lastIdx) parts.push({ type: 'text', content: content.slice(lastIdx, match.index) });
-    try {
-      const data = JSON.parse(match[1].trim());
-      parts.push({ type: 'quiz', data });
-    } catch {
-      parts.push({ type: 'text', content: match[0] });
+    if (match[1] !== undefined) {
+      try {
+        const data = JSON.parse(match[1].trim());
+        parts.push({ type: 'quiz', data });
+      } catch {
+        parts.push({ type: 'text', content: match[0] });
+      }
+    } else if (match[2] !== undefined) {
+      const query = match[2].trim();
+      if (query) parts.push({ type: 'youtube', query });
     }
     lastIdx = regex.lastIndex;
   }
   if (lastIdx < content.length) parts.push({ type: 'text', content: content.slice(lastIdx) });
   return parts;
+}
+
+function YouTubeCard({ query }) {
+  const encoded = encodeURIComponent(query);
+  const searchUrl = `https://www.youtube.com/results?search_query=${encoded}`;
+  // YouTube embed playlist via search (no API key needed)
+  const embedUrl = `https://www.youtube.com/embed?listType=search&list=${encoded}`;
+  const [showEmbed, setShowEmbed] = useState(false);
+
+  return (
+    <div className="my-3 rounded-2xl border border-red-500/20 bg-red-500/5 overflow-hidden" data-testid="youtube-card">
+      <div className="flex items-center justify-between p-3.5 border-b border-red-500/10">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-lg bg-red-500/15 flex items-center justify-center flex-shrink-0">
+            <Youtube size={16} className="text-red-400" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-red-300 text-[10px] font-body uppercase tracking-wider font-semibold">Visual Boost</p>
+            <p className="text-white text-sm font-body font-medium truncate">{query}</p>
+          </div>
+        </div>
+        <a href={searchUrl} target="_blank" rel="noreferrer" data-testid="youtube-open-link"
+          className="flex-shrink-0 p-2 rounded-lg text-zinc-400 hover:text-red-400 hover:bg-red-500/10 transition-all">
+          <ExternalLink size={14} />
+        </a>
+      </div>
+      {showEmbed ? (
+        <div className="aspect-video bg-black">
+          <iframe src={embedUrl} title={`YouTube: ${query}`}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen className="w-full h-full" />
+        </div>
+      ) : (
+        <button onClick={() => setShowEmbed(true)} data-testid="youtube-play-btn"
+          className="w-full p-3 flex items-center justify-center gap-2 text-red-300 hover:text-red-200 hover:bg-red-500/5 text-xs font-body font-semibold transition-all">
+          <Youtube size={14} /> Play video search inline
+        </button>
+      )}
+    </div>
+  );
 }
 
 function QuizCard({ data }) {
@@ -106,6 +152,8 @@ function MessageBubble({ msg, isStreaming }) {
             {parts?.map((part, i) =>
               part.type === 'quiz' ? (
                 <QuizCard key={i} data={part.data} />
+              ) : part.type === 'youtube' ? (
+                <YouTubeCard key={i} query={part.query} />
               ) : (
                 <div key={i} className="markdown-content">
                   <ReactMarkdown remarkPlugins={[remarkGfm]}>{part.content}</ReactMarkdown>

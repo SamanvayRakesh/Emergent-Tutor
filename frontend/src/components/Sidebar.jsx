@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { LayoutDashboard, MessageSquare, BookOpen, TrendingUp, Trophy, User, LogOut, Zap, X, Flame, ChevronRight } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, BookOpen, TrendingUp, Trophy, User, LogOut, Zap, X, Flame, ChevronRight, Crown, FileText, CalendarDays } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 const NAV = [
@@ -10,6 +10,9 @@ const NAV = [
   { to: '/syllabus', icon: BookOpen, label: 'Syllabus' },
   { to: '/progress', icon: TrendingUp, label: 'Progress' },
   { to: '/quiz', icon: Trophy, label: 'Quiz Arena' },
+  { to: '/mock-exams', icon: FileText, label: 'Mock Exams' },
+  { to: '/study-plan', icon: CalendarDays, label: 'Study Plan' },
+  { to: '/leaderboard', icon: Crown, label: 'Rankings' },
   { to: '/profile', icon: User, label: 'Profile' },
 ];
 
