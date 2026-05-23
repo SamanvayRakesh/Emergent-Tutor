@@ -1,0 +1,109 @@
+{
+  "theme_and_archetype": {
+    "domain": "Education/Gaming",
+    "theme": "Dark",
+    "archetype": "7 (Electric & Neon)",
+    "description": "Futuristic AI-native learning ecosystem. Cinematic, neon-accented, gamified educational interface combining SaaS utility with immersive gaming aesthetics."
+  },
+  "typography": {
+    "fonts": {
+      "heading": "Outfit, sans-serif",
+      "body": "Manrope, sans-serif",
+      "mono": "JetBrains Mono, monospace"
+    },
+    "scale": {
+      "h1": "text-4xl sm:text-5xl lg:text-6xl tracking-tight font-black text-white",
+      "h2": "text-2xl sm:text-3xl lg:text-4xl tracking-tight font-bold text-white",
+      "h3": "text-xl sm:text-2xl font-bold text-zinc-100",
+      "body": "text-base leading-relaxed text-zinc-400",
+      "small": "text-sm text-zinc-500",
+      "label": "text-xs uppercase tracking-[0.2em] font-bold text-cyan-400"
+    }
+  },
+  "color_palette": {
+    "background": {
+      "base": "bg-zinc-950",
+      "surface": "bg-zinc-900/50",
+      "card": "bg-zinc-900",
+      "elevated": "bg-zinc-800"
+    },
+    "text": {
+      "primary": "text-white",
+      "secondary": "text-zinc-400",
+      "muted": "text-zinc-500",
+      "accent": "text-cyan-400"
+    },
+    "accents": {
+      "cyan": "cyan-400",
+      "magenta": "fuchsia-500",
+      "violet": "violet-500",
+      "glow": "drop-shadow-[0_0_8px_rgba(6,182,212,0.5)]"
+    },
+    "borders": {
+      "subtle": "border-white/10",
+      "active": "border-cyan-500/50"
+    }
+  },
+  "layout_and_spacing": {
+    "spacing_scale": "p-1, p-2, p-4, p-6, p-8, p-12, p-16",
+    "grid_strategy": {
+      "marketing": "grid-cols-1 md:grid-cols-8 lg:grid-cols-12 gap-8 wide-asymmetry",
+      "dashboard": "grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6 dense-correlation"
+    }
+  },
+  "surfaces": {
+    "glassmorphism": "backdrop-blur-xl bg-black/40 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.4)]",
+    "cards": "bg-zinc-900 rounded-2xl border border-white/5 hover:border-white/10 transition-colors",
+    "interactive": "hover:-translate-y-1 hover:shadow-lg hover:shadow-cyan-500/20 transition-all duration-300"
+  },
+  "components": {
+    "buttons": {
+      "primary": "bg-cyan-500 hover:bg-cyan-400 text-black font-bold rounded-full px-6 py-3 transition-all",
+      "secondary": "backdrop-blur-md bg-white/5 border border-white/10 text-white hover:bg-white/10 rounded-full px-6 py-3 transition-all"
+    },
+    "inputs": "bg-zinc-900 border-white/10 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 text-white placeholder-zinc-500 rounded-xl",
+    "progress_bars": "bg-zinc-800 overflow-hidden rounded-full; fill with bg-gradient-to-r from-cyan-500 to-violet-500"
+  },
+  "motion_and_interactions": {
+    "animations": "Framer Motion for page transitions and staggering lists. GSAP for heavy 3D or scroll sequences.",
+    "hover_states": "Subtle lift (-translate-y-1), border brightness increase, shadow glow",
+    "3d_elements": "Three.js + React Three Fiber for the AI floating core and background particles in intro/hero sections."
+  },
+  "image_urls": [
+    {
+      "url": "https://static.prod-images.emergentagent.com/jobs/67404889-8268-4733-8667-87fc9a4ec0ca/images/e87fe631ace8c0f97d7b5b7a36e10163c51a790527f42c6e9bd2dc011dabfdad.png",
+      "description": "Cinematic 3D abstract deep space background with glowing neon particles",
+      "category": "splash_bg"
+    },
+    {
+      "url": "https://static.prod-images.emergentagent.com/jobs/67404889-8268-4733-8667-87fc9a4ec0ca/images/bf4cba685d50c58744b9ad1fdf41aa422bd3e7f97bf21e955c63589fc698d2a9.png",
+      "description": "3D rendered futuristic glowing floating AI core orb, neon cyan and magenta energy rings",
+      "category": "ai_tutor_mascot"
+    },
+    {
+      "url": "https://static.prod-images.emergentagent.com/jobs/67404889-8268-4733-8667-87fc9a4ec0ca/images/37dd6e3e2d4fb4831b7d2a4085b5a3da655b695efc1e53ea6567e53affb129e5.png",
+      "description": "3D rendered futuristic math symbols and floating geometry cubes glowing in neon blue",
+      "category": "math_icon"
+    },
+    {
+      "url": "https://static.prod-images.emergentagent.com/jobs/67404889-8268-4733-8667-87fc9a4ec0ca/images/364c6fb5e3bc00911be7e4c79928c56c12efb786be20a505ef16f27dc4fdaa03.png",
+      "description": "3D rendered futuristic science atom model and DNA helix glowing in neon purple",
+      "category": "science_icon"
+    },
+    {
+      "url": "https://images.unsplash.com/photo-1464802686167-b939a6910659?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA4Mzl8MHwxfHNlYXJjaHwxfHxzcGFjZSUyMGdhbGF4eSUyMHN0YXJzfGVufDB8fHx8MTc3OTUyODYxOXww&ixlib=rb-4.1.0&q=85",
+      "description": "Blue and purple galaxy digital wallpaper",
+      "category": "space_galaxy_bg"
+    }
+  ],
+  "instructions_to_main_agent": [
+    "Use 'Outfit' for all headings and 'Manrope' for body text. Install these from Google Fonts.",
+    "Follow the Electric & Neon archetype. Use deep charcoal/zinc-950 for backgrounds and bright cyan/magenta for call-to-actions, gamified XP, and AI responses.",
+    "Implement the splash screen with React Three Fiber (R3F) using the 'splash_bg' texture or dynamic particles.",
+    "Use the 'ai_tutor_mascot' image as the primary avatar for the AI Tutor in chat and on the dashboard.",
+    "Apply 'glassmorphism' (backdrop-blur-xl bg-black/40 border border-white/10) to the animated sidebar, headers, and AI chat bubbles.",
+    "In dashboards, stick to the 'Control Room Grid' strategy: dense, correlated widgets. Ensure all interactive widgets have hover states (-translate-y-1, border brightening).",
+    "Integrate Shadcn components strictly for logic (forms, dialogs, dropdowns) but style them to remove the Vercel-look by applying our dark neon theme.",
+    "All interactive and key informational elements MUST include a data-testid attribute for robust automated testing."
+  ]
+}
