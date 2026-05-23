@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -119,16 +119,49 @@ function MessageBubble({ msg, isStreaming }) {
   );
 }
 
-function SessionSetup({ onCreated }) {
+function SessionSetup({ onCreated, prefill }) {
   const [classes, setClasses] = useState([]);
   const [subjects, setSubjects] = useState([]);
   const [chapters, setChapters] = useState([]);
   const [sel, setSel] = useState({ class: '', subject: '', chapterId: '', chapterName: '' });
   const [loading, setLoading] = useState(false);
+  const prefillRan = useRef(false);
 
   useEffect(() => {
     axios.get(`${API}/syllabus/classes`, { withCredentials: true }).then(r => setClasses(r.data));
   }, []);
+
+  // Auto-fill and auto-create from Syllabus navigation state
+  useEffect(() => {
+    if (!prefill || prefillRan.current || !prefill.class_level) return;
+    prefillRan.current = true;
+
+    const run = async () => {
+      setLoading(true);
+      try {
+        const [subjRes, chapRes] = await Promise.all([
+          axios.get(`${API}/syllabus/${prefill.class_level}/subjects`, { withCredentials: true }),
+          axios.get(`${API}/syllabus/${prefill.class_level}/${encodeURIComponent(prefill.subject)}/chapters`, { withCredentials: true })
+        ]);
+        setSubjects(subjRes.data);
+        setChapters(chapRes.data);
+        setSel({ class: prefill.class_level, subject: prefill.subject, chapterId: prefill.chapter_id, chapterName: prefill.chapter });
+
+        // Auto-create session
+        const { data } = await axios.post(`${API}/chat/sessions`, {
+          class_level: prefill.class_level,
+          subject: prefill.subject,
+          chapter: prefill.chapter,
+          chapter_id: prefill.chapter_id
+        }, { withCredentials: true });
+        onCreated(data);
+      } catch (e) {
+        console.error(e);
+        setLoading(false);
+      }
+    };
+    run();
+  }, [prefill, onCreated]);
 
   const onClassChange = async (cls) => {
     setSel({ class: cls, subject: '', chapterId: '', chapterName: '' });
@@ -167,11 +200,21 @@ function SessionSetup({ onCreated }) {
           </div>
           <div>
             <h2 className="text-white font-heading font-bold">Start AI Tutoring</h2>
-            <p className="text-zinc-500 text-xs font-body">Select your topic to begin</p>
+            <p className="text-zinc-500 text-xs font-body">
+              {prefill ? `Loading ${prefill.subject} — ${prefill.chapter}...` : 'Select your topic to begin'}
+            </p>
           </div>
         </div>
 
-        <div className="space-y-3">
+        {/* Prefill auto-launch spinner */}
+        {prefill && loading && (
+          <div className="flex flex-col items-center gap-3 py-6">
+            <div className="w-10 h-10 rounded-full border-2 border-cyan-400 border-t-transparent animate-spin" />
+            <p className="text-zinc-400 text-sm font-body">Opening your session...</p>
+          </div>
+        )}
+
+        {!prefill && <div className="space-y-3">
           <div className="relative">
             <select value={sel.class} onChange={e => onClassChange(e.target.value)} data-testid="class-select" className={selectClass}>
               <option value="">Select Class</option>
@@ -207,7 +250,7 @@ function SessionSetup({ onCreated }) {
             className="w-full py-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 disabled:opacity-40 text-black font-heading font-bold text-sm transition-all flex items-center justify-center gap-2">
             {loading ? <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" /> : <><Sparkles size={16} /> Start Learning</>}
           </button>
-        </div>
+        </div>}
       </motion.div>
     </div>
   );
@@ -216,6 +259,8 @@ function SessionSetup({ onCreated }) {
 export default function ChatPage() {
   const { sessionId: paramId } = useParams();
   const nav = useNavigate();
+  const location = useLocation();
+  const prefill = location.state || null;
   const { user } = useAuth();
   const [session, setSession] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -247,7 +292,8 @@ export default function ChatPage() {
     setSessions(p => [newSession, ...p]);
     setSession(newSession);
     setMessages([]);
-    nav(`/chat/${newSession.session_id}`, { replace: true });
+    // Clear prefill state so back-nav doesn't re-trigger
+    nav(`/chat/${newSession.session_id}`, { replace: true, state: null });
   };
 
   const processStream = async (res) => {
@@ -309,7 +355,7 @@ export default function ChatPage() {
             </button>
           )}
         </div>
-        <SessionSetup onCreated={handleCreated} />
+        <SessionSetup onCreated={handleCreated} prefill={prefill} />
       </div>
     );
   }
