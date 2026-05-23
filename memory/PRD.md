@@ -5,49 +5,57 @@ Production-level full-stack AI-powered CBSE learning platform: ChatGPT-style int
 
 ## Architecture
 - **Frontend**: React 18 + TailwindCSS + Framer Motion + Three.js + GSAP + Recharts + Redux Toolkit
-- **Backend**: FastAPI + Motor (MongoDB async)
+- **Backend**: FastAPI (modular routers) + Motor (MongoDB async)
 - **AI**: OpenAI GPT-4o (user's own key) via streaming SSE
 - **DB**: MongoDB (test_database)
 - **Auth**: JWT (email/password) + Emergent Google OAuth
 
+### Backend Module Layout (Feb 2026 refactor)
+```
+backend/
+├── server.py             # Thin FastAPI entrypoint (~110 lines), mounts routers
+├── core.py               # Config, DB client, OpenAI client, get_current_user, hash helpers
+├── models.py             # All Pydantic request models
+├── cbse_data.py          # Static CBSE syllabus
+└── routes/
+    ├── auth.py           # JWT register/login + Google OAuth + /users/class
+    ├── chat.py           # Streaming GPT-4o tutor
+    ├── syllabus.py       # Syllabus + progress
+    ├── quiz.py           # Quiz generate/submit + gamification stats
+    ├── mock_exam.py      # Mock exam + adaptive follow-up quiz
+    ├── study_plan.py     # AI exam-date study plan
+    └── social.py         # Leaderboard + recommendations + referrals
+```
+
 ## Implemented
 
-### Phase 1 (Complete)
+### Phase 1
 - JWT + Google OAuth auth flows
 - Cinematic IntroScreen (Three.js + GSAP)
-- Dashboard, AI Chat (streaming GPT-4o with quiz tag parsing), Syllabus, Progress, QuizArena, Profile
+- Dashboard, AI Chat (streaming GPT-4o, [QUIZ]/[YOUTUBE] tag parsing), Syllabus, Progress, QuizArena, Profile
 - Full CBSE syllabus (classes 6–12) with mastery tracking
 - Gamification: XP, levels, streaks, achievements
 
-### Phase 2 (Complete — Feb 2026)
-- **Backend (server.py)**:
-  - `GET /api/leaderboard` — global ranking, current-user position, podium data
-  - `POST /api/mock-exam/generate` — AI-generated CBSE-pattern paper (3 sections)
-  - `GET /api/mock-exam/history` — user exam history
-  - `POST /api/mock-exam/{exam_id}/submit` — scoring, section breakdown, weak topics, XP
-  - `POST /api/study-plan` / `GET /api/study-plan` — AI exam-date-based study plan
-  - `GET /api/recommendations` — personalized next actions
-  - `GET /api/referral/code` / `POST /api/referral/apply` — referral system with XP bonuses
-  - AI chat system prompt upgraded: emits `[YOUTUBE]query[/YOUTUBE]` for visual concepts, ends every reply with a mandatory Next-Step marker (⚡/🎯/🚀/🎬/📝)
-- **Frontend**:
-  - `LeaderboardPage` — podium + ranked list with current-user highlight
-  - `MockExamPage` — configure → timed exam → results with section breakdown + weak topics
-  - `StudyPlanPage` — exam-date input → AI-generated weekly plan + referral panel
-  - `ChatPage` now parses `[YOUTUBE]…[/YOUTUBE]` and renders an inline embeddable YouTube search card
-  - Sidebar nav extended: Mock Exams, Study Plan, Rankings
-  - Routes wired in `App.js`
+### Phase 2 (Feb 2026)
+- **Leaderboard / Rankings** — global ranking, podium, current user position
+- **Mock Exam** — AI-generated CBSE-pattern paper with 3 sections, timer, scoring, weak-topic detection
+- **Adaptive Follow-up Quiz** — `POST /api/mock-exam/{exam_id}/followup-quiz` generates a 5-Q MCQ laser-focused on the user's weak topics; inline UI on the result screen, full submission flow with XP
+- **Study Plan** — exam-date input → AI weekly plan with daily tasks, exam-week strategy, tips
+- **Referrals & Rewards** — referral code + apply flow (rejects self/duplicate), XP bonus for both sides
+- **AI Chat: YouTube Visual Boost + Next Step** — system prompt emits `[YOUTUBE]…[/YOUTUBE]` tags and a mandatory Next-Step marker (⚡/🎯/🚀/🎬/📝). Frontend renders an inline YouTube embed card.
+- **Dashboard: Today's Missions widget** — personalized recommendation cards from `/api/recommendations` (resume / revise / practice / mock exam / explore), each clickable to the right route
 
 ### Testing
-- 13/13 pytest backend tests pass — `/app/backend/tests/test_phase2.py`
-- Frontend Playwright smoke verified all Phase 2 pages render and complete user flows
+- **19/19 pytest backend tests pass** — `/app/backend/tests/test_phase2.py` (13) + `/app/backend/tests/test_followup_quiz.py` (6)
+- Full Playwright walkthrough on Dashboard + Mock Exam end-to-end (generate → take → submit → weak-areas → follow-up quiz → submit)
 
 ## Prioritized Backlog
 
 ### P1 (Next)
-- Visual-only mode for YouTube (use YouTube Data API v3 for real video previews + thumbnails)
-- Adaptive mock-exam analysis → auto-generate weak-area follow-up quizzes
-- Daily AI recommendations widget on Dashboard
-- Cosmetic unlocks tied to referral milestones
+- Real YouTube Data API v3 integration (thumbnails + verified videos vs current no-API search embed)
+- Daily streak email/push reminders
+- Class-level + Friends leaderboards (currently global only)
+- Cosmetic unlocks tied to referral milestones (avatar borders, profile themes)
 
 ### P2 (Future)
 - Multi-language (Hindi medium)
@@ -57,12 +65,12 @@ Production-level full-stack AI-powered CBSE learning platform: ChatGPT-style int
 - Further cinematic intro polish
 
 ## Tech Debt / Refactor
-- `server.py` is 1148 lines — split into `routes/{auth,chat,mock_exam,study_plan,leaderboard,referral}.py` (per >700-line guideline)
-- Replace `body: dict` in `/api/referral/apply` with a Pydantic model
-- Wrap GPT-4o calls in mock-exam/study-plan with try/except → friendly 502 on JSON parse failure
-- Migrate native `<select>` in MockExamPage to shadcn Select for design consistency
+- ✅ Split monolithic `server.py` (1148 → ~110 lines) into `routes/` modules + `core.py`/`models.py`
+- ✅ Wrap GPT-4o calls in mock-exam/study-plan/quiz with try/except → return clean 502
+- ✅ Replace `body: dict` in `/api/referral/apply` with `ReferralApplyRequest`
+- Pending: Migrate native `<select>` in MockExamPage to shadcn Select for design consistency
 
 ## Environment
 - `OPENAI_API_KEY`: User-provided GPT-4o key (backend/.env)
-- `JWT_SECRET`, `MONGO_URL`, `DB_NAME`: backend/.env
+- `JWT_SECRET`, `MONGO_URL`, `DB_NAME`, `FRONTEND_URL`: backend/.env
 - `REACT_APP_BACKEND_URL`: frontend/.env
