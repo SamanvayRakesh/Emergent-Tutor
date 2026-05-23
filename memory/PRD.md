@@ -1,66 +1,68 @@
 # NeuraLearn - AI-Powered CBSE Learning Platform
 
 ## Overview
-A production-level full-stack AI-powered CBSE learning platform combining ChatGPT + Duolingo + Khan Academy aesthetics with immersive educational AI tutoring.
+Production-level full-stack AI-powered CBSE learning platform: ChatGPT-style intelligence, Duolingo-style gamification, Pixar-level cinematic UI. Dark theme, neon glows, glassmorphism, Framer Motion driven.
 
 ## Architecture
-- **Frontend**: React 18 + TailwindCSS + Framer Motion + Three.js + GSAP
+- **Frontend**: React 18 + TailwindCSS + Framer Motion + Three.js + GSAP + Recharts + Redux Toolkit
 - **Backend**: FastAPI + Motor (MongoDB async)
 - **AI**: OpenAI GPT-4o (user's own key) via streaming SSE
 - **DB**: MongoDB (test_database)
 - **Auth**: JWT (email/password) + Emergent Google OAuth
 
-## What's Been Implemented (May 2026)
+## Implemented
 
-### Backend (server.py + cbse_data.py)
-- JWT auth: register, login, logout, me, refresh
-- Google OAuth: session exchange, logout
-- AI Chat: session CRUD + streaming GPT-4o responses (SSE)
-- CBSE Syllabus API: Classes 6-12, all subjects, full chapter lists
-- Progress tracking: per-chapter mastery tracking
-- Quiz system: AI-generated MCQs, submission + scoring
-- Gamification: XP, levels, streaks, achievements, daily challenge
-- Admin seeding on startup
+### Phase 1 (Complete)
+- JWT + Google OAuth auth flows
+- Cinematic IntroScreen (Three.js + GSAP)
+- Dashboard, AI Chat (streaming GPT-4o with quiz tag parsing), Syllabus, Progress, QuizArena, Profile
+- Full CBSE syllabus (classes 6–12) with mastery tracking
+- Gamification: XP, levels, streaks, achievements
 
-### Frontend Components
-- **IntroScreen**: Three.js particle system + GSAP timeline + Framer Motion
-- **AuthPage**: JWT login/register + Google OAuth button
-- **AuthCallback**: Emergent OAuth session exchange
-- **Layout + Sidebar**: Animated navigation with XP bar, streak
-- **Dashboard**: Stats cards, daily challenge, recent sessions
-- **ChatPage**: Streaming AI chat, quiz card parsing, markdown rendering
-- **SyllabusPage**: Class → Subject → Chapter browser
-- **ProgressPage**: Mastery bars + Recharts pie chart
-- **QuizArena**: AI quiz generation + MCQ interface + results
-- **ProfilePage**: User profile, class selector, achievements
+### Phase 2 (Complete — Feb 2026)
+- **Backend (server.py)**:
+  - `GET /api/leaderboard` — global ranking, current-user position, podium data
+  - `POST /api/mock-exam/generate` — AI-generated CBSE-pattern paper (3 sections)
+  - `GET /api/mock-exam/history` — user exam history
+  - `POST /api/mock-exam/{exam_id}/submit` — scoring, section breakdown, weak topics, XP
+  - `POST /api/study-plan` / `GET /api/study-plan` — AI exam-date-based study plan
+  - `GET /api/recommendations` — personalized next actions
+  - `GET /api/referral/code` / `POST /api/referral/apply` — referral system with XP bonuses
+  - AI chat system prompt upgraded: emits `[YOUTUBE]query[/YOUTUBE]` for visual concepts, ends every reply with a mandatory Next-Step marker (⚡/🎯/🚀/🎬/📝)
+- **Frontend**:
+  - `LeaderboardPage` — podium + ranked list with current-user highlight
+  - `MockExamPage` — configure → timed exam → results with section breakdown + weak topics
+  - `StudyPlanPage` — exam-date input → AI-generated weekly plan + referral panel
+  - `ChatPage` now parses `[YOUTUBE]…[/YOUTUBE]` and renders an inline embeddable YouTube search card
+  - Sidebar nav extended: Mock Exams, Study Plan, Rankings
+  - Routes wired in `App.js`
 
-### CBSE Syllabus Coverage
-- Classes 6, 7, 8: Math, Science, English, Social Science
-- Classes 9, 10: Math, Science, English, Social Science, Computer Science
-- Classes 11, 12: Physics, Chemistry, Biology, Mathematics, Computer Science
-- Each subject has 10-16 chapters with lesson subtopics
+### Testing
+- 13/13 pytest backend tests pass — `/app/backend/tests/test_phase2.py`
+- Frontend Playwright smoke verified all Phase 2 pages render and complete user flows
 
 ## Prioritized Backlog
 
-### P0 (Next immediate)
-- [ ] Fix ChatPage: Handle state from SyllabusPage navigation (pre-fill chapter)
-- [ ] Progress auto-update after each chat session
-- [ ] Flashcard mode for chapters
-
-### P1 (Next phase)
-- [ ] Revision mode (AI-generated revision summaries)
-- [ ] Weak topics detection from chat analysis
-- [ ] Daily streak email reminders
-- [ ] Social sharing of achievements
+### P1 (Next)
+- Visual-only mode for YouTube (use YouTube Data API v3 for real video previews + thumbnails)
+- Adaptive mock-exam analysis → auto-generate weak-area follow-up quizzes
+- Daily AI recommendations widget on Dashboard
+- Cosmetic unlocks tied to referral milestones
 
 ### P2 (Future)
-- [ ] Multi-language support (Hindi medium)
-- [ ] Parent dashboard
-- [ ] School/teacher admin panel
-- [ ] Offline mode / PWA
-- [ ] Voice input for chat
+- Multi-language (Hindi medium)
+- Parent / Teacher / School admin dashboards
+- Voice input for chat (Whisper)
+- PWA / offline mode
+- Further cinematic intro polish
+
+## Tech Debt / Refactor
+- `server.py` is 1148 lines — split into `routes/{auth,chat,mock_exam,study_plan,leaderboard,referral}.py` (per >700-line guideline)
+- Replace `body: dict` in `/api/referral/apply` with a Pydantic model
+- Wrap GPT-4o calls in mock-exam/study-plan with try/except → friendly 502 on JSON parse failure
+- Migrate native `<select>` in MockExamPage to shadcn Select for design consistency
 
 ## Environment
-- OPENAI_API_KEY: User-provided GPT-4o key
-- JWT_SECRET: Set in backend/.env
-- DB_NAME: test_database (MongoDB)
+- `OPENAI_API_KEY`: User-provided GPT-4o key (backend/.env)
+- `JWT_SECRET`, `MONGO_URL`, `DB_NAME`: backend/.env
+- `REACT_APP_BACKEND_URL`: frontend/.env
