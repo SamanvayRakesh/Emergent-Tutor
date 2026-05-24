@@ -1,4 +1,10 @@
 .App {
   min-height: 100vh;
-  background-color: #09090b;
+  background:
+    radial-gradient(at 0% 0%, #ff6ec7 0%, transparent 40%),
+    radial-gradient(at 100% 0%, #ffb84d 0%, transparent 45%),
+    radial-gradient(at 100% 100%, #4fd1c5 0%, transparent 45%),
+    radial-gradient(at 0% 100%, #9f7aea 0%, transparent 45%),
+    linear-gradient(135deg, #ff5e8a 0%, #ff8c42 30%, #ffd166 55%, #06d6a0 80%, #5e60ce 100%);
+  background-attachment: fixed;
 }

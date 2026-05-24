@@ -38,10 +38,134 @@ body {
   font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #09090b;
-  color: white;
+  background:
+    radial-gradient(at 0% 0%, #ff6ec7 0%, transparent 40%),
+    radial-gradient(at 100% 0%, #ffb84d 0%, transparent 45%),
+    radial-gradient(at 100% 100%, #4fd1c5 0%, transparent 45%),
+    radial-gradient(at 0% 100%, #9f7aea 0%, transparent 45%),
+    linear-gradient(135deg, #ff5e8a 0%, #ff8c42 30%, #ffd166 55%, #06d6a0 80%, #5e60ce 100%);
+  background-attachment: fixed;
+  color: #1a1033;
   overflow-x: hidden;
 }
+
+/* ============================================
+   VIBRANT PALETTE OVERRIDE — no black, all colour
+   Maps Tailwind dark utilities to vibrant tones.
+   ============================================ */
+
+/* Body / app text default */
+.text-white { color: #1a1033 !important; }
+.text-zinc-300, .text-zinc-200 { color: #2d1b69 !important; }
+.text-zinc-400 { color: #4c2889 !important; }
+.text-zinc-500 { color: #6d3fb3 !important; }
+.text-zinc-600 { color: #8a5fcf !important; }
+.text-zinc-700 { color: #b08bdf !important; }
+
+/* Replace black/zinc surfaces with translucent white-on-vibrant */
+.bg-zinc-950, .bg-black { background-color: rgba(255, 255, 255, 0.55) !important; backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
+.bg-zinc-900 { background-color: rgba(255, 255, 255, 0.45) !important; backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+.bg-zinc-900\/30, .bg-zinc-900\/40, .bg-zinc-900\/50, .bg-zinc-900\/60 { background-color: rgba(255, 255, 255, 0.35) !important; }
+.bg-zinc-800 { background-color: rgba(255, 255, 255, 0.5) !important; }
+
+/* Borders */
+.border-white\/5, .border-white\/8, .border-white\/10, .border-white\/15, .border-white\/20 {
+  border-color: rgba(255, 255, 255, 0.6) !important;
+}
+
+/* Glass surfaces — frosted white instead of dark */
+.glass {
+  backdrop-filter: blur(22px) saturate(180%);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
+  background: rgba(255, 255, 255, 0.35) !important;
+  border: 1px solid rgba(255, 255, 255, 0.55) !important;
+  box-shadow: 0 8px 32px rgba(94, 96, 206, 0.18);
+}
+
+.glass-surface {
+  backdrop-filter: blur(16px) saturate(160%);
+  -webkit-backdrop-filter: blur(16px) saturate(160%);
+  background: rgba(255, 255, 255, 0.42) !important;
+  border: 1px solid rgba(255, 255, 255, 0.5) !important;
+}
+
+/* Sidebar */
+nav, aside, [class*="border-r"] { backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); }
+
+/* Shimmer on light bg */
+.shimmer {
+  background: linear-gradient(90deg, rgba(255,255,255,0.4) 25%, rgba(255,255,255,0.7) 50%, rgba(255,255,255,0.4) 75%) !important;
+  background-size: 200% 100% !important;
+}
+
+/* Message bubbles repaint */
+.message-user {
+  background: linear-gradient(135deg, #5e60ce, #c77dff) !important;
+  border: 1px solid rgba(255, 255, 255, 0.5) !important;
+  color: #fff !important;
+}
+.message-user * { color: #fff !important; }
+
+.message-ai {
+  background: rgba(255, 255, 255, 0.55) !important;
+  border: 1px solid rgba(255, 255, 255, 0.6) !important;
+  color: #1a1033 !important;
+}
+
+/* Inputs */
+input, select, textarea { color: #1a1033 !important; }
+input::placeholder, textarea::placeholder { color: rgba(26, 16, 51, 0.5) !important; }
+
+/* Markdown content readable on light */
+.markdown-content p { color: #1a1033 !important; }
+.markdown-content strong { color: #ff006e !important; }
+.markdown-content em { color: #5e60ce !important; }
+.markdown-content blockquote { color: #2d1b69 !important; border-left-color: #ff006e !important; }
+.markdown-content code { background: rgba(255, 0, 110, 0.12) !important; border-color: rgba(255, 0, 110, 0.3) !important; color: #ff006e !important; }
+.markdown-content pre { background: rgba(26, 16, 51, 0.85) !important; }
+.markdown-content pre code { color: #ffd166 !important; background: transparent !important; border: none !important; }
+
+/* Gradient brand text — keep vivid */
+.gradient-text {
+  background: linear-gradient(135deg, #ff006e, #fb5607, #ffbe0b, #06d6a0, #5e60ce) !important;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Cyan text utilities → bright magenta-pink so they stay vibrant on light bg */
+.text-cyan-400, .text-cyan-300, .text-cyan-500 { color: #ff006e !important; }
+.text-violet-400, .text-violet-500, .text-violet-300 { color: #7209b7 !important; }
+.text-fuchsia-400, .text-fuchsia-500 { color: #f72585 !important; }
+.text-amber-400, .text-amber-500 { color: #f48c06 !important; }
+.text-orange-400, .text-orange-500, .text-orange-300 { color: #fb5607 !important; }
+.text-red-400, .text-red-500 { color: #d00000 !important; }
+.text-green-400, .text-green-500 { color: #06d6a0 !important; }
+
+/* Primary CTA buttons — bg-cyan-500 etc. */
+.bg-cyan-500 { background-color: #ff006e !important; color: #fff !important; }
+.bg-cyan-500:hover, .hover\:bg-cyan-400:hover { background-color: #d00064 !important; }
+.bg-cyan-400 { background-color: #ff5099 !important; }
+.bg-violet-500 { background-color: #7209b7 !important; color: #fff !important; }
+.bg-violet-500:hover, .hover\:bg-violet-400:hover { background-color: #5a0796 !important; }
+.bg-orange-500 { background-color: #fb5607 !important; color: #fff !important; }
+.bg-orange-500:hover, .hover\:bg-orange-400:hover { background-color: #d94706 !important; }
+
+/* Soft tinted overlays */
+.bg-cyan-500\/5, .bg-cyan-500\/10, .bg-cyan-500\/15 { background-color: rgba(255, 0, 110, 0.12) !important; }
+.bg-violet-500\/5, .bg-violet-500\/10, .bg-violet-500\/15, .bg-violet-500\/20 { background-color: rgba(114, 9, 183, 0.15) !important; }
+.bg-fuchsia-500\/10, .bg-fuchsia-500\/15, .bg-fuchsia-500\/20 { background-color: rgba(247, 37, 133, 0.15) !important; }
+.bg-amber-400\/15, .bg-amber-400\/20 { background-color: rgba(244, 140, 6, 0.18) !important; }
+.bg-orange-500\/5, .bg-orange-500\/10, .bg-orange-500\/15 { background-color: rgba(251, 86, 7, 0.13) !important; }
+.bg-red-500\/5, .bg-red-500\/10, .bg-red-500\/15 { background-color: rgba(208, 0, 0, 0.12) !important; }
+.bg-green-500\/5, .bg-green-500\/10, .bg-green-500\/15 { background-color: rgba(6, 214, 160, 0.15) !important; }
+
+/* Scrollbar */
+*::-webkit-scrollbar-thumb { background-color: rgba(114, 9, 183, 0.45) !important; }
+* { scrollbar-color: rgba(114, 9, 183, 0.45) transparent !important; }
+
+/* Streaming cursor → vibrant */
+.streaming-cursor::after { color: #ff006e !important; }
 
 h1, h2, h3, h4, h5, h6 {
   font-family: 'Outfit', sans-serif;
