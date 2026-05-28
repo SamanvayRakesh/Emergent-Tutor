@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Request
 
 from core import db, openai_client, get_current_user
+from plan_gates import check_limit, increment_usage, has_feature
 from models import MockExamRequest, QuizSubmitRequest
 
 router = APIRouter()
@@ -14,6 +15,20 @@ router = APIRouter()
 @router.post("/mock-exam/generate")
 async def generate_mock_exam(body: MockExamRequest, request: Request):
     user = await get_current_user(request)
+    # Grade lock
+    if body.class_level != user.get("class_level"):
+        raise HTTPException(status_code=403, detail="Mock exams must match your active grade. Change grade in Profile.")
+    # Plan gate: weekly mock exam limit
+    allowed, info = await check_limit(user["user_id"], "mock_exam")
+    if not allowed:
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "code": "WEEKLY_LIMIT_REACHED", "feature": "mock_exam",
+                "message": f"You've used your {info['limit']} mock exam(s) this week on the Free plan.",
+                "limit_info": info, "upgrade_to": "pro",
+            },
+        )
     is_board = body.class_level in ["10", "12"]
     sec_a = max(4, body.num_questions // 2)
     sec_b = max(3, body.num_questions // 4)
@@ -68,6 +83,7 @@ Generate EXACTLY {sec_a} questions in Section A, {sec_b} in Section B, {sec_c} i
         "completed": False, "score": None, "created_at": now,
     }
     await db.mock_exams.insert_one(exam_doc)
+    await increment_usage(user["user_id"], "mocks", 1)
     exam_doc.pop("_id", None)
     return exam_doc
 
@@ -130,8 +146,18 @@ async def submit_mock_exam(exam_id: str, body: QuizSubmitRequest, request: Reque
 
 @router.post("/mock-exam/{exam_id}/followup-quiz")
 async def mock_exam_followup_quiz(exam_id: str, request: Request):
-    """Generate an adaptive 5-question quiz targeting the user's weak topics from this exam."""
+    """Generate an adaptive 5-question quiz targeting the user's weak topics from this exam.
+    Premium feature — requires Pro or Elite plan."""
     user = await get_current_user(request)
+    if not await has_feature(user["user_id"], "adaptive_quizzes"):
+        raise HTTPException(
+            status_code=402,
+            detail={
+                "code": "PREMIUM_FEATURE", "feature": "adaptive_quizzes",
+                "message": "Adaptive weak-topic quizzes are a Pro feature. Upgrade to unlock laser-focused practice on your weak spots.",
+                "upgrade_to": "pro",
+            },
+        )
     exam = await db.mock_exams.find_one({"exam_id": exam_id, "user_id": user["user_id"]}, {"_id": 0})
     if not exam:
         raise HTTPException(status_code=404, detail="Exam not found")

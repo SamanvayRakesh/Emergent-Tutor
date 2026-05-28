@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Request
 
 from core import db, openai_client, get_current_user
+from plan_gates import check_limit, increment_usage
 from models import QuizGenerateRequest, QuizSubmitRequest
 
 router = APIRouter()
@@ -15,6 +16,20 @@ router = APIRouter()
 @router.post("/quiz/generate")
 async def generate_quiz(body: QuizGenerateRequest, request: Request):
     user = await get_current_user(request)
+    # Grade lock
+    if body.class_level != user.get("class_level"):
+        raise HTTPException(status_code=403, detail="Quizzes must match your active grade.")
+    # Daily quiz limit
+    allowed, info = await check_limit(user["user_id"], "quiz")
+    if not allowed:
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "code": "DAILY_LIMIT_REACHED", "feature": "quiz",
+                "message": f"You've used all {info['limit']} quizzes on the Free plan today.",
+                "limit_info": info, "upgrade_to": "pro",
+            },
+        )
     prompt = f"""Generate exactly {body.num_questions} multiple-choice questions for CBSE Class {body.class_level} {body.subject} on the topic: "{body.topic}".
 
 Difficulty level: {body.difficulty}
@@ -61,6 +76,7 @@ Make questions test conceptual understanding, not just memorization. Include a b
         "completed": False, "score": None, "created_at": now,
     }
     await db.quizzes.insert_one(quiz_doc)
+    await increment_usage(user["user_id"], "quizzes", 1)
     quiz_doc.pop("_id", None)
     return quiz_doc
 

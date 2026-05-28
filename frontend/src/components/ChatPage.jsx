@@ -6,6 +6,7 @@ import remarkGfm from 'remark-gfm';
 import { Send, Plus, BookOpen, ChevronDown, Trash2, Sparkles, CheckCircle, XCircle, MessageSquare, Brain, ArrowLeft, Youtube, ExternalLink } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
+import { useSubscription } from '../contexts/SubscriptionContext';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -310,6 +311,7 @@ export default function ChatPage() {
   const location = useLocation();
   const prefill = location.state || null;
   const { user } = useAuth();
+  const { usage, plan, triggerUpgrade, refresh: refreshSub } = useSubscription();
   const [session, setSession] = useState(null);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
@@ -384,7 +386,21 @@ export default function ChatPage() {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         credentials: 'include', body: JSON.stringify({ content: text })
       });
+      if (res.status === 429) {
+        // Daily limit hit — trigger upgrade modal
+        const body = await res.json().catch(() => ({}));
+        const detail = body?.detail || {};
+        triggerUpgrade?.({
+          feature: detail.feature, message: detail.message,
+          limit_info: detail.limit_info, upgrade_to: detail.upgrade_to || 'pro',
+        });
+        // Remove the user's optimistic message
+        setMessages(p => p.slice(0, -1));
+        setStreaming(false);
+        return;
+      }
       await processStream(res);
+      refreshSub?.();
     } catch (e) { console.error(e); setStreamingContent(''); }
     setStreaming(false);
   };

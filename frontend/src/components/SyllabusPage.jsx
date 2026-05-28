@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { BookOpen, ChevronRight, Search, X, Sparkles, ArrowRight, GraduationCap, ShieldCheck } from 'lucide-react';
 import axios from 'axios';
+import { useAuth } from '../contexts/AuthContext';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -19,28 +20,27 @@ const SUBJECT_COLORS = {
 
 export default function SyllabusPage() {
   const nav = useNavigate();
-  const [classes, setClasses] = useState([]);
-  const [selectedClass, setSelectedClass] = useState('');
+  const { user } = useAuth();
+  const userClass = user?.class_level || '9';
   const [subjects, setSubjects] = useState([]);
   const [selectedSubject, setSelectedSubject] = useState(null);
   const [chapters, setChapters] = useState([]);
   const [search, setSearch] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [view, setView] = useState('classes'); // 'classes' | 'subjects' | 'chapters'
+  const [loading, setLoading] = useState(true);
+  const [view, setView] = useState('subjects'); // 'subjects' | 'chapters'
+
+  // Grade-lock: always force user's active class
+  const selectedClass = userClass;
 
   useEffect(() => {
-    axios.get(`${API}/syllabus/classes`, { withCredentials: true })
-      .then(r => setClasses(r.data));
-  }, []);
-
-  const selectClass = async (cls) => {
-    setSelectedClass(cls);
     setLoading(true);
-    const r = await axios.get(`${API}/syllabus/${cls}/subjects`, { withCredentials: true });
-    setSubjects(r.data);
-    setView('subjects');
-    setLoading(false);
-  };
+    axios.get(`${API}/syllabus/${userClass}/subjects`, { withCredentials: true })
+      .then(r => setSubjects(r.data))
+      .catch(() => setSubjects([]))
+      .finally(() => setLoading(false));
+  }, [userClass]);
+
+  const selectClass = async () => {}; // no-op; class is locked to user's grade
 
   const selectSubject = async (subj) => {
     setSelectedSubject(subj);
@@ -63,11 +63,7 @@ export default function SyllabusPage() {
       {/* Header */}
       <div className="mb-6">
         <div className="flex items-center gap-2 text-zinc-600 text-sm font-body mb-2">
-          <button onClick={() => { setView('classes'); setSelectedClass(''); }} className="hover:text-zinc-400 transition-colors">Classes</button>
-          {selectedClass && <>
-            <ChevronRight size={12} />
-            <button onClick={() => { setView('subjects'); setSelectedSubject(null); }} className="hover:text-zinc-400 transition-colors">Class {selectedClass}</button>
-          </>}
+          <button onClick={() => { setView('subjects'); setSelectedSubject(null); }} className="hover:text-zinc-400 transition-colors">Class {selectedClass} Syllabus</button>
           {selectedSubject && <>
             <ChevronRight size={12} />
             <span className="text-zinc-400">{selectedSubject.name}</span>
@@ -75,36 +71,13 @@ export default function SyllabusPage() {
         </div>
         <h1 className="text-2xl sm:text-3xl font-heading font-black text-white flex items-center gap-3">
           <GraduationCap size={28} className="text-cyan-400" />
-          CBSE Syllabus
+          Class {selectedClass} CBSE Syllabus
         </h1>
-        <p className="text-zinc-500 text-sm font-body mt-1">Classes 6–12 • All Subjects</p>
+        <p className="text-zinc-500 text-sm font-body mt-1">Your locked grade • Change in Profile</p>
       </div>
 
-      {/* Classes View */}
+      {/* Subjects directly — no class selector (grade is locked) */}
       <AnimatePresence mode="wait">
-        {view === 'classes' && (
-          <motion.div key="classes" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 10 }}>
-            <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-7 gap-3">
-              {classes.map((cls, i) => (
-                <motion.button key={cls.id} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: i * 0.05 }}
-                  onClick={() => selectClass(cls.id)} data-testid={`class-btn-${cls.id}`}
-                  className="aspect-square flex flex-col items-center justify-center rounded-2xl glass-surface border border-white/5 hover:border-cyan-500/30 hover:bg-cyan-500/5 transition-all group">
-                  <span className="text-2xl font-heading font-black text-white group-hover:text-cyan-400 transition-colors">{cls.id}</span>
-                  <span className="text-zinc-600 text-xs font-body group-hover:text-zinc-400 transition-colors">Class</span>
-                </motion.button>
-              ))}
-            </div>
-
-            <div className="mt-8 p-5 rounded-2xl glass border border-cyan-500/15" style={{ background: 'rgba(34,211,238,0.04)' }}>
-              <div className="flex items-center gap-2 mb-2">
-                <Sparkles size={16} className="text-cyan-400" />
-                <span className="text-cyan-400 text-sm font-body font-semibold">AI-Powered Learning</span>
-              </div>
-              <p className="text-zinc-400 text-sm font-body">Select any class and chapter to start a personalized AI tutoring session. The AI adapts to your pace and learning style.</p>
-            </div>
-          </motion.div>
-        )}
-
         {view === 'subjects' && (
           <motion.div key="subjects" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }}>
             <h2 className="text-white font-heading font-bold mb-4">Class {selectedClass} Subjects</h2>

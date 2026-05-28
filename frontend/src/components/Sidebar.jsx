@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { LayoutDashboard, MessageSquare, BookOpen, TrendingUp, Trophy, User, LogOut, Zap, X, Flame, ChevronRight, Crown, FileText, CalendarDays } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, BookOpen, TrendingUp, Trophy, User, LogOut, Zap, X, Flame, ChevronRight, Crown, FileText, CalendarDays, Sparkles } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useSubscription } from '../contexts/SubscriptionContext';
 
 const NAV = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard', exact: true },
@@ -18,6 +19,7 @@ const NAV = [
 
 export default function Sidebar({ onClose }) {
   const { user, logout } = useAuth();
+  const { plan, isPaid } = useSubscription();
   const nav = useNavigate();
 
   const handleLogout = async () => {
@@ -121,7 +123,25 @@ export default function Sidebar({ onClose }) {
       </nav>
 
       {/* Bottom */}
-      <div className="px-3 mt-2">
+      <div className="px-3 mt-2 space-y-2">
+        {/* Upgrade CTA — only for free users */}
+        {plan && !isPaid && (
+          <button onClick={() => nav('/upgrade')} data-testid="sidebar-upgrade-btn"
+            className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-amber-300 bg-gradient-to-r from-amber-500/15 via-rose-500/15 to-violet-500/15 border border-amber-400/30 hover:border-amber-400/60 transition-all text-sm font-body font-bold relative overflow-hidden group">
+            <motion.div className="absolute inset-0 bg-gradient-to-r from-transparent via-amber-400/10 to-transparent"
+              animate={{ x: ['-100%', '100%'] }} transition={{ duration: 2.5, repeat: Infinity, ease: 'linear' }} />
+            <Sparkles size={16} className="relative z-10 text-amber-400" />
+            <span className="relative z-10 flex-1 text-left">Upgrade to Pro</span>
+            <span className="relative z-10 text-amber-400 text-[10px] font-body uppercase tracking-wider">₹299</span>
+          </button>
+        )}
+        {plan && isPaid && (
+          <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gradient-to-r from-amber-500/20 to-rose-500/20 border border-amber-400/40">
+            <Crown size={14} className="text-amber-400" />
+            <span className="text-amber-300 text-xs font-heading font-bold flex-1">{plan.plan_name} Active</span>
+          </div>
+        )}
+
         <button onClick={handleLogout} data-testid="logout-btn"
           className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-zinc-500 hover:text-red-400 hover:bg-red-500/5 transition-all text-sm font-body">
           <LogOut size={18} />

@@ -39,8 +39,14 @@ def student():
     s = requests.Session()
     email = f"TEST_followup_{uuid.uuid4().hex[:8]}@neuralearn.ai"
     pw = "Test@1234567"
-    r = s.post(f"{API}/auth/register", json={"email": email, "password": pw, "name": "Followup Tester"}, timeout=30)
+    r = s.post(f"{API}/auth/register", json={"email": email, "password": pw, "name": "Followup Tester", "class_level": "10"}, timeout=30)
     assert r.status_code == 200, f"register failed: {r.status_code} {r.text}"
+    # Onboard + upgrade to Pro to unlock adaptive quizzes + bypass weekly mock limit
+    s.post(f"{API}/onboarding/submit", json={
+        "name": "Followup Tester", "class_level": "10",
+        "exam_goal": "Class 10 Boards", "weak_subjects": [], "learning_style": "balanced",
+    }, timeout=30)
+    s.post(f"{API}/subscription/subscribe", json={"plan": "pro", "billing_cycle": "monthly"}, timeout=30)
     s.email = email
     return s
 

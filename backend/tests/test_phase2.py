@@ -14,12 +14,20 @@ API = f"{BASE_URL}/api"
 
 @pytest.fixture(scope="module")
 def student_session():
-    """Register a fresh student user and return an authenticated requests session."""
+    """Register a fresh student user (class 10) with onboarding done + upgrade to Pro plan
+    so feature/grade gates don't block tests."""
     s = requests.Session()
     email = f"TEST_phase2_{uuid.uuid4().hex[:8]}@neuralearn.ai"
     pw = "Test@1234567"
-    r = s.post(f"{API}/auth/register", json={"email": email, "password": pw, "name": "Phase2 Tester"}, timeout=30)
+    r = s.post(f"{API}/auth/register", json={"email": email, "password": pw, "name": "Phase2 Tester", "class_level": "10"}, timeout=30)
     assert r.status_code == 200, f"register failed: {r.status_code} {r.text}"
+    # Onboard at class 10 so grade gates pass
+    s.post(f"{API}/onboarding/submit", json={
+        "name": "Phase2 Tester", "class_level": "10",
+        "exam_goal": "Class 10 Boards", "weak_subjects": [], "learning_style": "balanced",
+    }, timeout=30)
+    # Upgrade to Pro to bypass free-tier limits during testing
+    s.post(f"{API}/subscription/subscribe", json={"plan": "pro", "billing_cycle": "monthly"}, timeout=30)
     s.email = email
     s.pw = pw
     return s
@@ -31,8 +39,13 @@ def second_student():
     s = requests.Session()
     email = f"TEST_phase2b_{uuid.uuid4().hex[:8]}@neuralearn.ai"
     pw = "Test@1234567"
-    r = s.post(f"{API}/auth/register", json={"email": email, "password": pw, "name": "Phase2 Tester B"}, timeout=30)
+    r = s.post(f"{API}/auth/register", json={"email": email, "password": pw, "name": "Phase2 Tester B", "class_level": "10"}, timeout=30)
     assert r.status_code == 200, f"register2 failed: {r.status_code} {r.text}"
+    s.post(f"{API}/onboarding/submit", json={
+        "name": "Phase2 Tester B", "class_level": "10",
+        "exam_goal": "Class 10 Boards", "weak_subjects": [], "learning_style": "balanced",
+    }, timeout=30)
+    s.post(f"{API}/subscription/subscribe", json={"plan": "pro", "billing_cycle": "monthly"}, timeout=30)
     s.email = email
     return s
 

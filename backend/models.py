@@ -80,3 +80,18 @@ class ReferralApplyRequest(BaseModel):
 # ----- User -----
 class UpdateClassRequest(BaseModel):
     class_level: str
+
+
+# ----- Onboarding -----
+class OnboardingSubmit(BaseModel):
+    name: str
+    class_level: str
+    exam_goal: str  # e.g. "Class 10 Boards", "JEE", "NEET", "Improve grades"
+    weak_subjects: List[str] = []
+    learning_style: str = "balanced"  # visual | quizzes | explanations | interactive | balanced
+
+
+# ----- Subscription -----
+class SubscribeRequest(BaseModel):
+    plan: str  # "pro" | "elite"
+    billing_cycle: str = "monthly"  # "monthly" | "yearly"

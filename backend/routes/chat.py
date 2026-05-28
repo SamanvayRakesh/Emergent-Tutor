@@ -8,6 +8,7 @@ from fastapi.responses import StreamingResponse
 
 from core import db, openai_client, logger, get_current_user
 from curriculum_engine import build_ai_chapter_manifest
+from plan_gates import check_limit, increment_usage, get_user_plan
 from models import ChatSessionCreate, ChatMessageRequest
 
 router = APIRouter()
@@ -16,6 +17,12 @@ router = APIRouter()
 @router.post("/chat/sessions")
 async def create_chat_session(body: ChatSessionCreate, request: Request):
     user = await get_current_user(request)
+    # Grade lock: can only create sessions for your active grade
+    if body.class_level != user.get("class_level"):
+        raise HTTPException(
+            status_code=403,
+            detail=f"You can only create chats for your active grade (Class {user.get('class_level')}). Change grade in Profile to access other classes.",
+        )
     session_id = f"chat_{uuid.uuid4().hex[:12]}"
     now = datetime.now(timezone.utc).isoformat()
     session_doc = {
@@ -59,9 +66,29 @@ async def delete_chat_session(session_id: str, request: Request):
 @router.post("/chat/sessions/{session_id}/message")
 async def send_message(session_id: str, body: ChatMessageRequest, request: Request):
     user = await get_current_user(request)
+
+    # Grade lock: chat sessions must match user's active grade
     session = await db.chat_sessions.find_one({"session_id": session_id, "user_id": user["user_id"]}, {"_id": 0})
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
+    if session.get("class_level") != user.get("class_level"):
+        raise HTTPException(status_code=403, detail="This chapter is outside your active grade. Change your grade in Profile to access it.")
+
+    # Plan gate: daily AI message limit
+    allowed, limit_info = await check_limit(user["user_id"], "ai_message")
+    if not allowed:
+        raise HTTPException(
+            status_code=429,
+            detail={
+                "code": "DAILY_LIMIT_REACHED", "feature": "ai_message",
+                "message": f"You've used all {limit_info['limit']} AI messages on your Free plan today.",
+                "limit_info": limit_info, "upgrade_to": "pro",
+            },
+        )
+
+    # Plan determines model
+    plan_info = await get_user_plan(user["user_id"])
+    ai_model = plan_info["limits"].get("ai_model", "gpt-4o-mini")
 
     now = datetime.now(timezone.utc).isoformat()
     await db.messages.insert_one({
@@ -149,7 +176,7 @@ Remember: Your goal is not just to teach — it's to create a moment where the s
         full_content = ""
         try:
             stream = await openai_client.chat.completions.create(
-                model="gpt-4o", messages=ai_messages,
+                model=ai_model, messages=ai_messages,
                 stream=True, max_tokens=1500, temperature=0.85,
             )
             async for chunk in stream:
@@ -174,6 +201,8 @@ Remember: Your goal is not just to teach — it's to create a moment where the s
             {"user_id": user["user_id"]},
             {"$inc": {"xp": 5}, "$set": {"last_active": datetime.now(timezone.utc).isoformat()}},
         )
+        # Increment AI message usage counter
+        await increment_usage(user["user_id"], "ai_messages", 1)
         updated_user = await db.users.find_one({"user_id": user["user_id"]}, {"_id": 0})
         if updated_user:
             new_level = max(1, updated_user["xp"] // 500 + 1)

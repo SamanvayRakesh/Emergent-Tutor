@@ -4,6 +4,7 @@ import './App.css';
 import './index.css';
 
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { SubscriptionProvider } from './contexts/SubscriptionContext';
 import IntroScreen from './components/IntroScreen';
 import AuthPage from './components/AuthPage';
 import AuthCallback from './components/AuthCallback';
@@ -17,9 +18,12 @@ import ProfilePage from './components/ProfilePage';
 import LeaderboardPage from './components/LeaderboardPage';
 import MockExamPage from './components/MockExamPage';
 import StudyPlanPage from './components/StudyPlanPage';
+import PricingPage from './components/PricingPage';
+import OnboardingModal from './components/OnboardingModal';
+import UpgradePromptModal from './components/UpgradePromptModal';
 
 function ProtectedRoute({ children }) {
-  const { user, loading } = useAuth();
+  const { user, loading, refresh } = useAuth();
   if (loading) return (
     <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
       <div className="flex flex-col items-center gap-4">
@@ -29,7 +33,16 @@ function ProtectedRoute({ children }) {
     </div>
   );
   if (!user) return <Navigate to="/login" replace />;
-  return children;
+  // Show onboarding modal if user hasn't completed it yet
+  if (!user.is_onboarded) {
+    return (
+      <>
+        {children}
+        <OnboardingModal onComplete={() => refresh?.()} />
+      </>
+    );
+  }
+  return <>{children}<UpgradePromptModal /></>;
 }
 
 function AppRouter() {
@@ -58,6 +71,7 @@ function AppRouter() {
         <Route path="leaderboard" element={<LeaderboardPage />} />
         <Route path="mock-exams" element={<MockExamPage />} />
         <Route path="study-plan" element={<StudyPlanPage />} />
+        <Route path="upgrade" element={<PricingPage />} />
         <Route path="profile" element={<ProfilePage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
@@ -81,11 +95,13 @@ function App() {
     <div className="App">
       <BrowserRouter>
         <AuthProvider>
-          {showIntro ? (
-            <IntroScreen onComplete={handleIntroComplete} />
-          ) : (
-            <AppRouter />
-          )}
+          <SubscriptionProvider>
+            {showIntro ? (
+              <IntroScreen onComplete={handleIntroComplete} />
+            ) : (
+              <AppRouter />
+            )}
+          </SubscriptionProvider>
         </AuthProvider>
       </BrowserRouter>
     </div>

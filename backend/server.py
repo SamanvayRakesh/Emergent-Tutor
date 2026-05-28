@@ -16,6 +16,7 @@ from routes import mock_exam as mock_exam_routes
 from routes import study_plan as study_plan_routes
 from routes import social as social_routes
 from routes import curriculum as curriculum_routes
+from routes import subscription as subscription_routes
 from curriculum_engine import load_curriculum_from_json
 
 
@@ -31,6 +32,7 @@ api_router.include_router(mock_exam_routes.router)
 api_router.include_router(study_plan_routes.router)
 api_router.include_router(social_routes.router)
 api_router.include_router(curriculum_routes.router)
+api_router.include_router(subscription_routes.router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -58,6 +60,9 @@ async def startup_event():
     await db.referrals.create_index("referred_id")
     await db.referrals.create_index("referrer_id")
     await db.curriculum.create_index([("class_level", 1), ("subject", 1), ("academic_year", 1)])
+    await db.subscriptions.create_index("user_id", unique=True)
+    await db.usage_counters.create_index("user_id", unique=True)
+    await db.onboarding.create_index("user_id", unique=True)
 
     # Load verified curriculum from scraper output (idempotent — safe to call on every restart)
     try:

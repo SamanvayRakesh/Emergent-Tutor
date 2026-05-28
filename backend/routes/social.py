@@ -5,6 +5,7 @@ from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, HTTPException, Query, Request
 
 from core import db, openai_client, get_current_user, logger
+from plan_gates import has_feature
 from models import ReferralApplyRequest
 
 router = APIRouter()
@@ -75,13 +76,20 @@ async def get_leaderboard(request: Request, scope: str = Query("global", regex="
     cur_id = current_user["user_id"] if current_user else None
     entries, user_rank, current_user_entry = _rank_entries(users, cur_id)
 
+    # Plan gate: free users see top 10 only
+    full_access = True
+    if current_user:
+        full_access = await has_feature(current_user["user_id"], "leaderboard_full")
+    limit = 20 if full_access else 10
+
     return {
         "scope": scope,
-        "leaderboard": entries[:20],
+        "leaderboard": entries[:limit],
         "user_rank": user_rank,
         "current_user": current_user_entry,
         "total_users": len(users),
         "class_level": current_user.get("class_level") if scope == "class" and current_user else None,
+        "leaderboard_locked_beyond": limit if not full_access else None,
     }
 
 
