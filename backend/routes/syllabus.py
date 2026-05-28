@@ -74,15 +74,14 @@ async def get_subject_chapters(class_id: str, subject: str):
 
     verified = get_verified_chapters(class_id, subject)
     if verified:
-        books = get_verified_book_sources(class_id, subject)
         ay = get_curriculum_meta().get("academic_year")
         return [
             {
                 "id": c["id"], "name": c["name"], "order": c["order"],
                 "chapter_no": c.get("chapter_no"),
-                "verified": True, "pdf_url": c.get("pdf_url"),
-                "book_title": c.get("book_title"), "book_code": c.get("book_code"),
-                "_meta": {"academic_year": ay, "books": books, "source": "ncert.nic.in"},
+                "verified": True,
+                "book_title": c.get("book_title"),
+                "_meta": {"academic_year": ay, "source": "ncert.nic.in"},
             }
             for c in verified
         ]

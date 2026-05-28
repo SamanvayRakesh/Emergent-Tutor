@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { BookOpen, ChevronRight, Search, X, Sparkles, ArrowRight, GraduationCap, ShieldCheck, ExternalLink } from 'lucide-react';
+import { BookOpen, ChevronRight, Search, X, Sparkles, ArrowRight, GraduationCap, ShieldCheck } from 'lucide-react';
 import axios from 'axios';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -166,23 +166,14 @@ export default function SyllabusPage() {
                       {ch.verified && (
                         <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-body font-semibold flex-shrink-0"
                           style={{ background: '#10b98122', color: '#10b981', border: '1px solid #10b98155' }}
-                          title={`Verified from NCERT book code: ${ch.book_code || 'N/A'}`}>
+                          title="Chapter verified against official NCERT textbook">
                           <ShieldCheck size={10} /> NCERT
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <p className="text-zinc-600 text-xs font-body">
-                        {ch.book_title ? `${ch.book_title} • Ch ${ch.chapter_no}` : `${ch.lessons?.length || 0} lessons`}
-                      </p>
-                      {ch.pdf_url && (
-                        <a href={ch.pdf_url} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
-                          className="inline-flex items-center gap-0.5 text-zinc-600 hover:text-cyan-400 text-xs font-body transition-colors"
-                          data-testid={`pdf-link-${ch.id}`}>
-                          <ExternalLink size={10} /> NCERT PDF
-                        </a>
-                      )}
-                    </div>
+                    <p className="text-zinc-600 text-xs font-body mt-0.5">
+                      {ch.book_title ? `${ch.book_title} • Chapter ${ch.chapter_no}` : `${ch.lessons?.length || 0} lessons`}
+                    </p>
                   </div>
                   <button onClick={() => startChat(ch)} data-testid={`start-chapter-${ch.id}`}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-body font-semibold opacity-0 group-hover:opacity-100 transition-all"
