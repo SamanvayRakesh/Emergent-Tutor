@@ -1,4 +1,4 @@
-"""Syllabus + progress routes."""
+"""Syllabus + progress routes. Delegates to verified NCERT engine when available."""
 from datetime import datetime, timezone
 from urllib.parse import unquote
 
@@ -7,36 +7,90 @@ from fastapi import APIRouter, HTTPException, Request
 from core import db, get_current_user
 from models import ProgressUpdate
 from cbse_data import get_classes, get_subjects, get_chapters, get_subject_meta
+from curriculum_engine import (
+    get_curriculum_meta, get_verified_chapters, get_verified_book_sources,
+)
 
 router = APIRouter()
+
+
+def _verified_classes():
+    return set(get_curriculum_meta().get("classes_covered", []))
 
 
 # ----- Syllabus -----
 @router.get("/syllabus/classes")
 async def get_all_classes():
-    return [{"id": c, "name": f"Class {c}"} for c in get_classes()]
+    verified = _verified_classes()
+    legacy = set(get_classes())
+    all_cls = sorted(verified | legacy, key=lambda x: int(x) if x.isdigit() else 99)
+    return [{"id": c, "name": f"Class {c}", "verified": c in verified} for c in all_cls]
+
+
+SUBJ_META = {
+    "mathematics": {"display": "Mathematics", "icon": "Calculator", "color": "#22d3ee"},
+    "science": {"display": "Science", "icon": "Atom", "color": "#8b5cf6"},
+    "english": {"display": "English", "icon": "Book", "color": "#f59e0b"},
+    "social_science": {"display": "Social Science", "icon": "Globe", "color": "#3b82f6"},
+}
 
 
 @router.get("/syllabus/{class_id}/subjects")
 async def get_class_subjects(class_id: str):
-    subjects = get_subjects(class_id)
-    if not subjects:
-        raise HTTPException(status_code=404, detail="Class not found")
+    meta = get_curriculum_meta()
+    verified_subj_keys = set(meta.get("subjects_per_class", {}).get(class_id, []))
+
     result = []
-    for s in subjects:
-        meta = get_subject_meta(class_id, s)
-        chapters = get_chapters(class_id, s)
-        result.append({"name": s, "icon": meta["icon"], "color": meta["color"], "chapter_count": len(chapters)})
+    seen = set()
+
+    for subj_key in verified_subj_keys:
+        info = SUBJ_META.get(subj_key, {"display": subj_key.title(), "icon": "BookOpen", "color": "#94a3b8"})
+        chapters = get_verified_chapters(class_id, info["display"]) or []
+        seen.add(info["display"].lower())
+        result.append({
+            "name": info["display"], "icon": info["icon"], "color": info["color"],
+            "chapter_count": len(chapters), "verified": True,
+        })
+
+    legacy_subjects = get_subjects(class_id) or []
+    for s in legacy_subjects:
+        if s.lower() in seen:
+            continue
+        m = get_subject_meta(class_id, s)
+        legacy_chapters = get_chapters(class_id, s) or []
+        result.append({
+            "name": s, "icon": m["icon"], "color": m["color"],
+            "chapter_count": len(legacy_chapters), "verified": False,
+        })
+
+    if not result:
+        raise HTTPException(status_code=404, detail="Class not found")
     return result
 
 
 @router.get("/syllabus/{class_id}/{subject}/chapters")
 async def get_subject_chapters(class_id: str, subject: str):
     subject = unquote(subject)
-    chapters = get_chapters(class_id, subject)
-    if chapters is None:
+
+    verified = get_verified_chapters(class_id, subject)
+    if verified:
+        books = get_verified_book_sources(class_id, subject)
+        ay = get_curriculum_meta().get("academic_year")
+        return [
+            {
+                "id": c["id"], "name": c["name"], "order": c["order"],
+                "chapter_no": c.get("chapter_no"),
+                "verified": True, "pdf_url": c.get("pdf_url"),
+                "book_title": c.get("book_title"), "book_code": c.get("book_code"),
+                "_meta": {"academic_year": ay, "books": books, "source": "ncert.nic.in"},
+            }
+            for c in verified
+        ]
+
+    legacy = get_chapters(class_id, subject)
+    if legacy is None:
         raise HTTPException(status_code=404, detail="Subject not found")
-    return chapters
+    return [{**ch, "verified": False} for ch in legacy]
 
 
 # ----- Progress -----

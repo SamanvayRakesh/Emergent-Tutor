@@ -1,0 +1,196 @@
+[
+  {
+    "class": "6",
+    "subject": "Mathematics",
+    "book_title": "Mathematics",
+    "book_code": "femh1",
+    "total_chapters": "14"
+  },
+  {
+    "class": "6",
+    "subject": "Science",
+    "book_title": "Science",
+    "book_code": "fesc1",
+    "total_chapters": "13"
+  },
+  {
+    "class": "6",
+    "subject": "English",
+    "book_title": "Honeysuckle",
+    "book_code": "feen1",
+    "total_chapters": "10"
+  },
+  {
+    "class": "6",
+    "subject": "Social Science",
+    "book_title": "Social Science",
+    "book_code": "fess1",
+    "total_chapters": "8"
+  },
+
+  {
+    "class": "7",
+    "subject": "Mathematics",
+    "book_title": "Mathematics",
+    "book_code": "gemh1",
+    "total_chapters": "15"
+  },
+  {
+    "class": "7",
+    "subject": "Science",
+    "book_title": "Science",
+    "book_code": "gesc1",
+    "total_chapters": "18"
+  },
+  {
+    "class": "7",
+    "subject": "English",
+    "book_title": "Honeycomb",
+    "book_code": "geen1",
+    "total_chapters": "10"
+  },
+  {
+    "class": "7",
+    "subject": "Social Science",
+    "book_title": "Social Science",
+    "book_code": "gess1",
+    "total_chapters": "10"
+  },
+
+  {
+    "class": "8",
+    "subject": "Mathematics",
+    "book_title": "Mathematics",
+    "book_code": "hemh1",
+    "total_chapters": "16"
+  },
+  {
+    "class": "8",
+    "subject": "Science",
+    "book_title": "Science",
+    "book_code": "hesc1",
+    "total_chapters": "18"
+  },
+  {
+    "class": "8",
+    "subject": "English",
+    "book_title": "Honeydew",
+    "book_code": "heen1",
+    "total_chapters": "8"
+  },
+  {
+    "class": "8",
+    "subject": "Social Science",
+    "book_title": "Social Science",
+    "book_code": "hess1",
+    "total_chapters": "10"
+  },
+
+  {
+    "class": "9",
+    "subject": "Mathematics",
+    "book_title": "Mathematics",
+    "book_code": "iemh1",
+    "total_chapters": "15"
+  },
+  {
+    "class": "9",
+    "subject": "Science",
+    "book_title": "Science",
+    "book_code": "iesc1",
+    "total_chapters": "15"
+  },
+  {
+    "class": "9",
+    "subject": "English",
+    "book_title": "Beehive",
+    "book_code": "ieen1",
+    "total_chapters": "10"
+  },
+  {
+    "class": "9",
+    "subject": "Social Science",
+    "book_title": "Social Science",
+    "book_code": "iess1",
+    "total_chapters": "10"
+  },
+
+  {
+    "class": "10",
+    "subject": "Mathematics",
+    "book_title": "Mathematics",
+    "book_code": "jemh1",
+    "total_chapters": "14"
+  },
+  {
+    "class": "10",
+    "subject": "Science",
+    "book_title": "Science",
+    "book_code": "jesc1",
+    "total_chapters": "16"
+  },
+  {
+    "class": "10",
+    "subject": "English",
+    "book_title": "First Flight",
+    "book_code": "jeen1",
+    "total_chapters": "11"
+  },
+  {
+    "class": "10",
+    "subject": "Social Science",
+    "book_title": "Social Science",
+    "book_code": "jess1",
+    "total_chapters": "8"
+  },
+
+  {
+    "class": "11",
+    "subject": "Mathematics",
+    "book_title": "Mathematics",
+    "book_code": "kemh1",
+    "total_chapters": "16"
+  },
+  {
+    "class": "11",
+    "subject": "English",
+    "book_title": "Hornbill",
+    "book_code": "keen1",
+    "total_chapters": "8"
+  },
+
+  {
+    "class": "12",
+    "subject": "Mathematics",
+    "book_title": "Mathematics Part 1",
+    "book_code": "lemh1",
+    "total_chapters": "6"
+  },
+  {
+    "class": "12",
+    "subject": "Mathematics",
+    "book_title": "Mathematics Part 2",
+    "book_code": "lemh2",
+    "total_chapters": "7"
+  },
+  {
+    "class": "12",
+    "subject": "English",
+    "book_title": "Flamingo",
+    "book_code": "leen1",
+    "total_chapters": "8"
+  }
+]
+
+
+
+
+
+
+
+
+
+
+
+
+

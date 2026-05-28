@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { BookOpen, ChevronRight, Search, X, Sparkles, ArrowRight, GraduationCap } from 'lucide-react';
+import { BookOpen, ChevronRight, Search, X, Sparkles, ArrowRight, GraduationCap, ShieldCheck, ExternalLink } from 'lucide-react';
 import axios from 'axios';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -123,7 +123,16 @@ export default function SyllabusPage() {
                       style={{ background: color + '08', borderColor: color + '25' }}>
                       <div className="text-3xl mb-3">{SUBJECT_ICONS[subj.name] || '📚'}</div>
                       <h3 className="text-white font-heading font-bold text-base leading-tight mb-1">{subj.name}</h3>
-                      <p className="text-zinc-500 text-xs font-body">{subj.chapter_count} chapters</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-zinc-500 text-xs font-body">{subj.chapter_count} chapters</p>
+                        {subj.verified && (
+                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-body font-semibold"
+                            style={{ background: '#10b98122', color: '#10b981', border: '1px solid #10b98155' }}
+                            data-testid={`verified-${subj.name}`} title="Chapters verified against official NCERT textbooks">
+                            <ShieldCheck size={10} /> NCERT
+                          </span>
+                        )}
+                      </div>
                     </motion.button>
                   );
                 })}
@@ -152,8 +161,28 @@ export default function SyllabusPage() {
                     {i + 1}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-white text-sm font-body font-medium truncate">{ch.name}</p>
-                    <p className="text-zinc-600 text-xs font-body mt-0.5">{ch.lessons?.length || 0} lessons</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-white text-sm font-body font-medium truncate flex-1">{ch.name}</p>
+                      {ch.verified && (
+                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-body font-semibold flex-shrink-0"
+                          style={{ background: '#10b98122', color: '#10b981', border: '1px solid #10b98155' }}
+                          title={`Verified from NCERT book code: ${ch.book_code || 'N/A'}`}>
+                          <ShieldCheck size={10} /> NCERT
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <p className="text-zinc-600 text-xs font-body">
+                        {ch.book_title ? `${ch.book_title} • Ch ${ch.chapter_no}` : `${ch.lessons?.length || 0} lessons`}
+                      </p>
+                      {ch.pdf_url && (
+                        <a href={ch.pdf_url} target="_blank" rel="noreferrer" onClick={e => e.stopPropagation()}
+                          className="inline-flex items-center gap-0.5 text-zinc-600 hover:text-cyan-400 text-xs font-body transition-colors"
+                          data-testid={`pdf-link-${ch.id}`}>
+                          <ExternalLink size={10} /> NCERT PDF
+                        </a>
+                      )}
+                    </div>
                   </div>
                   <button onClick={() => startChat(ch)} data-testid={`start-chapter-${ch.id}`}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-body font-semibold opacity-0 group-hover:opacity-100 transition-all"

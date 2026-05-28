@@ -15,6 +15,8 @@ from routes import quiz as quiz_routes
 from routes import mock_exam as mock_exam_routes
 from routes import study_plan as study_plan_routes
 from routes import social as social_routes
+from routes import curriculum as curriculum_routes
+from curriculum_engine import load_curriculum_from_json
 
 
 app = FastAPI(title="NeuraLearn API", version="1.0.0")
@@ -28,6 +30,7 @@ api_router.include_router(quiz_routes.router)
 api_router.include_router(mock_exam_routes.router)
 api_router.include_router(study_plan_routes.router)
 api_router.include_router(social_routes.router)
+api_router.include_router(curriculum_routes.router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -54,6 +57,13 @@ async def startup_event():
     await db.study_plans.create_index("user_id", unique=True)
     await db.referrals.create_index("referred_id")
     await db.referrals.create_index("referrer_id")
+    await db.curriculum.create_index([("class_level", 1), ("subject", 1), ("academic_year", 1)])
+
+    # Load verified curriculum from scraper output (idempotent — safe to call on every restart)
+    try:
+        await load_curriculum_from_json()
+    except Exception as e:
+        logger.warning(f"Curriculum load skipped: {e}")
 
     # Seed admin
     admin_email = os.environ.get("ADMIN_EMAIL", "admin@neuralearn.ai")

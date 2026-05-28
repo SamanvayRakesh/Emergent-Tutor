@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
 from core import db, openai_client, logger, get_current_user
+from curriculum_engine import build_ai_chapter_manifest
 from models import ChatSessionCreate, ChatMessageRequest
 
 router = APIRouter()
@@ -79,6 +80,9 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
         "Student is 15-18 years old. Respect their intelligence. Deep conceptual insights, problem-solving strategies, board exam excellence. Be precise but engaging."
     )
     exam_focus = "🎯 BOARD EXAM FOCUS — This topic has high exam weightage! Mention exam patterns when relevant." if session['class_level'] in ['10', '12'] else "Build strong conceptual foundations."
+
+    # Inject verified NCERT chapter manifest to ground the AI against hallucinating curriculum
+    chapter_manifest = build_ai_chapter_manifest(session['class_level'], session['subject'])
 
     system_prompt = f"""You are NeuraLearn's Elite AI Tutor — a world-class educator who makes every student fall in love with learning.
 
