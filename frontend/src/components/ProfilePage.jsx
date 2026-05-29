@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Mail, BookOpen, Zap, Flame, Trophy, Save, Shield, Star, Clock, Lock, Send, X, CheckCircle, AlertTriangle } from 'lucide-react';
+import { User, Mail, BookOpen, Zap, Flame, Trophy, Save, Shield, Star, Clock, Lock, Send, X, CheckCircle, AlertTriangle, Crown, ArrowRight } from 'lucide-react';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
+import { useSubscription } from '../contexts/SubscriptionContext';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 

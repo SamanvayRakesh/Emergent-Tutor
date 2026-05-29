@@ -3,7 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, Sparkles, Crown, Zap, ArrowRight, X, ShieldCheck, Star } from 'lucide-react';
 import axios from 'axios';
+import { toast } from 'sonner';
 import { useSubscription } from '../contexts/SubscriptionContext';
+import { useCredits } from '../contexts/CreditsContext';
+import { loadRazorpayCheckout } from '../lib/razorpay';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -16,6 +19,7 @@ const PLAN_VISUALS = {
 export default function PricingPage() {
   const nav = useNavigate();
   const { plan: myPlan, refresh } = useSubscription();
+  const { refresh: refreshCredits } = useCredits();
   const [plans, setPlans] = useState([]);
   const [billing, setBilling] = useState('monthly'); // 'monthly' | 'yearly'
   const [subscribing, setSubscribing] = useState(null);
@@ -31,15 +35,56 @@ export default function PricingPage() {
     if (planId === 'free') return;
     setSubscribing(planId);
     try {
-      const { data } = await axios.post(`${API}/subscription/subscribe`,
-        { plan: planId, billing_cycle: billing },
-        { withCredentials: true });
-      setSuccess(data);
-      refresh?.();
+      // 1. Ask backend for an order (or mock_mode fallback)
+      const { data: order } = await axios.post(`${API}/subscription/create-order`,
+        { plan: planId, billing_cycle: billing }, { withCredentials: true });
+
+      if (order.mock_mode) {
+        // No Razorpay keys configured — use the legacy mock subscribe
+        const { data } = await axios.post(`${API}/subscription/subscribe`,
+          { plan: planId, billing_cycle: billing }, { withCredentials: true });
+        toast.success(`Subscription activated — ${data.credits_added} bonus credits added!`);
+        setSuccess(data);
+        refresh?.(); refreshCredits?.();
+        setSubscribing(null);
+        return;
+      }
+
+      // 2. Open Razorpay checkout
+      const Razorpay = await loadRazorpayCheckout();
+      const rzp = new Razorpay({
+        key: order.key_id || process.env.REACT_APP_RAZORPAY_KEY_ID,
+        amount: order.amount_paise, currency: order.currency || 'INR',
+        order_id: order.order_id,
+        name: 'NeuraLearn', description: `${planId.toUpperCase()} • ${billing}`,
+        image: '/favicon.ico',
+        prefill: order.prefill || {},
+        theme: { color: '#dc2626' },
+        handler: async (rsp) => {
+          try {
+            const { data: verified } = await axios.post(`${API}/subscription/verify-payment`,
+              { ...rsp, plan: planId, billing_cycle: billing },
+              { withCredentials: true });
+            toast.success(`Payment verified! +${verified.credits_added} bonus credits.`);
+            setSuccess(verified);
+            refresh?.(); refreshCredits?.();
+          } catch (e) {
+            toast.error('Payment verification failed. Please contact support if charged.');
+          }
+          setSubscribing(null);
+        },
+        modal: { ondismiss: () => { setSubscribing(null); toast('Payment cancelled', { icon: '✖' }); } },
+      });
+      rzp.on('payment.failed', (resp) => {
+        toast.error(`Payment failed: ${resp.error?.description || 'Try again'}`);
+        setSubscribing(null);
+      });
+      rzp.open();
     } catch (e) {
       console.error(e);
+      toast.error(e?.response?.data?.detail || 'Could not start payment. Try again.');
+      setSubscribing(null);
     }
-    setSubscribing(null);
   };
 
   const priceOf = (p) => billing === 'yearly' ? p.price_yearly : p.price_monthly;

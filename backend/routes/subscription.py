@@ -1,15 +1,34 @@
 """Subscription + onboarding routes."""
+import os
 import uuid
+import hmac
+import hashlib
 from datetime import datetime, timezone, timedelta
 
+import razorpay
 from fastapi import APIRouter, HTTPException, Request
 
-from core import db, get_current_user
+from core import db, get_current_user, logger
 from credits import get_credits, CREDIT_COSTS, STARTER_CREDITS
 from models import OnboardingSubmit, SubscribeRequest
 from plan_gates import PLANS, get_user_plan, get_usage
 
 router = APIRouter()
+
+
+# ---- Razorpay client (lazy — only when keys configured) ----
+RZP_KEY = os.environ.get("RAZORPAY_KEY_ID", "").strip()
+RZP_SECRET = os.environ.get("RAZORPAY_KEY_SECRET", "").strip()
+_rzp_client = None
+
+
+def _razorpay():
+    global _rzp_client
+    if not RZP_KEY or not RZP_SECRET:
+        return None
+    if _rzp_client is None:
+        _rzp_client = razorpay.Client(auth=(RZP_KEY, RZP_SECRET))
+    return _rzp_client
 
 
 @router.get("/credits")
@@ -50,9 +69,10 @@ async def my_subscription(request: Request):
     }
 
 
-@router.post("/subscription/subscribe")
-async def subscribe(body: SubscribeRequest, request: Request):
-    """Mocked subscribe — flips DB record. Razorpay integration drops in here later."""
+@router.post("/subscription/create-order")
+async def create_order(body: SubscribeRequest, request: Request):
+    """Create a Razorpay order for the chosen plan. Returns order details + key_id.
+    If RAZORPAY_KEY_ID isn't configured, returns mock_mode=true so frontend can fall back."""
     user = await get_current_user(request)
     if body.plan not in ("pro", "elite"):
         raise HTTPException(status_code=400, detail="Plan must be 'pro' or 'elite'")
@@ -60,39 +80,121 @@ async def subscribe(body: SubscribeRequest, request: Request):
         raise HTTPException(status_code=400, detail="billing_cycle must be 'monthly' or 'yearly'")
 
     plan = PLANS[body.plan]
-    amount = plan["price_yearly"] if body.billing_cycle == "yearly" else plan["price_monthly"]
-    days = 365 if body.billing_cycle == "yearly" else 30
+    amount_inr = plan["price_yearly"] if body.billing_cycle == "yearly" else plan["price_monthly"]
+    amount_paise = amount_inr * 100
+
+    rzp = _razorpay()
+    if not rzp:
+        # Mock fallback so the demo keeps working until you add real Razorpay keys
+        return {
+            "mock_mode": True,
+            "amount_inr": amount_inr,
+            "plan": body.plan,
+            "billing_cycle": body.billing_cycle,
+        }
+
+    try:
+        receipt = f"nl_{user['user_id'][-8:]}_{uuid.uuid4().hex[:8]}"[:40]
+        order = rzp.order.create({
+            "amount": amount_paise,
+            "currency": "INR",
+            "receipt": receipt,
+            "notes": {
+                "user_id": user["user_id"], "plan": body.plan,
+                "billing_cycle": body.billing_cycle, "email": user.get("email", ""),
+            },
+        })
+    except Exception as e:
+        logger.error(f"Razorpay create_order failed: {e}")
+        raise HTTPException(status_code=502, detail=f"Could not create payment order: {e}")
+
+    return {
+        "mock_mode": False,
+        "order_id": order["id"],
+        "amount_paise": amount_paise,
+        "amount_inr": amount_inr,
+        "currency": "INR",
+        "key_id": RZP_KEY,
+        "plan": body.plan,
+        "billing_cycle": body.billing_cycle,
+        "prefill": {"name": user.get("name"), "email": user.get("email")},
+    }
+
+
+@router.post("/subscription/verify-payment")
+async def verify_payment(body: dict, request: Request):
+    """Verify Razorpay payment signature and activate subscription.
+    Expects: {razorpay_order_id, razorpay_payment_id, razorpay_signature, plan, billing_cycle}"""
+    user = await get_current_user(request)
+    order_id = body.get("razorpay_order_id")
+    payment_id = body.get("razorpay_payment_id")
+    signature = body.get("razorpay_signature")
+    plan_id = body.get("plan")
+    cycle = body.get("billing_cycle", "monthly")
+
+    if not (order_id and payment_id and signature and plan_id):
+        raise HTTPException(status_code=400, detail="Missing payment fields")
+    if plan_id not in ("pro", "elite") or cycle not in ("monthly", "yearly"):
+        raise HTTPException(status_code=400, detail="Invalid plan/cycle")
+
+    # HMAC-SHA256 signature verification
+    expected = hmac.new(
+        RZP_SECRET.encode(), f"{order_id}|{payment_id}".encode(), hashlib.sha256,
+    ).hexdigest()
+    if not hmac.compare_digest(expected, signature):
+        raise HTTPException(status_code=400, detail="Payment signature verification failed")
+
+    return await _activate_subscription(user, plan_id, cycle, provider="razorpay",
+                                        order_id=order_id, payment_id=payment_id)
+
+
+async def _activate_subscription(user: dict, plan_id: str, cycle: str,
+                                  provider: str = "mock", order_id: str = None,
+                                  payment_id: str = None) -> dict:
+    plan = PLANS[plan_id]
+    amount = plan["price_yearly"] if cycle == "yearly" else plan["price_monthly"]
+    days = 365 if cycle == "yearly" else 30
+    bonus_credits = {"pro": 500, "elite": 2000}.get(plan_id, 0)
     now = datetime.now(timezone.utc)
     expires = now + timedelta(days=days)
-
-    # MOCKED PAYMENT — Razorpay order would be created here
-    mock_order_id = f"mock_order_{uuid.uuid4().hex[:12]}"
 
     await db.subscriptions.update_one(
         {"user_id": user["user_id"]},
         {"$set": {
-            "user_id": user["user_id"],
-            "plan": body.plan,
-            "billing_cycle": body.billing_cycle,
-            "status": "active",
-            "amount_inr": amount,
-            "started_at": now.isoformat(),
-            "expires_at": expires.isoformat(),
-            "payment_provider": "mock",
-            "payment_order_id": mock_order_id,
+            "user_id": user["user_id"], "plan": plan_id, "billing_cycle": cycle,
+            "status": "active", "amount_inr": amount,
+            "started_at": now.isoformat(), "expires_at": expires.isoformat(),
+            "payment_provider": provider,
+            "payment_order_id": order_id or f"mock_{uuid.uuid4().hex[:12]}",
+            "payment_id": payment_id,
             "updated_at": now.isoformat(),
-        }},
-        upsert=True,
+        }}, upsert=True,
     )
+    # Top up credits as part of subscription activation
+    if bonus_credits:
+        await db.users.update_one(
+            {"user_id": user["user_id"]},
+            {"$inc": {"credits": bonus_credits}},
+        )
+
     return {
         "success": True,
         "message": f"Welcome to NeuraLearn {plan['name']}!",
-        "plan": body.plan,
-        "billing_cycle": body.billing_cycle,
-        "amount_inr": amount,
-        "expires_at": expires.isoformat(),
-        "mock_order_id": mock_order_id,
+        "plan": plan_id, "billing_cycle": cycle, "amount_inr": amount,
+        "expires_at": expires.isoformat(), "credits_added": bonus_credits,
+        "provider": provider,
     }
+
+
+@router.post("/subscription/subscribe")
+async def subscribe(body: SubscribeRequest, request: Request):
+    """Legacy/mock subscribe — flips DB record. Used as fallback when Razorpay keys absent."""
+    user = await get_current_user(request)
+    if body.plan not in ("pro", "elite"):
+        raise HTTPException(status_code=400, detail="Plan must be 'pro' or 'elite'")
+    if body.billing_cycle not in ("monthly", "yearly"):
+        raise HTTPException(status_code=400, detail="billing_cycle must be 'monthly' or 'yearly'")
+    return await _activate_subscription(user, body.plan, body.billing_cycle, provider="mock")
 
 
 @router.post("/subscription/cancel")

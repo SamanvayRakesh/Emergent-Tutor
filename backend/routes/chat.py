@@ -90,16 +90,30 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
     # Credit gate: deduct 1 credit per AI message
     credit_info = await deduct_credits(user["user_id"], "ai_message")
 
-    # Plan determines model
+    # Plan determines model + token budget (cost optimization)
     plan_info = await get_user_plan(user["user_id"])
     ai_model = plan_info["limits"].get("ai_model", "gpt-4o-mini")
+    max_tokens_for_plan = 900 if ai_model == "gpt-4o-mini" else 1400
+
+    # Lightweight: short, simple questions (≤8 words, no math, no "why/how/explain")
+    # auto-downgrade to gpt-4o-mini even for Pro users — saves tokens with no quality loss
+    text_clean = body.content.strip().lower()
+    word_count = len(text_clean.split())
+    is_simple = (
+        word_count <= 8
+        and not any(t in text_clean for t in ("why", "how", "explain", "derive", "prove", "solve", "example"))
+        and not any(c.isdigit() for c in text_clean)
+    )
+    if is_simple:
+        ai_model = "gpt-4o-mini"
+        max_tokens_for_plan = 500
 
     now = datetime.now(timezone.utc).isoformat()
     await db.messages.insert_one({
         "session_id": session_id, "role": "user", "content": body.content, "timestamp": now,
     })
 
-    history = await db.messages.find({"session_id": session_id}, {"_id": 0}).sort("timestamp", -1).limit(12).to_list(12)
+    history = await db.messages.find({"session_id": session_id}, {"_id": 0}).sort("timestamp", -1).limit(6).to_list(6)
     history.reverse()
 
     class_num = int(session['class_level']) if session['class_level'].isdigit() else 9
@@ -181,7 +195,7 @@ Remember: Your goal is not just to teach — it's to create a moment where the s
         try:
             stream = await openai_client.chat.completions.create(
                 model=ai_model, messages=ai_messages,
-                stream=True, max_tokens=1500, temperature=0.85,
+                stream=True, max_tokens=max_tokens_for_plan, temperature=0.85,
             )
             async for chunk in stream:
                 if chunk.choices[0].delta.content:
