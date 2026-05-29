@@ -64,6 +64,12 @@ async def startup_event():
     await db.usage_counters.create_index("user_id", unique=True)
     await db.onboarding.create_index("user_id", unique=True)
 
+    # One-time credits backfill: any user without a credits field gets the 100 starter
+    await db.users.update_many(
+        {"credits": {"$exists": False}},
+        {"$set": {"credits": 100}},
+    )
+
     # Load verified curriculum from scraper output (idempotent — safe to call on every restart)
     try:
         await load_curriculum_from_json()

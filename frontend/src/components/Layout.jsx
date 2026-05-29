@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import Sidebar from './Sidebar';
+import CreditBadge from './CreditBadge';
 import { Menu, X } from 'lucide-react';
 
 export default function Layout() {
@@ -35,16 +36,22 @@ export default function Layout() {
       </AnimatePresence>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden relative">
+        {/* Global Credit Badge — top-right, floating */}
+        <div className="hidden lg:flex absolute top-3 right-4 z-30">
+          <CreditBadge />
+        </div>
+
         {/* Mobile Header */}
         <div className="lg:hidden flex items-center gap-3 px-4 py-3 border-b border-white/5 glass">
           <button onClick={() => setSidebarOpen(true)} data-testid="mobile-menu-btn"
             className="p-2 rounded-lg hover:bg-white/5 text-zinc-400 hover:text-white transition-colors">
             <Menu size={20} />
           </button>
-          <span className="font-heading font-bold text-white">
+          <span className="font-heading font-bold text-white flex-1">
             <span className="gradient-text">Neura</span>Learn
           </span>
+          <CreditBadge />
         </div>
 
         {/* Page Content */}

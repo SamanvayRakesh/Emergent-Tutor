@@ -9,6 +9,7 @@ from fastapi.responses import StreamingResponse
 from core import db, openai_client, logger, get_current_user
 from curriculum_engine import build_ai_chapter_manifest
 from plan_gates import check_limit, increment_usage, get_user_plan
+from credits import deduct_credits
 from models import ChatSessionCreate, ChatMessageRequest
 
 router = APIRouter()
@@ -85,6 +86,9 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
                 "limit_info": limit_info, "upgrade_to": "pro",
             },
         )
+
+    # Credit gate: deduct 1 credit per AI message
+    credit_info = await deduct_credits(user["user_id"], "ai_message")
 
     # Plan determines model
     plan_info = await get_user_plan(user["user_id"])

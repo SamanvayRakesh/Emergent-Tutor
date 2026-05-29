@@ -7,6 +7,7 @@ from fastapi import APIRouter, HTTPException, Request
 
 from core import db, openai_client, get_current_user
 from plan_gates import check_limit, increment_usage, has_feature
+from credits import deduct_credits
 from models import MockExamRequest, QuizSubmitRequest
 
 router = APIRouter()
@@ -29,6 +30,10 @@ async def generate_mock_exam(body: MockExamRequest, request: Request):
                 "limit_info": info, "upgrade_to": "pro",
             },
         )
+
+    # Credit gate: deduct 10 credits per mock exam
+    await deduct_credits(user["user_id"], "mock_exam_generate")
+
     is_board = body.class_level in ["10", "12"]
     sec_a = max(4, body.num_questions // 2)
     sec_b = max(3, body.num_questions // 4)

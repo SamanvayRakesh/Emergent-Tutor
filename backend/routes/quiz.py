@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException, Request
 
 from core import db, openai_client, get_current_user
 from plan_gates import check_limit, increment_usage
+from credits import deduct_credits
 from models import QuizGenerateRequest, QuizSubmitRequest
 
 router = APIRouter()
@@ -30,6 +31,10 @@ async def generate_quiz(body: QuizGenerateRequest, request: Request):
                 "limit_info": info, "upgrade_to": "pro",
             },
         )
+
+    # Credit gate: deduct 5 credits per quiz
+    await deduct_credits(user["user_id"], "quiz_generate")
+
     prompt = f"""Generate exactly {body.num_questions} multiple-choice questions for CBSE Class {body.class_level} {body.subject} on the topic: "{body.topic}".
 
 Difficulty level: {body.difficulty}

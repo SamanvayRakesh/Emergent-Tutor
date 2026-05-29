@@ -5,6 +5,8 @@ import './index.css';
 
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { SubscriptionProvider } from './contexts/SubscriptionContext';
+import { CreditsProvider } from './contexts/CreditsContext';
+import { Toaster } from 'sonner';
 import IntroScreen from './components/IntroScreen';
 import AuthPage from './components/AuthPage';
 import AuthCallback from './components/AuthCallback';
@@ -97,11 +99,14 @@ function App() {
       <BrowserRouter>
         <AuthProvider>
           <SubscriptionProvider>
-            {showIntro ? (
-              <IntroScreen onComplete={handleIntroComplete} />
-            ) : (
-              <AppRouter />
-            )}
+            <CreditsProvider>
+              {showIntro ? (
+                <IntroScreen onComplete={handleIntroComplete} />
+              ) : (
+                <AppRouter />
+              )}
+              <Toaster position="top-center" theme="dark" closeButton richColors />
+            </CreditsProvider>
           </SubscriptionProvider>
         </AuthProvider>
       </BrowserRouter>

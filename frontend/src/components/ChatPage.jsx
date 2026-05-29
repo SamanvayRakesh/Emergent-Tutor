@@ -7,6 +7,8 @@ import { Send, Plus, BookOpen, ChevronDown, Trash2, Sparkles, CheckCircle, XCirc
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import { useSubscription } from '../contexts/SubscriptionContext';
+import { useCredits } from '../contexts/CreditsContext';
+import { toast } from 'sonner';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -304,6 +306,7 @@ export default function ChatPage() {
   const prefill = location.state || null;
   const { user } = useAuth();
   const { usage, plan, triggerUpgrade, refresh: refreshSub } = useSubscription();
+  const { refresh: refreshCredits } = useCredits();
   const [session, setSession] = useState(null);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
@@ -391,8 +394,26 @@ export default function ChatPage() {
         setStreaming(false);
         return;
       }
+      if (res.status === 402) {
+        const body = await res.json().catch(() => ({}));
+        const msg = body?.detail?.message || 'Not enough credits to send another AI message.';
+        toast.error(msg, {
+          id: 'no-credits', duration: 5000,
+          style: { background: 'rgba(76,5,25,0.92)', color: '#fee2e2', border: '1px solid rgba(244,63,94,0.6)' },
+        });
+        setMessages(p => p.slice(0, -1));
+        setStreaming(false);
+        refreshCredits?.();
+        return;
+      }
+      // Tiny "−1 credit" toast on successful send
+      toast.success('−1 credit used', {
+        id: 'credit-deduct', duration: 1400,
+        style: { background: 'rgba(30,27,75,0.85)', color: '#fcd34d', border: '1px solid rgba(251,191,36,0.4)' },
+      });
       await processStream(res);
       refreshSub?.();
+      refreshCredits?.();
     } catch (e) { console.error(e); setStreamingContent(''); }
     setStreaming(false);
   };

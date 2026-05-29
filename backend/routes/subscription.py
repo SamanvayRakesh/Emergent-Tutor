@@ -5,10 +5,24 @@ from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, HTTPException, Request
 
 from core import db, get_current_user
+from credits import get_credits, CREDIT_COSTS, STARTER_CREDITS
 from models import OnboardingSubmit, SubscribeRequest
 from plan_gates import PLANS, get_user_plan, get_usage
 
 router = APIRouter()
+
+
+@router.get("/credits")
+async def my_credits(request: Request):
+    """Current credit balance + cost catalog."""
+    user = await get_current_user(request)
+    balance = await get_credits(user["user_id"])
+    return {
+        "credits": balance,
+        "starter_credits": STARTER_CREDITS,
+        "costs": CREDIT_COSTS,
+        "low_threshold": 10,
+    }
 
 
 # ----- Plan catalog -----

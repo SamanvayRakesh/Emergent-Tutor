@@ -33,6 +33,7 @@ async def register(body: UserRegister, response: Response):
         "xp": 0, "level": 1, "streak": 0, "longest_streak": 0,
         "last_active": now, "class_level": body.class_level or "9",
         "achievements": [], "created_at": now, "auth_type": "jwt",
+        "credits": 100,
     }
     await db.users.insert_one(user_doc)
 
@@ -156,7 +157,7 @@ async def google_session(body: GoogleSessionRequest, response: Response):
             "name": data.get("name", email), "avatar": data.get("picture"),
             "role": "student", "xp": 0, "level": 1, "streak": 1, "longest_streak": 1,
             "last_active": now_iso, "class_level": "9", "achievements": [],
-            "created_at": now_iso, "auth_type": "google",
+            "created_at": now_iso, "auth_type": "google", "credits": 100,
         })
 
     session_token = secrets.token_urlsafe(32)
