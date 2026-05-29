@@ -139,13 +139,111 @@ async def submit_onboarding(body: OnboardingSubmit, request: Request):
 
 @router.put("/users/grade")
 async def update_user_grade(body: dict, request: Request):
-    """Allow user to change their grade later — re-locks syllabus to new grade."""
+    """Allow user to change their grade — once every 30 days. Otherwise must submit an appeal."""
     user = await get_current_user(request)
     class_level = str(body.get("class_level", "")).strip()
     if class_level not in [str(i) for i in range(6, 13)]:
         raise HTTPException(status_code=400, detail="class_level must be between 6 and 12")
+
+    # Same grade — no-op
+    if class_level == user.get("class_level"):
+        return {"success": True, "class_level": class_level, "noop": True}
+
+    # 30-day cooldown
+    last_change = user.get("last_grade_change_at")
+    if last_change:
+        try:
+            last_dt = datetime.fromisoformat(last_change)
+            if last_dt.tzinfo is None:
+                last_dt = last_dt.replace(tzinfo=timezone.utc)
+            days_since = (datetime.now(timezone.utc) - last_dt).days
+            if days_since < 30:
+                days_remaining = 30 - days_since
+                raise HTTPException(
+                    status_code=429,
+                    detail={
+                        "code": "GRADE_CHANGE_COOLDOWN",
+                        "message": f"You can change your grade again in {days_remaining} day{'s' if days_remaining != 1 else ''}.",
+                        "days_remaining": days_remaining,
+                        "last_change_at": last_change,
+                        "current_class_level": user.get("class_level"),
+                    },
+                )
+        except ValueError:
+            pass
+
+    now = datetime.now(timezone.utc).isoformat()
     await db.users.update_one(
         {"user_id": user["user_id"]},
-        {"$set": {"class_level": class_level}},
+        {"$set": {"class_level": class_level, "last_grade_change_at": now}},
     )
-    return {"success": True, "class_level": class_level}
+    return {"success": True, "class_level": class_level, "last_grade_change_at": now}
+
+
+@router.get("/users/grade-status")
+async def grade_status(request: Request):
+    """Returns current class + cooldown info for the Profile UI."""
+    user = await get_current_user(request)
+    last_change = user.get("last_grade_change_at")
+    days_remaining = 0
+    can_change = True
+    if last_change:
+        try:
+            last_dt = datetime.fromisoformat(last_change)
+            if last_dt.tzinfo is None:
+                last_dt = last_dt.replace(tzinfo=timezone.utc)
+            days_since = (datetime.now(timezone.utc) - last_dt).days
+            if days_since < 30:
+                days_remaining = 30 - days_since
+                can_change = False
+        except ValueError:
+            pass
+    return {
+        "class_level": user.get("class_level"),
+        "last_grade_change_at": last_change,
+        "can_change": can_change,
+        "days_remaining": days_remaining,
+    }
+
+
+@router.post("/users/grade-appeal")
+async def grade_appeal(body: dict, request: Request):
+    """Submit an early grade change request (when cooldown is active)."""
+    user = await get_current_user(request)
+    desired_class = str(body.get("desired_class", "")).strip()
+    reason = str(body.get("reason", "")).strip()
+    if desired_class not in [str(i) for i in range(6, 13)]:
+        raise HTTPException(status_code=400, detail="desired_class must be between 6 and 12")
+    if len(reason) < 10:
+        raise HTTPException(status_code=400, detail="Please share a brief reason (at least 10 characters)")
+
+    # Reject duplicate pending appeals
+    existing = await db.grade_change_requests.find_one(
+        {"user_id": user["user_id"], "status": "pending"}, {"_id": 0}
+    )
+    if existing:
+        raise HTTPException(status_code=409, detail="You already have a pending grade-change request. Please wait for it to be reviewed.")
+
+    record = {
+        "user_id": user["user_id"],
+        "user_email": user.get("email"),
+        "user_name": user.get("name"),
+        "current_class": user.get("class_level"),
+        "desired_class": desired_class,
+        "reason": reason,
+        "status": "pending",
+        "submitted_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.grade_change_requests.insert_one(record)
+    record.pop("_id", None)
+    return {"success": True, "message": "Your request has been submitted to our team. You'll hear back within 48 hours.", "request": record}
+
+
+@router.get("/users/grade-appeal")
+async def get_my_grade_appeal(request: Request):
+    """Returns the user's most recent grade-change request."""
+    user = await get_current_user(request)
+    req = await db.grade_change_requests.find_one(
+        {"user_id": user["user_id"]}, {"_id": 0}, sort=[("submitted_at", -1)],
+    )
+    return {"request": req}

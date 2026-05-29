@@ -21,6 +21,7 @@ import StudyPlanPage from './components/StudyPlanPage';
 import PricingPage from './components/PricingPage';
 import OnboardingModal from './components/OnboardingModal';
 import UpgradePromptModal from './components/UpgradePromptModal';
+import GradeAccessGuard from './components/GradeAccessGuard';
 
 function ProtectedRoute({ children }) {
   const { user, loading, refresh } = useAuth();
@@ -42,7 +43,7 @@ function ProtectedRoute({ children }) {
       </>
     );
   }
-  return <>{children}<UpgradePromptModal /></>;
+  return <>{children}<UpgradePromptModal /><GradeAccessGuard /></>;
 }
 
 function AppRouter() {

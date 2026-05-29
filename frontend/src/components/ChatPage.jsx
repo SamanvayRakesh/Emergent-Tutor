@@ -169,16 +169,19 @@ function MessageBubble({ msg, isStreaming }) {
 }
 
 function SessionSetup({ onCreated, prefill }) {
-  const [classes, setClasses] = useState([]);
+  const { user } = useAuth();
+  const userClass = user?.class_level || '9';
   const [subjects, setSubjects] = useState([]);
   const [chapters, setChapters] = useState([]);
-  const [sel, setSel] = useState({ class: '', subject: '', chapterId: '', chapterName: '' });
+  const [sel, setSel] = useState({ class: userClass, subject: '', chapterId: '', chapterName: '' });
   const [loading, setLoading] = useState(false);
   const prefillRan = useRef(false);
 
   useEffect(() => {
-    axios.get(`${API}/syllabus/classes`, { withCredentials: true }).then(r => setClasses(r.data));
-  }, []);
+    // Grade-locked: only load subjects for user's class
+    setSel(p => ({ ...p, class: userClass }));
+    axios.get(`${API}/syllabus/${userClass}/subjects`, { withCredentials: true }).then(r => setSubjects(r.data)).catch(() => setSubjects([]));
+  }, [userClass]);
 
   // Auto-fill and auto-create from Syllabus navigation state
   useEffect(() => {
@@ -212,16 +215,9 @@ function SessionSetup({ onCreated, prefill }) {
     run();
   }, [prefill, onCreated]);
 
-  const onClassChange = async (cls) => {
-    setSel({ class: cls, subject: '', chapterId: '', chapterName: '' });
-    setChapters([]);
-    const r = await axios.get(`${API}/syllabus/${cls}/subjects`, { withCredentials: true });
-    setSubjects(r.data);
-  };
-
   const onSubjectChange = async (subj) => {
     setSel(p => ({ ...p, subject: subj, chapterId: '', chapterName: '' }));
-    const r = await axios.get(`${API}/syllabus/${sel.class}/${encodeURIComponent(subj)}/chapters`, { withCredentials: true });
+    const r = await axios.get(`${API}/syllabus/${userClass}/${encodeURIComponent(subj)}/chapters`, { withCredentials: true });
     setChapters(r.data);
   };
 
@@ -264,12 +260,8 @@ function SessionSetup({ onCreated, prefill }) {
         )}
 
         {!prefill && <div className="space-y-3">
-          <div className="relative">
-            <select value={sel.class} onChange={e => onClassChange(e.target.value)} data-testid="class-select" className={selectClass}>
-              <option value="">Select Class</option>
-              {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
-            <ChevronDown size={16} className="absolute right-3 top-3.5 text-zinc-500 pointer-events-none" />
+          <div className="px-4 py-3 rounded-xl border border-amber-400/30 bg-amber-500/10 text-amber-300 text-sm font-body font-semibold flex items-center gap-2" data-testid="chat-class-locked">
+            <Sparkles size={14} /> Class {userClass} — your active grade
           </div>
 
           {subjects.length > 0 && (

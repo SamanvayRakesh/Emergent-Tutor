@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FileText, Clock, Sparkles, ChevronDown, CheckCircle, XCircle, AlertCircle, Zap, RotateCcw, BookOpen, Target } from 'lucide-react';
 import axios from 'axios';
+import { useAuth } from '../contexts/AuthContext';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -36,9 +37,10 @@ function Timer({ durationMinutes, onTimeUp, running }) {
 }
 
 export default function MockExamPage() {
-  const [classes, setClasses] = useState([]);
+  const { user } = useAuth();
+  const userClass = user?.class_level || '9';
   const [subjects, setSubjects] = useState([]);
-  const [form, setForm] = useState({ class: '', subject: '', duration: 60, numQ: 15 });
+  const [form, setForm] = useState({ class: userClass, subject: '', duration: 60, numQ: 15 });
   const [exam, setExam] = useState(null);
   const [answers, setAnswers] = useState({});
   const [result, setResult] = useState(null);
@@ -51,9 +53,11 @@ export default function MockExamPage() {
   const [followUpLoading, setFollowUpLoading] = useState(false);
 
   useEffect(() => {
-    axios.get(`${API}/syllabus/classes`, { withCredentials: true }).then(r => setClasses(r.data));
+    // Grade-locked: only load subjects for user's active class
+    setForm(p => ({ ...p, class: userClass }));
+    axios.get(`${API}/syllabus/${userClass}/subjects`, { withCredentials: true }).then(r => setSubjects(r.data)).catch(() => {});
     axios.get(`${API}/mock-exam/history`, { withCredentials: true }).then(r => setHistory(r.data)).catch(() => {});
-  }, []);
+  }, [userClass]);
 
   const onClassChange = async (cls) => {
     setForm(p => ({ ...p, class: cls, subject: '' }));
@@ -144,12 +148,8 @@ export default function MockExamPage() {
             <div className="glass rounded-2xl p-5 border border-white/10 space-y-4">
               <h2 className="text-white font-heading font-bold">Configure Exam</h2>
               <div className="grid grid-cols-2 gap-3">
-                <div className="relative">
-                  <select value={form.class} onChange={e => onClassChange(e.target.value)} data-testid="mock-class-select" className={sel}>
-                    <option value="">Class</option>
-                    {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
-                  <ChevronDown size={14} className="absolute right-3 top-3.5 text-zinc-500 pointer-events-none" />
+                <div className="relative px-3 py-3 rounded-xl border border-amber-400/30 bg-amber-500/10 text-amber-300 text-sm font-body font-semibold flex items-center gap-2" data-testid="mock-class-locked">
+                  <BookOpen size={14} /> Class {userClass}
                 </div>
                 <div className="relative">
                   <select value={form.subject} onChange={e => setForm(p => ({ ...p, subject: e.target.value }))} data-testid="mock-subject-select" className={sel} disabled={!form.class}>

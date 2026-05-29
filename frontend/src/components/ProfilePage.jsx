@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { motion } from 'framer-motion';
-import { User, Mail, BookOpen, Zap, Flame, Trophy, Save, ChevronDown, Shield, Star, Clock } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { User, Mail, BookOpen, Zap, Flame, Trophy, Save, Shield, Star, Clock, Lock, Send, X, CheckCircle, AlertTriangle } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -13,20 +13,61 @@ export default function ProfilePage() {
   const [selectedClass, setSelectedClass] = useState(user?.class_level || '9');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [gradeStatus, setGradeStatus] = useState(null);
+  const [appealOpen, setAppealOpen] = useState(false);
+  const [appealForm, setAppealForm] = useState({ desired_class: '', reason: '' });
+  const [appealResult, setAppealResult] = useState(null);
+  const [appealSubmitting, setAppealSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+
+  useEffect(() => {
+    axios.get(`${API}/users/grade-status`, { withCredentials: true })
+      .then(r => setGradeStatus(r.data))
+      .catch(() => {});
+    axios.get(`${API}/users/grade-appeal`, { withCredentials: true })
+      .then(r => setAppealResult(r.data.request))
+      .catch(() => {});
+  }, []);
 
   const xp = user?.xp || 0;
   const level = Math.max(1, Math.floor(xp / 500) + 1);
   const xpInLevel = xp % 500;
+  const canChange = gradeStatus?.can_change !== false;
+  const daysRemaining = gradeStatus?.days_remaining || 0;
 
   const handleSaveClass = async () => {
-    setSaving(true);
+    if (selectedClass === user?.class_level) return;
+    setSaving(true); setErrorMsg('');
     try {
-      await axios.put(`${API}/users/class`, { class_level: selectedClass }, { withCredentials: true });
+      const r = await axios.put(`${API}/users/grade`, { class_level: selectedClass }, { withCredentials: true });
       setUser(p => ({ ...p, class_level: selectedClass }));
+      setGradeStatus({ class_level: selectedClass, last_grade_change_at: r.data.last_grade_change_at, can_change: false, days_remaining: 30 });
       setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
-    } catch {}
+      setTimeout(() => setSaved(false), 2500);
+    } catch (e) {
+      const detail = e?.response?.data?.detail;
+      if (detail?.code === 'GRADE_CHANGE_COOLDOWN') {
+        setGradeStatus({ class_level: detail.current_class_level, last_grade_change_at: detail.last_change_at, can_change: false, days_remaining: detail.days_remaining });
+        setErrorMsg(detail.message);
+      } else {
+        setErrorMsg(typeof detail === 'string' ? detail : 'Could not change grade. Try again.');
+      }
+    }
     setSaving(false);
+  };
+
+  const submitAppeal = async () => {
+    if (!appealForm.desired_class || appealForm.reason.trim().length < 10) return;
+    setAppealSubmitting(true);
+    try {
+      const r = await axios.post(`${API}/users/grade-appeal`, appealForm, { withCredentials: true });
+      setAppealResult(r.data.request);
+      setAppealOpen(false);
+      setAppealForm({ desired_class: '', reason: '' });
+    } catch (e) {
+      setErrorMsg(e?.response?.data?.detail || 'Could not submit appeal');
+    }
+    setAppealSubmitting(false);
   };
 
   const infoItems = [
@@ -94,26 +135,123 @@ export default function ProfilePage() {
         ))}
       </div>
 
-      {/* Class Setting */}
+      {/* Academic Grade */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-        className="glass-surface rounded-2xl p-5 border border-white/5">
-        <h3 className="text-white font-heading font-bold mb-3 flex items-center gap-2">
-          <BookOpen size={18} className="text-cyan-400" /> Learning Class
+        className="glass-surface rounded-2xl p-5 border border-white/5" data-testid="grade-section">
+        <h3 className="text-white font-heading font-bold mb-1 flex items-center gap-2">
+          <BookOpen size={18} className="text-cyan-400" /> Academic Grade
         </h3>
-        <div className="flex gap-2 flex-wrap mb-4">
-          {CLASSES.map(cls => (
-            <button key={cls} onClick={() => setSelectedClass(cls)} data-testid={`class-select-${cls}`}
-              className={`w-10 h-10 rounded-xl text-sm font-heading font-bold transition-all ${selectedClass === cls ? 'bg-cyan-500 text-black shadow-lg shadow-cyan-500/25' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white'}`}>
-              {cls}
-            </button>
-          ))}
+        <p className="text-zinc-500 text-xs font-body mb-3">Your grade locks all syllabus, mock exams, and AI tutoring to your real class.</p>
+
+        <div className="flex gap-2 flex-wrap mb-3">
+          {CLASSES.map(cls => {
+            const isCurrent = cls === user?.class_level;
+            return (
+              <button key={cls} onClick={() => canChange && setSelectedClass(cls)}
+                disabled={!canChange}
+                data-testid={`class-select-${cls}`}
+                className={`w-10 h-10 rounded-xl text-sm font-heading font-bold transition-all ${selectedClass === cls
+                  ? 'bg-cyan-500 text-black shadow-lg shadow-cyan-500/25'
+                  : isCurrent
+                    ? 'bg-amber-500/20 text-amber-300 border border-amber-400/40'
+                    : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white'} ${!canChange ? 'opacity-40 cursor-not-allowed' : ''}`}>
+                {cls}
+              </button>
+            );
+          })}
         </div>
-        <button onClick={handleSaveClass} disabled={saving || saved || selectedClass === user?.class_level} data-testid="save-class-btn"
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-heading font-bold transition-all ${saved ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 hover:bg-cyan-500/25'} disabled:opacity-40`}>
-          {saving ? <div className="w-4 h-4 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" /> : <Save size={15} />}
-          {saved ? 'Saved!' : saving ? 'Saving...' : 'Save Class'}
-        </button>
+
+        {!canChange ? (
+          <div className="flex flex-wrap items-center gap-3" data-testid="grade-cooldown">
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-zinc-800/60 border border-amber-400/20 text-amber-300 text-xs font-body">
+              <Lock size={12} />
+              You can change your grade in <span className="font-bold">{daysRemaining} day{daysRemaining !== 1 ? 's' : ''}</span>
+            </div>
+            {appealResult?.status === 'pending' ? (
+              <span className="px-3 py-2 rounded-xl bg-blue-500/15 border border-blue-400/30 text-blue-300 text-xs font-body font-semibold flex items-center gap-2">
+                <Clock size={12} /> Appeal pending review
+              </span>
+            ) : (
+              <button onClick={() => setAppealOpen(true)} data-testid="open-appeal-btn"
+                className="px-3 py-2 rounded-xl bg-rose-500/15 border border-rose-400/30 text-rose-300 hover:bg-rose-500/25 text-xs font-body font-semibold transition-all">
+                Request Early Grade Change
+              </button>
+            )}
+          </div>
+        ) : (
+          <button onClick={handleSaveClass} disabled={saving || saved || selectedClass === user?.class_level} data-testid="save-class-btn"
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-heading font-bold transition-all ${saved ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 hover:bg-cyan-500/25'} disabled:opacity-40`}>
+            {saving ? <div className="w-4 h-4 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" /> : <Save size={15} />}
+            {saved ? 'Saved!' : saving ? 'Saving...' : 'Save Grade'}
+          </button>
+        )}
+
+        {errorMsg && (
+          <p className="mt-3 text-rose-400 text-xs font-body flex items-center gap-1.5" data-testid="grade-error">
+            <AlertTriangle size={12} /> {errorMsg}
+          </p>
+        )}
       </motion.div>
+
+      {/* Appeal Modal */}
+      <AnimatePresence>
+        {appealOpen && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md"
+            data-testid="appeal-modal">
+            <motion.div initial={{ scale: 0.92, y: 12 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95 }}
+              className="w-full max-w-md rounded-3xl glass border-2 border-rose-400/40 p-6 relative">
+              <button onClick={() => setAppealOpen(false)} data-testid="close-appeal-btn"
+                className="absolute top-3 right-3 p-1.5 rounded-full text-zinc-400 hover:text-white hover:bg-white/10 transition-all">
+                <X size={16} />
+              </button>
+              <h3 className="text-white text-xl font-heading font-black mb-1">Request Early Grade Change</h3>
+              <p className="text-zinc-400 text-sm font-body mb-4">Tell us why — our team reviews these within 48 hours.</p>
+
+              <label className="block text-zinc-500 text-xs font-body uppercase tracking-wider mb-1">Desired class</label>
+              <div className="flex flex-wrap gap-2 mb-3">
+                {CLASSES.filter(c => c !== user?.class_level).map(c => (
+                  <button key={c} data-testid={`appeal-class-${c}`}
+                    onClick={() => setAppealForm(p => ({ ...p, desired_class: c }))}
+                    className={`w-10 h-10 rounded-lg text-sm font-heading font-bold transition-all ${appealForm.desired_class === c ? 'bg-rose-500 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}>
+                    {c}
+                  </button>
+                ))}
+              </div>
+
+              <label className="block text-zinc-500 text-xs font-body uppercase tracking-wider mb-1">Reason</label>
+              <textarea value={appealForm.reason} onChange={e => setAppealForm(p => ({ ...p, reason: e.target.value }))}
+                rows={4} maxLength={400} data-testid="appeal-reason-input"
+                placeholder="e.g. I selected the wrong class during signup..."
+                className="w-full rounded-xl bg-zinc-900/60 border border-rose-400/20 px-3 py-2 text-white text-sm font-body focus:outline-none focus:border-rose-400/60 mb-1" />
+              <p className="text-zinc-600 text-xs font-body mb-4">{appealForm.reason.length}/400 — minimum 10 characters</p>
+
+              <button onClick={submitAppeal}
+                disabled={!appealForm.desired_class || appealForm.reason.trim().length < 10 || appealSubmitting}
+                data-testid="submit-appeal-btn"
+                className="w-full py-2.5 rounded-xl bg-rose-500 hover:bg-rose-400 text-white font-heading font-bold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+                {appealSubmitting ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><Send size={14} /> Submit Request</>}
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Appeal Result Banner */}
+      {appealResult && appealResult.status === 'pending' && (
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+          className="rounded-2xl p-4 border border-blue-400/30 bg-blue-500/10" data-testid="appeal-status-banner">
+          <div className="flex items-start gap-3">
+            <CheckCircle size={18} className="text-blue-400 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-blue-200 text-sm font-body font-semibold">Grade-change request submitted</p>
+              <p className="text-blue-300/80 text-xs font-body mt-0.5">
+                Requested: Class {appealResult.desired_class} • Status: <span className="font-bold uppercase">{appealResult.status}</span>
+              </p>
+            </div>
+          </div>
+        </motion.div>
+      )}
 
       {/* Account Info */}
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}

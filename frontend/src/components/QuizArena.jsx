@@ -2,13 +2,15 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Trophy, Sparkles, ChevronDown, CheckCircle, XCircle, ArrowRight, RotateCcw, Zap, Brain, Star, Target } from 'lucide-react';
 import axios from 'axios';
+import { useAuth } from '../contexts/AuthContext';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 export default function QuizArena() {
-  const [classes, setClasses] = useState([]);
+  const { user } = useAuth();
+  const userClass = user?.class_level || '9';
   const [subjects, setSubjects] = useState([]);
-  const [form, setForm] = useState({ class: '', subject: '', topic: '', difficulty: 'medium', num: 5 });
+  const [form, setForm] = useState({ class: userClass, subject: '', topic: '', difficulty: 'medium', num: 5 });
   const [quiz, setQuiz] = useState(null);
   const [answers, setAnswers] = useState({});
   const [result, setResult] = useState(null);
@@ -18,15 +20,10 @@ export default function QuizArena() {
   const [current, setCurrent] = useState(0);
 
   useEffect(() => {
-    axios.get(`${API}/syllabus/classes`, { withCredentials: true }).then(r => setClasses(r.data));
+    setForm(p => ({ ...p, class: userClass }));
+    axios.get(`${API}/syllabus/${userClass}/subjects`, { withCredentials: true }).then(r => setSubjects(r.data)).catch(() => {});
     axios.get(`${API}/quiz/history`, { withCredentials: true }).then(r => setHistory(r.data)).catch(() => {});
-  }, []);
-
-  const onClassChange = async (cls) => {
-    setForm(p => ({ ...p, class: cls, subject: '' }));
-    const r = await axios.get(`${API}/syllabus/${cls}/subjects`, { withCredentials: true });
-    setSubjects(r.data);
-  };
+  }, [userClass]);
 
   const generateQuiz = async () => {
     if (!form.class || !form.subject || !form.topic) return;
@@ -83,15 +80,11 @@ export default function QuizArena() {
               <h2 className="text-white font-heading font-bold mb-1">Configure Your Quiz</h2>
 
               <div className="grid grid-cols-2 gap-3">
-                <div className="relative">
-                  <select value={form.class} onChange={e => onClassChange(e.target.value)} data-testid="quiz-class-select" className={sel}>
-                    <option value="">Class</option>
-                    {classes.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                  </select>
-                  <ChevronDown size={14} className="absolute right-3 top-3.5 text-zinc-500 pointer-events-none" />
+                <div className="relative px-3 py-3 rounded-xl border border-amber-400/30 bg-amber-500/10 text-amber-300 text-sm font-body font-semibold flex items-center gap-2" data-testid="quiz-class-locked">
+                  <Sparkles size={14} /> Class {userClass}
                 </div>
                 <div className="relative">
-                  <select value={form.subject} onChange={e => setForm(p => ({ ...p, subject: e.target.value }))} data-testid="quiz-subject-select" className={sel} disabled={!form.class}>
+                  <select value={form.subject} onChange={e => setForm(p => ({ ...p, subject: e.target.value }))} data-testid="quiz-subject-select" className={sel}>
                     <option value="">Subject</option>
                     {subjects.map(s => <option key={s.name} value={s.name}>{s.name}</option>)}
                   </select>
