@@ -1,113 +1,149 @@
-# NeuraLearn - AI-Powered CBSE Learning Platform
+# AceIt AI — Product Requirements Document
 
-## Overview
-Production-level AI-powered CBSE learning platform with **verified NCERT curriculum engine**, **subscription + plan gating system**, **personalised onboarding**, royal-palette UI (red/blue/gold).
+## Original Problem Statement
+Build "AceIt AI" (formerly NeuraLearn), a complete production-level full-stack AI-powered CBSE learning platform. The product is a highly interactive, personalized AI tutor with gamification (streaks, leaderboards), advanced mock exams, visual learning (YouTube), study plans, and an NCERT-verified syllabus.
+
+## Hidden Full Form
+"Always Crush Exams" — never to be mentioned anywhere in the UI.
+
+## Tech Stack
+- **Frontend**: React 18, TailwindCSS, Framer Motion, Recharts, Lucide React
+- **Backend**: FastAPI (Python), MongoDB (Motor async), JWT auth
+- **AI**: OpenAI GPT-4o / GPT-4o-mini (emergentintegrations)
+- **Auth**: JWT + Emergent-managed Google OAuth
+- **Payments**: Razorpay (backend mocked gracefully if no key)
+
+## Color Scheme
+Royal Red/Blue/Gold — #dc2626 (red), #2563eb (blue), #fbbf24 (gold)
+
+## What's Been Implemented (Completed Features)
+
+### Phase 1 — Core Platform
+- [x] React frontend + FastAPI backend + MongoDB
+- [x] JWT authentication + Emergent Google Auth
+- [x] AI Chat with streaming (OpenAI GPT-4o)
+- [x] NCERT verified syllabus scraper (curriculum_engine.py)
+- [x] Adaptive learning engine (student profiles, memory)
+- [x] Quiz generation (15 credits)
+- [x] Mock exam system (30 credits)
+- [x] Study plans
+- [x] Leaderboards & social features
+- [x] Streak system
+
+### Phase 2 — Gamification & UX
+- [x] 5-step Onboarding flow
+- [x] Grade Access Control (class-level locking)
+- [x] Credit System (CreditBadge.jsx, auto-deduction)
+- [x] Subscription plans (Free, Starter, Pro, Elite)
+- [x] Pricing/Upgrade page
+- [x] Profile page
+- [x] Razorpay backend mock fallback
+
+### Phase 3 — AceIt AI Rebrand + Question Bank (2026-06-13)
+- [x] App renamed to "AceIt AI" everywhere (frontend + backend)
+- [x] Question Bank: Auto-builds Q&A pairs from NCERT PDFs
+  - 20 Q&A pairs per chapter via LLM (gpt-4o-mini)
+  - Stored in MongoDB question_bank collection
+  - knowledge_base.py does semantic lookup on user questions
+  - On KB hit: ultra-cheap rephrase (~130 tokens)
+  - On KB miss: full generation with adaptive context
+- [x] Variable credit cost for chat (1 credit per 100 words, min 1)
+- [x] 1000-word soft cap on AI responses (warning injected)
+- [x] No daily message limit for AI tutor
+- [x] Quiz cost: 15 credits (was 8)
+- [x] Mock exam cost: 30 credits (was 25)
+- [x] Chapter names only — no "Chapter N" numbers shown anywhere in UI
+- [x] cbse_data.py fallback for generic "Chapter N" NCERT titles
+- [x] Remove gradient blur on app name in IntroScreen, Sidebar, AuthPage
+- [x] "top performer" text in PricingPage is now solid gold (no gradient)
+- [x] Fixed duplicate "starter" plan in subscription API
+- [x] Fixed critical login loop (undefined ensure_indexes() removed from server.py)
 
 ## Architecture
-- **Frontend**: React 18 + TailwindCSS + Framer Motion + Three.js + Recharts + Redux Toolkit
-- **Backend**: FastAPI (modular routers) + Motor (MongoDB async)
-- **AI**: OpenAI GPT-4o (Pro/Elite) / GPT-4o-mini (Free) via streaming SSE
-- **Curriculum**: NCERT-verified manifest engine (25 books, 4 subjects, classes 6–12)
-- **DB**: MongoDB collections — `users, chat_sessions, messages, progress, quizzes, mock_exams, study_plans, leaderboard, referrals, curriculum, subscriptions, usage_counters, onboarding`
-- **Auth**: JWT + Emergent Google OAuth
-- **Payments**: Razorpay-ready architecture (currently mocked)
 
-### Backend Module Layout
 ```
-backend/
-├── server.py                   # FastAPI entrypoint
-├── core.py                     # Config, DB, OpenAI client, auth
-├── models.py                   # Pydantic request models
-├── plan_gates.py               # Plans catalog + check_limit + has_feature + usage tracking
-├── curriculum_engine.py        # NCERT manifest loader + AI grounding
-├── routes/
-│   ├── auth.py, chat.py, syllabus.py, quiz.py, mock_exam.py,
-│   ├── study_plan.py, social.py, curriculum.py
-│   └── subscription.py         # NEW — plans, subscribe, onboarding, grade update
-├── scripts/
-│   ├── ncert_scraper.py
-│   └── enrich_titles.py
-└── curriculum_data/
-    ├── ncert_books.json
-    └── ncert_ai_ready/ncert_ai_metadata.json + PDFs
+/app/
+├── backend/
+│   ├── server.py              # FastAPI entrypoint (mounts all routers)
+│   ├── core.py                # DB, logger, JWT helpers
+│   ├── models.py              # Pydantic models
+│   ├── plan_gates.py          # Subscription gating logic
+│   ├── credits.py             # Credit system (variable chat cost)
+│   ├── curriculum_engine.py   # NCERT verified syllabus (with cbse_data fallback)
+│   ├── knowledge_base.py      # Question bank semantic lookup
+│   ├── cbse_data.py           # Static CBSE chapter names (fallback)
+│   ├── adaptive_engine.py     # Student profiling
+│   ├── scripts/
+│   │   ├── ncert_scraper.py   # PDF downloader
+│   │   └── build_question_bank.py
+│   └── routes/
+│       ├── auth.py
+│       ├── chat.py            # AI chat with KB lookup + variable credits
+│       ├── quiz.py            # 15 credits
+│       ├── mock_exam.py       # 30 credits
+│       ├── syllabus.py        # Chapter names API (no numbers)
+│       ├── question_bank.py   # /api/question-bank/* endpoints
+│       ├── social.py          # Leaderboards
+│       ├── study_plan.py
+│       ├── subscription.py    # Pricing + Razorpay
+│       └── curriculum.py
+├── frontend/
+│   └── src/
+│       ├── App.js
+│       ├── contexts/
+│       │   ├── AuthContext.js
+│       │   ├── SubscriptionContext.jsx
+│       │   └── CreditsContext.jsx
+│       └── components/
+│           ├── IntroScreen.jsx
+│           ├── Sidebar.jsx
+│           ├── AuthPage.jsx
+│           ├── ChatPage.jsx
+│           ├── SyllabusPage.jsx     # Chapter names only (no numbers)
+│           ├── PricingPage.jsx      # top performer in gold
+│           ├── ProfilePage.jsx
+│           ├── OnboardingModal.jsx
+│           ├── LeaderboardPage.jsx
+│           ├── QuizPage.jsx
+│           ├── MockExamPage.jsx
+│           ├── StudyPlanPage.jsx
+│           ├── GradeAccessGuard.jsx
+│           └── CreditBadge.jsx
+└── memory/
+    ├── test_credentials.md
+    └── PRD.md
 ```
 
-## Phase 4 — Subscription & Onboarding (Feb 2026)
+## Key DB Schema
+- `users`: `{user_id, email, password_hash, name, class_level, xp, credits, plan, is_onboarded, grade_last_changed}`
+- `subscriptions`: `{user_id, plan, billing_cycle, expires_at}`
+- `chat_sessions`: `{session_id, user_id, class_level, subject, chapter, messages}`
+- `question_bank`: `{class_level, subject, chapter_no, chapter_title, question, answer, topic, difficulty, hit_count, created_at}`
+- `curriculum`: `{class_level, subject, chapters[{id, name, order, chapter_no, book_title}]}`
 
-### Onboarding (5-step modal — blocks app access until completed)
-1. Name
-2. Grade (Classes 6–12) — **locks user's syllabus to this grade**
-3. Exam goal (Boards / JEE / NEET / Improve / Exploring)
-4. Weak subjects (multi-select)
-5. Learning style (visual / quizzes / explanations / interactive / balanced)
+## Key API Endpoints
+- `POST /api/auth/login`
+- `GET /api/auth/me`
+- `POST /api/auth/register`
+- `GET /api/syllabus/{class_id}/{subject}/chapters`
+- `POST /api/chat/{session_id}/message` — streaming chat
+- `POST /api/quiz/generate` — 15 credits
+- `POST /api/mock-exam/generate` — 30 credits
+- `GET /api/question-bank/stats`
+- `POST /api/question-bank/build` — admin only
+- `GET /api/subscription/plans`
+- `GET /api/credits`
 
-Grade can be changed later in Profile → re-locks syllabus.
+## Credit System
+- AI Chat: 1 credit per 100 words generated (min 1, soft cap 1000 words)
+- Quiz Generation: 15 credits
+- Mock Exam: 30 credits
+- Free plan: 100 credits on signup
 
-### Plans
-| Plan | Price | Key Limits |
-|------|-------|------------|
-| **Free** | ₹0/mo | 10 AI msgs/day · 1 mock/week · 3 quizzes/day · GPT-4o-mini · top-10 leaderboard · basic analytics |
-| **Pro** ★ Most Popular | ₹299/mo (or ₹2,870/yr) | Unlimited chat · 5 mocks/week · Adaptive quizzes · GPT-4o · Full leaderboard · Deep analytics · AI memory |
-| **Elite** ☆ Premium | ₹799/mo (or ₹7,670/yr) | Everything in Pro + Unlimited mocks · Exam countdown · Priority queue · Performance prediction |
-
-Yearly billing = **20% off**.
-
-### Backend Gates (all server-enforced — frontend can't bypass)
-- `chat.py` — daily AI message limit + grade-lock on session create + model swap (Free→4o-mini, Pro/Elite→4o)
-- `mock_exam.py` — weekly mock limit + grade-lock + `adaptive_quizzes` feature gate on `/followup-quiz`
-- `quiz.py` — daily quiz limit + grade-lock
-- `social.py` — leaderboard truncated to top 10 for Free users
-- Returns HTTP 429 (limit) or 402 (premium feature) with structured `detail` payload for frontend modal
-
-### Usage Tracking
-- `db.usage_counters` per user with `ai_messages_by_day`, `quizzes_by_day`, `mocks_by_week` (counter dicts auto-rotating by date)
-- Live counters returned from `GET /api/subscription/me`
-
-### New API Endpoints
-- `GET /api/subscription/plans` — public plan catalog
-- `GET /api/subscription/me` — current plan + limits + live usage
-- `POST /api/subscription/subscribe` — **mocked Razorpay** (architecture ready)
-- `POST /api/subscription/cancel`
-- `GET /api/onboarding/status`
-- `POST /api/onboarding/submit`
-- `PUT /api/users/grade` — change grade (re-locks syllabus)
-
-### Frontend Components
-- `SubscriptionContext` — `plan`, `usage`, `hasFeature()`, `triggerUpgrade()` — wraps the app
-- `OnboardingModal` — 5-step gradient modal, blocks unauthed app access
-- `PricingPage` (`/upgrade`) — 3 plan cards with gradient glows, badge animations, monthly/yearly toggle with "SAVE 20%" sticker, celebratory upgrade success overlay
-- `UpgradePromptModal` — appears on 429/402 errors, deep links to pricing
-- `Sidebar` — animated **"Upgrade to Pro ₹299"** CTA for free users, **"Pro Active"** crown for paid users
-- `SyllabusPage` — class selector removed; locked to `user.class_level`
-- `ChatPage` — handles 429 limit → triggers upgrade modal, refreshes usage on send
-
-## Phase 3 — NCERT Curriculum Engine
-- 25 NCERT books scraped (classes 6–12, English-medium)
-- 216/294 chapters with **real verified titles** (Class 10 Math: "Real Numbers", "Polynomials"... — exact NCERT names)
-- "NCERT ✓" verification badge on syllabus UI
-- AI tutor receives chapter manifest in system prompt → grounded against hallucination
-- PDFs kept server-side only for AI reference (not exposed to users)
-
-## Phase 1+2 — Earlier
-JWT/Google auth, IntroScreen, Dashboard, AI Chat (streaming, [YOUTUBE] + [QUIZ] + Next-Step tags), QuizArena, Profile, Leaderboard (Global/Class/Friends scopes), Mock Exams + Adaptive follow-up, Study Plan, Referrals, Daily Missions, Streak Reminders.
-
-## Testing
-- **30/31 pytest backend tests pass** (regression intact post-Phase 4)
-- Fixtures updated to register with class_level + auto-onboard + auto-upgrade to Pro for tests that need premium features
-- 1 failing test (streak admin) is pre-existing, unrelated to Phase 4
-
-## Prioritized Backlog
-
-### P1 (Next)
-- Real Razorpay integration (drop-in replacement for mocked `/subscribe` endpoint)
-- Replace last 78 generic "Chapter N" titles by parsing each chapter PDF's page 1
-- RAG: vector-index NCERT PDFs and cite real textbook passages
-- Add Class 11/12 Science (Physics/Chemistry/Biology) + Computer Science to `ncert_books.json`
-- Real YouTube Data API v3 integration
-
-### P2
-- Hindi-medium support, parent/teacher dashboards, Whisper voice input, PWA offline mode
-
-## Environment
-- `OPENAI_API_KEY`, `JWT_SECRET`, `MONGO_URL`, `DB_NAME`, `FRONTEND_URL` in `backend/.env`
-- `REACT_APP_BACKEND_URL` in `frontend/.env`
+## Backlog / Future Tasks
+- P1: Notification system (sonner toasts for streak, grade change, quiz done)
+- P1: Razorpay frontend payment flow (resume when user requests)
+- P2: Subscription Management Profile UI (view/upgrade plan from profile)
+- P2: AI cost optimization (chapter summary caching)
+- P2: Class 11/12 Science (Physics/Chem/Bio) + CS chapter expansion
+- P2: Question bank search UI (show students related Q&A from bank)

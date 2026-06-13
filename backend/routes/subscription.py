@@ -47,8 +47,14 @@ async def my_credits(request: Request):
 # ----- Plan catalog -----
 @router.get("/subscription/plans")
 async def list_plans():
-    """Public catalog of all plans."""
-    return {"plans": list(PLANS.values())}
+    """Public catalog of all plans — deduplicated by plan id."""
+    seen = set()
+    unique_plans = []
+    for plan in PLANS.values():
+        if plan["id"] not in seen:
+            seen.add(plan["id"])
+            unique_plans.append(plan)
+    return {"plans": unique_plans}
 
 
 @router.get("/subscription/me")
