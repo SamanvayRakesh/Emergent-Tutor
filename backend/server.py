@@ -1,4 +1,4 @@
-"""NeuraLearn Backend - FastAPI app entrypoint. Mounts all route modules."""
+"""AceIt AI Backend - FastAPI app entrypoint. Mounts all route modules."""
 import os
 import uuid
 from datetime import datetime, timezone
@@ -17,10 +17,11 @@ from routes import study_plan as study_plan_routes
 from routes import social as social_routes
 from routes import curriculum as curriculum_routes
 from routes import subscription as subscription_routes
+from routes import question_bank as question_bank_routes
 from curriculum_engine import load_curriculum_from_json
 
 
-app = FastAPI(title="NeuraLearn API", version="1.0.0")
+app = FastAPI(title="AceIt AI API", version="1.0.0")
 api_router = APIRouter(prefix="/api")
 
 # Mount feature routers under /api
@@ -33,6 +34,7 @@ api_router.include_router(study_plan_routes.router)
 api_router.include_router(social_routes.router)
 api_router.include_router(curriculum_routes.router)
 api_router.include_router(subscription_routes.router)
+api_router.include_router(question_bank_routes.router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -76,6 +78,17 @@ async def startup_event():
     except Exception as e:
         logger.warning(f"Curriculum load skipped: {e}")
 
+    # Auto-trigger question bank build in background if empty
+    try:
+        kb_count = await db.question_bank.count_documents({})
+        if kb_count < 100:
+            from routes.question_bank import _run_kb_build
+            import asyncio
+            asyncio.create_task(_run_kb_build())
+            logger.info("Question bank build started in background (KB was empty)")
+    except Exception as e:
+        logger.warning(f"QB auto-build skipped: {e}")
+
     # Seed admin
     admin_email = os.environ.get("ADMIN_EMAIL", "admin@neuralearn.ai")
     admin_password = os.environ.get("ADMIN_PASSWORD", "Admin@123456")
@@ -84,7 +97,7 @@ async def startup_event():
         user_id = f"user_{uuid.uuid4().hex[:12]}"
         now = datetime.now(timezone.utc).isoformat()
         await db.users.insert_one({
-            "user_id": user_id, "email": admin_email, "name": "NeuraLearn Admin",
+            "user_id": user_id, "email": admin_email, "name": "AceIt AI Admin",
             "password_hash": hash_password(admin_password),
             "role": "admin", "xp": 5000, "level": 11,
             "streak": 30, "longest_streak": 30, "last_active": now,
@@ -96,7 +109,7 @@ async def startup_event():
     # Write test credentials
     creds_path = Path("/app/memory/test_credentials.md")
     creds_path.parent.mkdir(exist_ok=True)
-    creds_path.write_text(f"""# NeuraLearn Test Credentials
+    creds_path.write_text(f"""# AceIt AI Test Credentials
 
 ## Admin Account
 - Email: {admin_email}
@@ -119,7 +132,7 @@ async def startup_event():
 - Frontend: {FRONTEND_URL}
 - Backend API: {FRONTEND_URL}/api
 """)
-    logger.info("NeuraLearn backend started successfully!")
+    logger.info("AceIt AI backend started successfully!")
 
 
 @app.on_event("shutdown")

@@ -117,12 +117,11 @@ export default function IntroScreen({ onComplete }) {
         {/* Logo */}
         <div className="i-logo opacity-0 translate-y-8 text-center mb-2">
           <h1 className="font-heading font-black tracking-tight" style={{ fontSize: 'clamp(3rem, 10vw, 6rem)' }}>
-            <span className="gradient-text">Neura</span>
-            <span className="text-white">Learn</span>
+            <span className="text-white">AceIt</span>
+            <span style={{ color: '#dc2626' }}> AI</span>
           </h1>
         </div>
 
-        {/* Tagline */}
         <p className="i-tag opacity-0 translate-y-4 text-zinc-400 text-base sm:text-lg font-body mb-8 text-center max-w-sm">
           AI-powered CBSE tutoring for Classes 6–12
           <br /><span className="text-cyan-400 font-semibold">Learn. Think. Master.</span>

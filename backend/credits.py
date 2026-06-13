@@ -1,20 +1,12 @@
 """Credit system — cost-calibrated to keep ₹399/month plan profitable.
 
-Business target:
-  100 users × ₹399 = ₹39,900 revenue
-  Target AI cost  = ₹15,000–20,000/month (≤₹200/user)
+Credits for AI chat scale with words generated:
+  - 1 credit per 100 words (rounded up), min 1 credit
+  - Max response capped at 1000 words (soft warning injected)
 
-Credit costs are set so 500 credits ≈ ₹150–180 worst-case AI spend per user.
-
-Credit → token mapping (gpt-4o-mini, KB-assisted):
-  ai_message      1 cr  → KB hit ~130 tok  (₹0.01) | KB miss ~800 tok (₹0.08)
-  quiz_generate   8 cr  → ~1,200 tokens    (₹0.13)
-  mock_exam       25 cr → ~4,000 tokens    (₹0.42)
-  mock_exam_cached 3 cr → served from cache (₹0.00 AI cost)
-
-Worst case all-KB-miss: 500 msg × ₹0.08 = ₹40. Fine.
-Worst case mix: 300 msg + 10 quizzes + 4 mocks
-  = 300×₹0.05 + 10×₹0.13 + 4×₹0.42 = ₹15+₹1.3+₹1.68 = ₹18/user ✅
+Fixed costs:
+  quiz_generate   15 cr → ~1,200 tokens
+  mock_exam       30 cr → ~4,000 tokens
 """
 
 from fastapi import HTTPException
@@ -22,11 +14,20 @@ from pymongo import ReturnDocument
 from core import db
 
 CREDIT_COSTS = {
-    "ai_message":          1,    # cheap — KB handles most
-    "quiz_generate":       8,    # ~1,200 tokens
-    "mock_exam_generate":  25,   # ~4,000 tokens
+    "ai_message":          1,    # base — actual deduction calculated per response word count
+    "quiz_generate":       15,   # ~1,200 tokens
+    "mock_exam_generate":  30,   # ~4,000 tokens
     "mock_exam_cached":    3,    # cache hit — no generation cost
 }
+
+# Credit cost per 100 words generated (chat only)
+CREDITS_PER_100_WORDS = 1
+CHAT_WORD_LIMIT = 1000  # soft cap — warning injected if exceeded
+
+
+def calculate_chat_credits(word_count: int) -> int:
+    """Calculate credits for a chat response based on word count. Min 1 credit."""
+    return max(1, (word_count + 99) // 100)  # ceil(words / 100)
 
 # Monthly hard token caps per plan (safety ceiling on top of credits)
 # gpt-4o-mini: $0.15/1M input, $0.60/1M output → ~₹0.10/1K tokens blended
@@ -71,6 +72,27 @@ async def ensure_credits(user_id: str, kind: str) -> int:
     return balance
 
 
+async def deduct_credits_for_chat(user_id: str, word_count: int) -> dict:
+    """Atomically deduct credits based on chat response word count. Min 1 credit."""
+    cost = calculate_chat_credits(word_count)
+    if cost <= 0:
+        return {"deducted": 0, "balance": await get_credits(user_id)}
+    result = await db.users.find_one_and_update(
+        {"user_id": user_id, "credits": {"$gte": cost}},
+        {"$inc": {"credits": -cost}},
+        projection={"_id": 0, "credits": 1},
+        return_document=ReturnDocument.AFTER,
+    )
+    if not result:
+        # Not enough credits — deduct minimum 1 if any available, else just proceed
+        balance = await get_credits(user_id)
+        if balance > 0:
+            await db.users.update_one({"user_id": user_id}, {"$inc": {"credits": -1}})
+            return {"deducted": 1, "balance": max(0, balance - 1)}
+        return {"deducted": 0, "balance": 0}
+    return {"deducted": cost, "balance": result.get("credits", 0)}
+
+
 async def deduct_credits(user_id: str, kind: str) -> dict:
     """Atomically deduct credits. Raises 402 on insufficient balance."""
     cost = CREDIT_COSTS.get(kind, 0)
@@ -109,8 +131,8 @@ async def grant_plan_credits(user_id: str, plan_id: str):
 def _msg_for(kind: str, balance: int) -> str:
     pretty = {
         "ai_message":         "Not enough credits to send an AI message.",
-        "quiz_generate":      "Not enough credits to generate a quiz (costs 8 credits).",
-        "mock_exam_generate": "Not enough credits for a mock exam (costs 25 credits).",
+        "quiz_generate":      f"Not enough credits to generate a quiz (costs {CREDIT_COSTS['quiz_generate']} credits).",
+        "mock_exam_generate": f"Not enough credits for a mock exam (costs {CREDIT_COSTS['mock_exam_generate']} credits).",
         "mock_exam_cached":   "Not enough credits.",
     }.get(kind, "Not enough credits.")
     return f"{pretty} You have {balance} credit{'s' if balance != 1 else ''} left."

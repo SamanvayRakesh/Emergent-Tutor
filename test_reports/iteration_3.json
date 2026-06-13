@@ -1,0 +1,73 @@
+{
+  "summary": "Iteration 3 testing: AceIt AI rename, credit costs, question bank stats, chat no-limit, chapter names, subscription page. Backend: 16/16 pytest tests PASSED. Frontend: Fixed 'NeuraLearn' bug on AuthPage (renamed to AceIt AI). All core features verified: auth login, /auth/me, question bank stats, quiz=15cr, mock=30cr, no daily chat limit, top performer in gold, syllabus shows clean chapter names. Found one pre-existing backend bug: duplicate 'starter' plan in subscription plans API.",
+
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "GET /api/subscription/plans",
+        "issue": "Returns 5 plans instead of 4 — 'starter' appears twice. Root cause: plan_gates.py line 111: PLANS['pro_legacy'] = PLANS['starter'] adds a duplicate entry to the dict, so list(PLANS.values()) includes starter twice. Fix: either remove pro_legacy from PLANS dict or exclude it from the list_plans response.",
+        "priority": "MEDIUM"
+      }
+    ]
+  },
+
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "AuthPage.jsx",
+        "issue": "Auth page logo showed 'NeuraLearn' (gradient-text 'Neura' + text-white 'Learn') instead of 'AceIt AI'. FIXED in this iteration — updated lines 67-69 to use 'AceIt' / red ' AI' spans.",
+        "selector": "span.font-heading.font-black.text-2xl",
+        "priority": "HIGH",
+        "status": "FIXED"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "PricingPage /upgrade",
+        "issues": ["Duplicate 'Starter' plan card appears (5 cards instead of 4) — shows Free, Starter, Pro in row 1 and Elite, Starter (duplicate) in row 2. Backend API issue (plan_gates.py pro_legacy)."]
+      }
+    ]
+  },
+
+  "test_report_links": [
+    "/app/backend/tests/test_iteration3.py",
+    "/app/test_reports/pytest/iteration3_results.xml"
+  ],
+
+  "action_items": [
+    "Fix duplicate 'starter' in PLANS: In plan_gates.py line 111, remove or exclude PLANS['pro_legacy'] from the list_plans API response. Quick fix: in subscription.py list_plans(), filter to only show plans where id matches the key (exclude pro_legacy).",
+    "AuthPage.jsx NeuraLearn->AceIt AI rename: ALREADY FIXED by T1 in this iteration."
+  ],
+
+  "critical_code_review_comments": [
+    "plan_gates.py line 111: PLANS['pro_legacy'] = PLANS['starter'] causes list(PLANS.values()) to return 'starter' twice. Fix in subscription.py: return {'plans': [p for p in PLANS.values() if p['id'] in PLANS]} or deduplicate by id.",
+    "AuthPage.jsx logo was not renamed from NeuraLearn → AceIt AI (lines 67-69). Fixed: changed to <span className='text-white'>AceIt</span><span style={{color:'#dc2626'}}> AI</span>.",
+    "curriculum_engine.py: Class 12 Mathematics shows duplicate chapters (Part 1 + Part 2 have identical names). Not a new bug but may confuse users — consider deduplicating by chapter_no per book_title.",
+    "SyllabusPage.jsx correctly shows only ch.name (no chapter number prefix) — feature is working as intended.",
+    "chat.py: Daily message limit (check_limit) correctly removed for ai_message. Variable credit deduction (deduct_credits_for_chat) correctly implemented. CHAT_WORD_LIMIT=1000 soft-cap with warning injection working."
+  ],
+
+  "updated_files": [
+    "/app/frontend/src/components/AuthPage.jsx (fixed NeuraLearn → AceIt AI logo)",
+    "/app/backend/tests/test_iteration3.py (new — 16 tests for iteration 3 features)"
+  ],
+
+  "success_rate": {
+    "backend": "100% (16/16 pytest tests)",
+    "frontend": "95% (AuthPage fixed; duplicate plan card on pricing page is a backend API bug)"
+  },
+
+  "test_credentials": "admin@neuralearn.ai / Admin@123456 (admin, class_level=12). TEST_it3_* student accounts created during pytest (registered + onboarded, class_level=9).",
+
+  "seed_data_creation": "TEST_it3_* student accounts created during pytest run — one per test session. Admin onboarding completed via API during UI testing.",
+
+  "retest_needed": true,
+
+  "main_agent_can_self_test": true,
+
+  "context_for_next_testing_agent": "Backend regression suite: 16 tests in /app/backend/tests/test_iteration3.py + 19 previous tests across test_phase2.py + test_followup_quiz.py. Total 35 tests. Run: pytest /app/backend/tests/ -v. Admin user is now onboarded (class_level=12). Key verified: quiz=15cr, mock=30cr, chat word limit=1000, no daily AI chat limit, question-bank/stats returns valid JSON, chapter names have no 'Chapter N' prefix in UI. One open bug: subscription/plans returns 5 plans (starter duplicated) due to pro_legacy alias in plan_gates.py. AuthPage logo was NeuraLearn — FIXED by T1 in this iteration.",
+
+  "rca_of_issue": "1. AuthPage NeuraLearn bug: AuthPage.jsx lines 67-68 were not updated during the AceIt AI rename. The two spans still had class='gradient-text' and 'Neura'/'Learn' text. Root cause: incomplete rename — IntroScreen.jsx, Sidebar.jsx, OnboardingModal.jsx were updated but AuthPage.jsx was missed. Fix: replace with AceIt/AI spans matching other components. 2. Duplicate starter plan: plan_gates.py line 111 does PLANS['pro_legacy'] = PLANS['starter'], which adds a second entry with key 'pro_legacy' but value identical to 'starter'. list(PLANS.values()) then yields 'starter' dict twice. Fix: add a filter in list_plans() to deduplicate by id."
+}

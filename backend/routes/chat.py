@@ -15,8 +15,8 @@ from fastapi.responses import StreamingResponse
 
 from core import db, openai_client, logger, get_current_user
 from curriculum_engine import build_ai_chapter_manifest, get_verified_chapters
-from plan_gates import check_limit, increment_usage, get_user_plan
-from credits import deduct_credits
+from plan_gates import increment_usage, get_user_plan
+from credits import deduct_credits, deduct_credits_for_chat, calculate_chat_credits, CHAT_WORD_LIMIT
 from models import ChatSessionCreate, ChatMessageRequest
 from adaptive_engine import (
     get_student_profile, build_compact_memory,
@@ -133,7 +133,7 @@ def _build_system_prompt(session: dict, memory: dict, category: str, chapter_con
         )
 
     board_note = "🎯 BOARD EXAM FOCUS — mention exam patterns." if cls in ("10","12") else ""
-    return f"""You are NeuraLearn's AI Tutor — expert CBSE educator.
+    return f"""You are AceIt AI Tutor — expert CBSE educator.
 
 LESSON: Class {cls} | {subject} | {chapter}
 STUDENT: {_age_guidance(class_num)} | difficulty={difficulty}
@@ -145,6 +145,7 @@ RULES:
 • Build intuition before formulas. Short paragraphs (3 lines max).
 • Adapt to difficulty: {"simpler language, more examples" if difficulty=="easy" else "challenge mode" if difficulty=="hard" else "balanced depth"}
 • End every response with ONE of: ⚡ Challenge | 🎯 Quick Check | 📝 Exam Tip
+• Keep response under {CHAT_WORD_LIMIT} words. If the question requires longer explanation, include a short note at the end.
 {"• Keep answer under 120 words (token budget active)" if max_tokens <= 250 else ""}"""
 
 
@@ -165,20 +166,7 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
             detail="This chapter is outside your active grade. Change your grade in Profile.",
         )
 
-    # Daily message limit check
-    allowed, limit_info = await check_limit(user["user_id"], "ai_message")
-    if not allowed:
-        raise HTTPException(
-            status_code=429,
-            detail={
-                "code": "DAILY_LIMIT_REACHED", "feature": "ai_message",
-                "message": f"You've used all {limit_info['limit']} AI messages today on the Free plan.",
-                "limit_info": limit_info, "upgrade_to": "starter",
-            },
-        )
-
-    # Credit gate
-    await deduct_credits(user["user_id"], "ai_message")
+    # Daily message limit check — REMOVED: no limit for AI tutor
 
     # Budget check — determines model + token ceiling
     plan_info = await get_user_plan(user["user_id"])
@@ -299,7 +287,9 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
     # ── Stream response ───────────────────────────────────────────────────────
     async def generate():
         full_content = ""
+        word_count = 0
         input_tokens_est = int(sum(len(m["content"].split()) * 1.3 for m in ai_messages))
+        word_limit_warned = False
 
         try:
             stream = await openai_client.chat.completions.create(
@@ -313,6 +303,15 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
                 delta = chunk.choices[0].delta.content
                 if delta:
                     full_content += delta
+                    word_count = len(full_content.split())
+                    # Soft cap: inject warning at 1000 words and stop
+                    if word_count >= CHAT_WORD_LIMIT and not word_limit_warned:
+                        word_limit_warned = True
+                        warning = "\n\n⚠️ *Response is quite long (1000+ words). For a more focused answer, try asking a specific part of this topic.*"
+                        full_content += warning
+                        yield f"data: {json.dumps({'type':'chunk','content':delta})}\n\n"
+                        yield f"data: {json.dumps({'type':'chunk','content':warning})}\n\n"
+                        break
                     yield f"data: {json.dumps({'type':'chunk','content':delta})}\n\n"
         except Exception as e:
             logger.error(f"OpenAI error: {e}")
@@ -342,12 +341,16 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
                     {"user_id": user["user_id"]}, {"$set": {"level": new_level}}
                 )
 
+        # Variable credit deduction based on word count
+        final_word_count = len(full_content.split())
+        await deduct_credits_for_chat(user["user_id"], final_word_count)
+
         # Usage + token tracking
         await increment_usage(user["user_id"], "ai_messages", 1)
         output_tokens_est = int(len(full_content.split()) * 1.3)
         await record_token_usage(user["user_id"], ai_model, input_tokens_est, output_tokens_est)
 
-        yield f"data: {json.dumps({'type':'done'})}\n\n"
+        yield f"data: {json.dumps({'type':'done','word_count':final_word_count,'credits_used':calculate_chat_credits(final_word_count)})}\n\n"
 
     return StreamingResponse(
         generate(),

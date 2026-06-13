@@ -129,9 +129,9 @@ export default function SyllabusPage() {
               {filteredChapters.map((ch, i) => (
                 <motion.div key={ch.id} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}
                   className="flex items-center gap-3 p-3.5 rounded-xl glass-surface border border-white/5 hover:border-white/10 transition-all group">
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 text-xs font-heading font-bold text-zinc-600"
-                    style={{ background: subjectColor + '10', color: subjectColor }}>
-                    {i + 1}
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                    style={{ background: subjectColor + '10' }}>
+                    <BookOpen size={14} style={{ color: subjectColor }} />
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
@@ -145,7 +145,7 @@ export default function SyllabusPage() {
                       )}
                     </div>
                     <p className="text-zinc-600 text-xs font-body mt-0.5">
-                      {ch.book_title ? `${ch.book_title} • Chapter ${ch.chapter_no}` : `${ch.lessons?.length || 0} lessons`}
+                      {ch.book_title || 'NCERT Textbook'}
                     </p>
                   </div>
                   <button onClick={() => startChat(ch)} data-testid={`start-chapter-${ch.id}`}

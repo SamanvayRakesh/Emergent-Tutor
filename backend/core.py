@@ -28,7 +28,7 @@ openai_client = AsyncOpenAI(api_key=OPENAI_API_KEY)
 
 # ----- Logging -----
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-logger = logging.getLogger("neuralearn")
+logger = logging.getLogger("aceit")
 
 
 # ----- Password hashing -----

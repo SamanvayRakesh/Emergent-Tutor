@@ -31,7 +31,7 @@ function ProtectedRoute({ children }) {
     <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
       <div className="flex flex-col items-center gap-4">
         <div className="w-12 h-12 rounded-full border-2 border-cyan-400 border-t-transparent animate-spin" />
-        <p className="text-zinc-400 text-sm font-body">Loading NeuraLearn...</p>
+        <p className="text-zinc-400 text-sm font-body">Loading AceIt AI...</p>
       </div>
     </div>
   );
@@ -86,11 +86,11 @@ function App() {
   const [showIntro, setShowIntro] = useState(() => {
     // Skip intro for OAuth callback
     if (window.location.hash?.includes('session_id=')) return false;
-    return !sessionStorage.getItem('neuralearn_intro_seen');
+    return !sessionStorage.getItem('aceit_intro_seen');
   });
 
   const handleIntroComplete = () => {
-    sessionStorage.setItem('neuralearn_intro_seen', 'true');
+    sessionStorage.setItem('aceit_intro_seen', 'true');
     setShowIntro(false);
   };
 

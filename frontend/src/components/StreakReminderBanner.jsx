@@ -5,7 +5,7 @@ import { Flame, Bell, BellOff, X, ArrowRight, Heart } from 'lucide-react';
 import axios from 'axios';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
-const DISMISS_KEY = 'neuralearn_streak_dismiss';
+const DISMISS_KEY = 'aceit_streak_dismiss';
 
 export default function StreakReminderBanner() {
   const [data, setData] = useState(null);
@@ -30,7 +30,7 @@ export default function StreakReminderBanner() {
           try {
             const n = new Notification('🔥 Don\'t break your streak!', {
               body: r.data.message,
-              tag: 'neuralearn-streak',
+              tag: 'aceit-streak',
               icon: '/favicon.ico',
             });
             n.onclick = () => { window.focus(); nav('/chat'); n.close(); };
@@ -51,7 +51,7 @@ export default function StreakReminderBanner() {
     setNotifPermission(perm);
     if (perm === 'granted') {
       try {
-        new Notification('NeuraLearn is on duty 🔥', {
+        new Notification('AceIt AI is on duty 🔥', {
           body: 'We\'ll nudge you when your streak is at risk. Now go crush a quiz!',
           icon: '/favicon.ico',
         });

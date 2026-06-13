@@ -56,7 +56,7 @@ export default function PricingPage() {
         key: order.key_id || process.env.REACT_APP_RAZORPAY_KEY_ID,
         amount: order.amount_paise, currency: order.currency || 'INR',
         order_id: order.order_id,
-        name: 'NeuraLearn', description: `${planId.toUpperCase()} • ${billing}`,
+        name: 'AceIt AI', description: `${planId.toUpperCase()} • ${billing}`,
         image: '/favicon.ico',
         prefill: order.prefill || {},
         theme: { color: '#dc2626' },
@@ -99,7 +99,7 @@ export default function PricingPage() {
           <span className="text-amber-400 text-[10px] font-body uppercase tracking-widest font-bold">Choose your plan</span>
         </div>
         <h1 className="text-4xl sm:text-5xl lg:text-6xl font-heading font-black text-white mb-3">
-          Become a <span className="gradient-text">top performer</span>
+          Become a <span style={{ color: '#fbbf24' }}>top performer</span>
         </h1>
         <p className="text-zinc-400 text-base sm:text-lg font-body max-w-xl mx-auto">
           Unlimited AI tutoring, adaptive mocks, and exam-day intensive mode — built for serious learners.

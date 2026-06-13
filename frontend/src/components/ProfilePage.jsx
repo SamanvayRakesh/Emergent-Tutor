@@ -87,7 +87,7 @@ export default function ProfilePage() {
           <User size={28} className="text-cyan-400" />
           Profile
         </h1>
-        <p className="text-zinc-500 text-sm font-body mt-1">Your NeuraLearn account</p>
+        <p className="text-zinc-500 text-sm font-body mt-1">Your AceIt AI account</p>
       </div>
 
       {/* Avatar & Name */}

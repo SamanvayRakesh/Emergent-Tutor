@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from core import db, logger
+import cbse_data as _cbse
 
 METADATA_JSON = "/app/backend/curriculum_data/ncert_ai_ready/ncert_ai_metadata.json"
 BOOKS_JSON = "/app/backend/curriculum_data/ncert_books.json"
@@ -40,14 +41,20 @@ def _denormalize_subject(key: str) -> str:
     return {"social_science": "Social Science"}.get(key, key.replace("_", " ").title())
 
 
-def _clean_chapter_title(raw: str, fallback_no: int) -> str:
-    """Strip junk and provide a graceful fallback."""
-    if not raw:
+def _is_generic_title(title: str) -> bool:
+    return bool(re.fullmatch(r"chapter\s+\d+", (title or "").strip(), re.IGNORECASE))
+
+
+def _clean_chapter_title(raw: str, fallback_no: int, cls: str = "", subj: str = "") -> str:
+    """Strip junk; cross-reference cbse_data for generic 'Chapter N' fallbacks."""
+    if not raw or _is_generic_title(raw):
+        if cls and subj:
+            chapters = _cbse.get_chapters(cls, subj) or []
+            idx = fallback_no - 1
+            if 0 <= idx < len(chapters):
+                return chapters[idx]["name"]
         return f"Chapter {fallback_no}"
     cleaned = re.sub(r"\s+", " ", raw).strip()
-    # Skip if it's the generic placeholder
-    if re.fullmatch(r"chapter\s+\d+", cleaned, re.IGNORECASE):
-        return f"Chapter {fallback_no}"
     return cleaned
 
 
@@ -105,7 +112,7 @@ async def load_curriculum_from_json():
                     continue
                 running_order += 1
                 ch_no = ch.get("chapter_no", running_order)
-                title = _clean_chapter_title(ch.get("title", ""), ch_no)
+                title = _clean_chapter_title(ch.get("title", ""), ch_no, cls, _denormalize_subject(subj))
                 merged_chapters.append({
                     "id": f"{cls}-{subj}-{running_order}",
                     "name": title,

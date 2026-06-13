@@ -40,8 +40,8 @@ export default function Sidebar({ onClose }) {
             <BookOpen size={16} className="text-white" />
           </div>
           <span className="font-heading font-black text-lg">
-            <span className="gradient-text">Neura</span>
-            <span className="text-white">Learn</span>
+            <span className="text-white">AceIt</span>
+            <span style={{ color: '#dc2626' }}> AI</span>
           </span>
         </div>
         {onClose && (

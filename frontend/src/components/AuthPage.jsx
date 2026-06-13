@@ -64,8 +64,8 @@ export default function AuthPage() {
               <BookOpen size={20} className="text-white" />
             </div>
             <span className="font-heading font-black text-2xl">
-              <span className="gradient-text">Neura</span>
-              <span className="text-white">Learn</span>
+              <span className="text-white">AceIt</span>
+              <span style={{ color: '#dc2626' }}> AI</span>
             </span>
           </div>
           <p className="text-zinc-500 text-sm font-body">Your AI-powered CBSE tutor</p>
@@ -157,7 +157,7 @@ export default function AuthPage() {
 
           {tab === 'register' && (
             <p className="text-zinc-600 text-xs text-center mt-4 font-body">
-              By signing up, you agree to learn and grow with NeuraLearn
+              By signing up, you agree to learn and grow with AceIt AI
             </p>
           )}
         </div>

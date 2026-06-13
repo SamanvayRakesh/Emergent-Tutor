@@ -32,7 +32,7 @@ export default function OnboardingModal({ onComplete }) {
   const STEPS = [
     {
       icon: Sparkles, color: '#fbbf24',
-      title: 'Welcome to NeuraLearn',
+      title: 'Welcome to AceIt AI',
       subtitle: "Let's personalize your AI tutor in 30 seconds.",
       key: 'name',
       content: (

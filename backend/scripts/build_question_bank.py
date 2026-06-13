@@ -34,7 +34,7 @@ VARIANT_COUNT = 3     # semantic rephrasing variants per question
 
 mongo_client = AsyncIOMotorClient(MONGO_URL)
 db = mongo_client[DB_NAME]
-openai_client = AsyncOpenAI(api_key="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")
+openai_client = AsyncOpenAI(api_key=OPENAI_API_KEY)
 
 
 # ── PDF text extraction ──────────────────────────────────────────────────────
