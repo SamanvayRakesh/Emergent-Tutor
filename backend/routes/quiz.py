@@ -10,6 +10,7 @@ from core import db, openai_client, get_current_user
 from plan_gates import check_limit, increment_usage
 from credits import deduct_credits
 from models import QuizGenerateRequest, QuizSubmitRequest
+from adaptive_engine import record_quiz_result, update_topic_performance
 
 router = APIRouter()
 
@@ -123,6 +124,9 @@ async def submit_quiz(quiz_id: str, body: QuizSubmitRequest, request: Request):
                   "total_questions": total, "completed_at": datetime.now(timezone.utc).isoformat()}},
     )
     await db.users.update_one({"user_id": user["user_id"]}, {"$inc": {"xp": xp_earned}})
+
+    # Feed quiz result into adaptive engine
+    await record_quiz_result(user["user_id"], quiz.get("topic", "General"), score_pct, correct_count, total)
 
     return {"score": score_pct, "correct_count": correct_count, "total_questions": total,
             "xp_earned": xp_earned, "results": results}

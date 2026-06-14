@@ -10,6 +10,7 @@ import { Toaster } from 'sonner';
 import IntroScreen from './components/IntroScreen';
 import AuthPage from './components/AuthPage';
 import AuthCallback from './components/AuthCallback';
+import EmailVerificationPage from './components/EmailVerificationPage';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
 import ChatPage from './components/ChatPage';
@@ -59,6 +60,8 @@ function AppRouter() {
   return (
     <Routes>
       <Route path="/login" element={<AuthPage />} />
+      <Route path="/verify-email" element={<EmailVerificationPage />} />
+      <Route path="/resend-verification" element={<EmailVerificationPage />} />
       <Route path="/" element={
         <ProtectedRoute>
           <Layout />

@@ -1,44 +1,40 @@
-"""Credit system — cost-calibrated to keep ₹399/month plan profitable.
+"""Credit system — dynamic 2-10 credits based on response length.
 
-Credits for AI chat scale with words generated:
-  - 1 credit per 100 words (rounded up), min 1 credit
-  - Max response capped at 1000 words (soft warning injected)
+Chat credit tiers (words generated):
+  0–250    → 2 credits
+  251–500  → 4 credits
+  501–800  → 6 credits
+  801–1200 → 8 credits
+  1201+    → 10 credits
 
 Fixed costs:
-  quiz_generate   15 cr → ~1,200 tokens
-  mock_exam       30 cr → ~4,000 tokens
+  quiz_generate       15 cr
+  mock_exam_generate  30 cr
+  mock_exam_cached     3 cr
 """
 
+from datetime import datetime, timezone
 from fastapi import HTTPException
 from pymongo import ReturnDocument
 from core import db
 
 CREDIT_COSTS = {
-    "ai_message":          1,    # base — actual deduction calculated per response word count
-    "quiz_generate":       15,   # ~1,200 tokens
-    "mock_exam_generate":  30,   # ~4,000 tokens
-    "mock_exam_cached":    3,    # cache hit — no generation cost
+    "ai_message":          2,    # minimum — actual deduction calculated per word count
+    "quiz_generate":       15,
+    "mock_exam_generate":  30,
+    "mock_exam_cached":    3,
 }
 
-# Credit cost per 100 words generated (chat only)
-CREDITS_PER_100_WORDS = 1
-CHAT_WORD_LIMIT = 1000  # soft cap — warning injected if exceeded
+CHAT_WORD_LIMIT = 1500   # soft cap — warning injected if exceeded
 
-
-def calculate_chat_credits(word_count: int) -> int:
-    """Calculate credits for a chat response based on word count. Min 1 credit."""
-    return max(1, (word_count + 99) // 100)  # ceil(words / 100)
-
-# Monthly hard token caps per plan (safety ceiling on top of credits)
-# gpt-4o-mini: $0.15/1M input, $0.60/1M output → ~₹0.10/1K tokens blended
+# Monthly hard token caps per plan
 PLAN_TOKEN_CAPS = {
-    "free":    40_000,    # ~₹4/month max
-    "starter": 200_000,   # ~₹20/month max   ← ₹399 plan
-    "pro":     600_000,   # ~₹60/month max   ← ₹699 plan (future)
-    "elite":   1_500_000, # ~₹150/month max
+    "free":    40_000,
+    "starter": 200_000,
+    "pro":     600_000,
+    "elite":   1_500_000,
 }
 
-# Credits bundled with each plan on signup / renewal
 PLAN_STARTER_CREDITS = {
     "free":    100,
     "starter": 500,
@@ -46,7 +42,21 @@ PLAN_STARTER_CREDITS = {
     "elite":   5000,
 }
 
-STARTER_CREDITS = 100   # free tier default (legacy compat)
+STARTER_CREDITS = 100
+
+
+def calculate_chat_credits(word_count: int) -> int:
+    """Dynamic tier: 2-10 credits based on words generated."""
+    if word_count <= 250:
+        return 2
+    elif word_count <= 500:
+        return 4
+    elif word_count <= 800:
+        return 6
+    elif word_count <= 1200:
+        return 8
+    else:
+        return 10
 
 
 async def get_credits(user_id: str) -> int:
@@ -73,28 +83,32 @@ async def ensure_credits(user_id: str, kind: str) -> int:
 
 
 async def deduct_credits_for_chat(user_id: str, word_count: int) -> dict:
-    """Atomically deduct credits based on chat response word count. Min 1 credit."""
+    """Atomically deduct credits based on word count tier."""
     cost = calculate_chat_credits(word_count)
-    if cost <= 0:
-        return {"deducted": 0, "balance": await get_credits(user_id)}
     result = await db.users.find_one_and_update(
         {"user_id": user_id, "credits": {"$gte": cost}},
-        {"$inc": {"credits": -cost}},
+        {
+            "$inc": {"credits": -cost},
+            "$set": {"last_credit_deduct": datetime.now(timezone.utc).isoformat()},
+        },
         projection={"_id": 0, "credits": 1},
         return_document=ReturnDocument.AFTER,
     )
     if not result:
-        # Not enough credits — deduct minimum 1 if any available, else just proceed
+        # Partial deduct: use whatever is left
         balance = await get_credits(user_id)
         if balance > 0:
-            await db.users.update_one({"user_id": user_id}, {"$inc": {"credits": -1}})
-            return {"deducted": 1, "balance": max(0, balance - 1)}
-        return {"deducted": 0, "balance": 0}
-    return {"deducted": cost, "balance": result.get("credits", 0)}
+            await db.users.update_one({"user_id": user_id}, {"$inc": {"credits": -balance}})
+            return {"deducted": balance, "balance": 0, "cost": cost}
+        return {"deducted": 0, "balance": 0, "cost": cost}
+
+    # Record analytics
+    await _record_credit_event(user_id, "chat", cost, word_count)
+    return {"deducted": cost, "balance": result.get("credits", 0), "cost": cost}
 
 
 async def deduct_credits(user_id: str, kind: str) -> dict:
-    """Atomically deduct credits. Raises 402 on insufficient balance."""
+    """Atomically deduct fixed credits. Raises 402 on insufficient balance."""
     cost = CREDIT_COSTS.get(kind, 0)
     if cost <= 0:
         return {"deducted": 0, "balance": await get_credits(user_id)}
@@ -114,11 +128,12 @@ async def deduct_credits(user_id: str, kind: str) -> dict:
                 "message": _msg_for(kind, balance),
             },
         )
+    await _record_credit_event(user_id, kind, cost)
     return {"deducted": cost, "balance": result.get("credits", 0)}
 
 
 async def grant_plan_credits(user_id: str, plan_id: str):
-    """Grant credits on plan activation/renewal. Idempotent — adds to existing balance."""
+    """Grant credits on plan activation/renewal."""
     amount = PLAN_STARTER_CREDITS.get(plan_id, STARTER_CREDITS)
     await db.users.update_one(
         {"user_id": user_id},
@@ -126,6 +141,20 @@ async def grant_plan_credits(user_id: str, plan_id: str):
         upsert=True,
     )
     return amount
+
+
+async def _record_credit_event(user_id: str, kind: str, cost: int, word_count: int = 0):
+    """Append to analytics.credit_events for admin visibility."""
+    try:
+        await db.credit_analytics.insert_one({
+            "user_id": user_id,
+            "kind": kind,
+            "credits_used": cost,
+            "word_count": word_count,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        })
+    except Exception:
+        pass  # analytics is non-critical
 
 
 def _msg_for(kind: str, balance: int) -> str:

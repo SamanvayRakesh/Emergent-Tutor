@@ -3,12 +3,14 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Send, Plus, BookOpen, ChevronDown, Trash2, Sparkles, CheckCircle, XCircle, MessageSquare, Brain, ArrowLeft, Youtube, ExternalLink } from 'lucide-react';
+import { Send, Plus, BookOpen, ChevronDown, Trash2, Sparkles, CheckCircle, XCircle, MessageSquare, Brain, ArrowLeft, Youtube, ExternalLink, Zap } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { useCredits } from '../contexts/CreditsContext';
 import { toast } from 'sonner';
+import { MathText } from './MathRenderer';
+import InteractiveQuizModal from './InteractiveQuizModal';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -159,7 +161,27 @@ function MessageBubble({ msg, isStreaming }) {
                 <YouTubeCard key={i} query={part.query} />
               ) : (
                 <div key={i} className="markdown-content">
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>{part.content}</ReactMarkdown>
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      // Render math in inline code and paragraphs
+                      p: ({ children }) => (
+                        <p className="mb-2 last:mb-0 leading-relaxed">
+                          {typeof children === 'string' ? <MathText text={children} /> : children}
+                        </p>
+                      ),
+                      code: ({ inline, children }) => {
+                        const text = String(children).trim();
+                        // Detect LaTeX-like patterns
+                        if (inline && (text.includes('\\frac') || text.includes('\\sqrt') || text.startsWith('$'))) {
+                          return <MathText text={`$${text}$`} />;
+                        }
+                        return inline
+                          ? <code className="bg-black/30 text-cyan-300 px-1 py-0.5 rounded text-xs">{children}</code>
+                          : <pre className="bg-black/30 text-cyan-300 p-3 rounded-xl text-xs overflow-x-auto my-2"><code>{children}</code></pre>;
+                      },
+                    }}
+                  >{part.content}</ReactMarkdown>
                 </div>
               )
             )}
@@ -314,6 +336,7 @@ export default function ChatPage() {
   const [streamingContent, setStreamingContent] = useState('');
   const [sessions, setSessions] = useState([]);
   const [showSessions, setShowSessions] = useState(false);
+  const [quizModal, setQuizModal] = useState(null); // {quizData}
   const bottomRef = useRef(null);
 
   const loadSession = useCallback(async (sid) => {
@@ -361,6 +384,14 @@ export default function ChatPage() {
             if (d.type === 'done') {
               setMessages(p => [...p, { role: 'assistant', content: full, timestamp: new Date().toISOString() }]);
               setStreamingContent('');
+              // Show accurate credit deduction
+              if (d.credits_used) {
+                toast.success(`−${d.credits_used} credits (${d.word_count || 0} words)`, {
+                  id: 'credit-deduct', duration: 1800,
+                  style: { background: 'rgba(30,27,75,0.85)', color: '#fcd34d', border: '1px solid rgba(251,191,36,0.4)', fontSize: '13px' },
+                  icon: <Zap size={14} className="text-yellow-400" />,
+                });
+              }
             }
           } catch {}
         }
@@ -368,10 +399,40 @@ export default function ChatPage() {
     }
   };
 
+  // Detect quiz intent and auto-open quiz modal
+  const QUIZ_INTENTS = ['give me a quiz', 'quiz me', 'test me', 'practice quiz', 'quick quiz', 'start a quiz', 'quiz on this'];
+  const isQuizIntent = (text) => QUIZ_INTENTS.some(q => text.toLowerCase().includes(q));
+
+  const openQuizModal = useCallback(async (text) => {
+    if (!session) return false;
+    try {
+      const { data } = await axios.post(`${API}/quiz/generate`, {
+        class_level: session.class_level,
+        subject: session.subject,
+        chapter: session.chapter,
+        topic: text,
+        num_questions: 5,
+      }, { withCredentials: true });
+      setQuizModal({ quizData: data });
+      return true;
+    } catch {
+      return false;
+    }
+  }, [session]);
+
   const sendMessage = async () => {
     const text = input.trim();
     if (!text || streaming || !session) return;
     setInput('');
+
+    // Detect quiz intent → open quiz modal instead of chat
+    if (isQuizIntent(text)) {
+      setMessages(p => [...p, { role: 'user', content: text, timestamp: new Date().toISOString() }]);
+      const opened = await openQuizModal(text);
+      if (opened) return;
+      // Fallback: send as regular chat if quiz generation fails
+    }
+
     setMessages(p => [...p, { role: 'user', content: text, timestamp: new Date().toISOString() }]);
     setStreaming(true);
     setStreamingContent('');
@@ -406,11 +467,7 @@ export default function ChatPage() {
         refreshCredits?.();
         return;
       }
-      // Tiny "−1 credit" toast on successful send
-      toast.success('−1 credit used', {
-        id: 'credit-deduct', duration: 1400,
-        style: { background: 'rgba(30,27,75,0.85)', color: '#fcd34d', border: '1px solid rgba(251,191,36,0.4)' },
-      });
+      // Credit toast is now shown in processStream with actual word count
       await processStream(res);
       refreshSub?.();
       refreshCredits?.();
@@ -439,6 +496,21 @@ export default function ChatPage() {
 
   return (
     <div className="h-full flex flex-col">
+      {/* Quiz Modal */}
+      {quizModal && (
+        <InteractiveQuizModal
+          quizData={quizModal.quizData}
+          onClose={() => { setQuizModal(null); refreshCredits?.(); }}
+          onComplete={(results) => {
+            toast.success(`Quiz done! Score: ${results.score}%`, {
+              duration: 3000,
+              style: { background: 'rgba(30,27,75,0.85)', color: '#86efac', border: '1px solid rgba(34,197,94,0.4)' },
+            });
+            refreshCredits?.();
+          }}
+        />
+      )}
+
       {/* Header */}
       <div className="px-4 py-3 border-b border-white/5 glass flex items-center gap-3">
         <button onClick={() => nav('/chat')} data-testid="back-btn"

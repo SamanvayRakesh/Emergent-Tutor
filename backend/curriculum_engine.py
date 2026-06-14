@@ -41,21 +41,42 @@ def _denormalize_subject(key: str) -> str:
     return {"social_science": "Social Science"}.get(key, key.replace("_", " ").title())
 
 
-def _is_generic_title(title: str) -> bool:
-    return bool(re.fullmatch(r"chapter\s+\d+", (title or "").strip(), re.IGNORECASE))
+# Corrupt/generic patterns that must be replaced with cbse_data names
+_CORRUPT_PATTERNS = [
+    re.compile(r"^chapter\s+\d+$", re.IGNORECASE),
+    re.compile(r"question\s*answer", re.IGNORECASE),
+    re.compile(r"in\s+hindi", re.IGNORECASE),
+    re.compile(r"^\s*$"),  # empty
+    re.compile(r"ncert\s+textbook", re.IGNORECASE),
+    re.compile(r"^prelim", re.IGNORECASE),
+]
+
+
+def _is_corrupt_title(title: str) -> bool:
+    """Return True if title is corrupted, generic, or useless."""
+    t = (title or "").strip()
+    if not t:
+        return True
+    return any(p.search(t) for p in _CORRUPT_PATTERNS)
 
 
 def _clean_chapter_title(raw: str, fallback_no: int, cls: str = "", subj: str = "") -> str:
-    """Strip junk; cross-reference cbse_data for generic 'Chapter N' fallbacks."""
-    if not raw or _is_generic_title(raw):
-        if cls and subj:
-            chapters = _cbse.get_chapters(cls, subj) or []
-            idx = fallback_no - 1
-            if 0 <= idx < len(chapters):
-                return chapters[idx]["name"]
-        return f"Chapter {fallback_no}"
-    cleaned = re.sub(r"\s+", " ", raw).strip()
-    return cleaned
+    """Return a clean chapter title.
+    1. If raw is valid → use it.
+    2. If raw is corrupt → look up from cbse_data.py by position.
+    3. Last resort → "Chapter N" (will be filtered in UI).
+    """
+    if not _is_corrupt_title(raw):
+        return re.sub(r"\s+", " ", raw).strip()
+
+    # Try cbse_data lookup
+    if cls and subj:
+        chapters = _cbse.get_chapters(cls, subj) or []
+        idx = fallback_no - 1
+        if 0 <= idx < len(chapters):
+            return chapters[idx]["name"]
+
+    return f"Chapter {fallback_no}"
 
 
 async def load_curriculum_from_json():

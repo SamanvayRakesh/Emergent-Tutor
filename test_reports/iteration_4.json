@@ -1,0 +1,147 @@
+{
+  "summary": "Iteration 4 testing: 10-feature batch (AceIt branding, email verification, NCERT title fix, credit tiers, KaTeX, adaptive engine, quiz modal, analytics, validation). Backend: 18/22 tests passed, 4 skipped (admin daily quiz limit hit). Frontend: All pages load correctly, branding verified. ONE CRITICAL BUG: InteractiveQuizModal submits wrong format to backend (422). ONE CRITICAL INFRA BUG: Resend API can only send to owner's email in test mode — real users won't receive verification emails.",
+
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "POST /api/quiz/{quiz_id}/submit",
+        "issue": "MISMATCH: InteractiveQuizModal.submitQuiz() sends {answers: [{question_index, selected_answer, time_spent_s}]} with no quiz_id in body. But QuizSubmitRequest expects quiz_id:str (required in body) and answers:dict. Result: 422 Unprocessable Entity on every modal quiz submission. Verified: Test2 status=422 'Field required' for quiz_id, Test4 status=422 'Input should be a valid dict'. FALLBACK: Modal catches error and does local scoring, so UI appears to work but no XP earned, no backend persistence, adaptive engine NOT updated.",
+        "priority": "CRITICAL",
+        "fix": "Option A: Remove quiz_id from QuizSubmitRequest (use only path param). Change answers type to Union[dict, list] and convert list format in endpoint. Option B: Fix InteractiveQuizModal.submitQuiz() to send {quiz_id, answers: {'0': 'A', '1': 'B'}} format. Note: selectAnswer(opt) stores full option text ('A. Mercury...') not just letter ('A') — backend comparison will also fail.",
+        "rca": "1. QuizSubmitRequest.quiz_id is required but frontend sends quiz_id only in URL path. 2. InteractiveQuizModal answers format is array not dict. 3. Even with correct format, stored answers are full text strings ('A. Neptune') but backend expects letters ('A') causing wrong score calculation."
+      },
+      {
+        "endpoint": "POST /api/auth/resend-verification (Resend API)",
+        "issue": "LIVE EMAIL NOT DELIVERED: Resend API is in sandbox mode restricted to owner's email only (truecursemahito28@gmail.com). Error: 'You can only send testing emails to your own email address'. All verification emails to non-owner addresses fail silently (registration succeeds, users receive no email, can never verify). The API returns 200 but no email is actually sent.",
+        "priority": "CRITICAL",
+        "fix": "Verify a domain at resend.com/domains and set SENDER_EMAIL to use that domain. Or add domain verification for the deployed domain. Until then, email verification is non-functional for real users."
+      }
+    ],
+    "minor": [
+      {
+        "endpoint": "GET /api/question-bank/stats",
+        "issue": "done_chapters=0, total_chapters=0, last_run=null after server restart (in-memory state resets). total_qa_pairs=1902 is correct but build status metadata is lost on restart. Not a functional bug but could confuse admin dashboard.",
+        "priority": "LOW"
+      }
+    ]
+  },
+
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "InteractiveQuizModal quiz submission",
+        "issue": "Modal's submitQuiz() sends wrong JSON format — answers as array (not dict) and missing quiz_id in body → 422 from backend. Modal falls back to local scoring silently. User sees a score but it's not saved to DB, no real XP awarded.",
+        "affected_selectors": ["[data-testid='submit-quiz-btn']", "[data-testid='quiz-modal']"]
+      }
+    ],
+    "design_issues": [
+      {
+        "screen": "All authenticated pages",
+        "issues": ["Dashboard greeting shows 'Good afternoon, Aceit' (lowercase) for admin whose name is 'AceIt AI Admin' — first word truncation. Minor cosmetic issue."]
+      }
+    ]
+  },
+
+  "verified_features": {
+    "branding": {
+      "intro_screen": "PASS - AceIt AI with red AI span",
+      "auth_page": "PASS - AceIt AI logo, no NeuraLearn",
+      "sidebar": "PASS - AceIt AI in top-left",
+      "email_verification_page": "PASS - AceIt AI header",
+      "onboarding_modal": "PASS - 'Welcome to AceIt AI'"
+    },
+    "email_verification_backend": {
+      "register_requires_verification": "PASS - requires_verification=True",
+      "login_unverified_403": "PASS - 403 EMAIL_NOT_VERIFIED with email in detail",
+      "invalid_token_400": "PASS - 400 INVALID_TOKEN",
+      "resend_verification_200": "PASS - returns 200 with message",
+      "anti_enumeration": "PASS - unknown email still returns 200",
+      "admin_verified_login": "PASS - backfill works"
+    },
+    "credit_tiers": {
+      "0_to_250": "PASS - 2 credits",
+      "251_to_500": "PASS - 4 credits",
+      "501_to_800": "PASS - 6 credits",
+      "801_to_1200": "PASS - 8 credits",
+      "1201_plus": "PASS - 10 credits"
+    },
+    "ncert_titles": {
+      "class6_science_no_corrupt": "PASS - no 'Question Answer in Hindi'",
+      "class10_science_no_corrupt": "PASS - clean titles",
+      "corrupt_pattern_detection": "PASS - all patterns work correctly"
+    },
+    "question_bank": {
+      "stats_endpoint_200": "PASS",
+      "total_qa_pairs": "1902 pairs built",
+      "curriculum_loaded": "24 manifests from 25 NCERT books"
+    },
+    "quiz_arena": {
+      "correct_format_submit": "PASS - QuizArena sends {quiz_id, answers: {'0': 'A'}} → works",
+      "submit_score_100": "PASS - correct answers scored 100%",
+      "adaptive_engine_update": "PASS - record_quiz_result called after submit"
+    },
+    "adaptive_engine": {
+      "analytics_endpoint": "PASS - GET /api/chat/analytics/me returns 200",
+      "gamification_stats": "PASS - xp/level/streak/achievements"
+    },
+    "frontend_pages": {
+      "email_verification_no_token": "PASS - shows resend form",
+      "email_verification_invalid_token": "PASS - shows 'Link Invalid' error state",
+      "auth_register_success": "PASS - shows 'Check your email!' with green check",
+      "quiz_arena_page": "PASS - loads with configure form",
+      "katex_installed": "PASS - react-katex@3.1.0 + katex@0.17.0 in package.json + node_modules"
+    }
+  },
+
+  "test_report_links": [
+    "/app/backend/tests/test_iteration4.py",
+    "/app/test_reports/pytest/iteration4_results.xml"
+  ],
+
+  "action_items": [
+    "CRITICAL: Fix InteractiveQuizModal.submitQuiz() — 3 issues: (1) Add quiz_id to body: send {quiz_id: quizData.quiz_id, answers: {...}}. (2) Change answers format from array to dict: {[i]: answers[i]} where answers[i] is just the letter. (3) Fix selectAnswer() to store only the letter prefix (opt.charAt(0)) not full option text. QuizArena.jsx does it correctly: `opt.charAt(0)`.",
+    "CRITICAL: Resend API domain verification needed — sandbox mode restricts delivery to owner email only. Configure resend.com domain to enable transactional emails for all users.",
+    "LOW: QuizSubmitRequest model has redundant quiz_id field (it's already in the path param). Remove from model to avoid future confusion.",
+    "LOW: Question bank build status fields (done_chapters, total_chapters, last_run) reset on server restart. Consider persisting build state in MongoDB."
+  ],
+
+  "critical_code_review_comments": [
+    "InteractiveQuizModal.jsx submitQuiz(): sends {answers: [{question_index, selected_answer, time_spent_s}]} but QuizSubmitRequest requires {quiz_id: str, answers: dict}. Fix: change to {quiz_id: quizData.quiz_id, answers: Object.fromEntries(Object.entries(answers).map(([i, v]) => [i, v?.charAt?.(0) ?? v]))}. Also fix selectAnswer() to store opt.charAt(0) like QuizArena does.",
+    "models.py QuizSubmitRequest.quiz_id: This field is required in the body but is also a path parameter. FastAPI does NOT merge path params into body models. Best practice: remove quiz_id from QuizSubmitRequest since it's already extracted from the URL path.",
+    "email_service.py: Resend API key is in test mode — only sends to verified owner email. When deployed, all new user verifications will silently fail. This is a production blocker.",
+    "quiz.py record_quiz_result: Only called with (user_id, topic, score_pct, correct, total). No time_spent data since modal's format is rejected before reaching record_quiz_result."
+  ],
+
+  "updated_files": [
+    "/app/backend/tests/test_iteration4.py (new — 22 tests for iteration 4 features)"
+  ],
+
+  "success_rate": {
+    "backend": "82% (18/22 tests; 4 skipped due to admin daily quiz limit, not bugs)",
+    "frontend": "90% (all pages load, branding correct, email verification UI works; quiz modal submit is broken but has local fallback)"
+  },
+
+  "test_credentials": "admin@neuralearn.ai / Admin@123456 (admin, class_level=12, credits=55). TEST_it4_* users created during pytest (unverified).",
+
+  "seed_data_creation": "TEST_it4_* and TEST_quiz_cr_* users created during pytest runs (unverified state). UI test user test_ui_verify_448639@mailtest.dev also created.",
+
+  "retest_needed": true,
+
+  "main_agent_can_self_test": true,
+
+  "context_for_next_testing_agent": "Critical open bug: InteractiveQuizModal.submitQuiz() sends wrong format (422). Fix verification: send POST /api/quiz/{quiz_id}/submit without quiz_id in body AND with array answers → should return 422. After fix, same call with quiz_id in body AND dict answers should return 200. Resend API restricted to test mode (truecursemahito28@gmail.com) — verify a domain to fix. Admin daily quiz limit: 3/day on free plan. Quiz submit works via QuizArena.jsx (correct format). Backend tests: 35+ tests total across test_phase2.py, test_iteration3.py, test_iteration4.py. Run: pytest /app/backend/tests/ -v. Curriculum: 24 class-subject manifests (Class 6-12). Q&A bank: 1902 pairs.",
+
+  "rca_of_issue": {
+    "InteractiveQuizModal_submit_bug": {
+      "root_cause": "InteractiveQuizModal was implemented independently from QuizArena.jsx without matching the backend API contract. QuizSubmitRequest model was designed for QuizArena's dict format (answers: {'0': 'A'}), but InteractiveQuizModal sends a different format (array of objects with question_index, selected_answer, time_spent_s).",
+      "reproduction": "1. Start a chat session. 2. Trigger quiz from AI. 3. Answer questions and click 'Submit Quiz'. 4. Check network tab: POST /api/quiz/{id}/submit returns 422. 5. Score shown is local fallback, not from server.",
+      "mitigation": "In InteractiveQuizModal.jsx submitQuiz(), change from: {answers: submissionAnswers} to: {quiz_id: quizData.quiz_id, answers: Object.fromEntries(questions.map((q, i) => [String(i), (answers[i] ?? '').toString().charAt(0)]))}"
+    },
+    "Resend_sandbox_mode": {
+      "root_cause": "The Resend API key re_FmtuXPzj_BvpBwkaetWywwYME8dBiasKa is associated with account truecursemahito28@gmail.com which has not verified a domain. In sandbox mode, Resend only allows delivery to the account owner's email.",
+      "reproduction": "Register any user with non-owner email → check backend logs → 'You can only send testing emails to your own email address'",
+      "mitigation": "Verify a custom domain at resend.com/domains and update SENDER_EMAIL in backend/.env to use that domain (e.g., noreply@yourdomain.com)."
+    }
+  }
+}

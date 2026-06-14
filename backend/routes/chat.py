@@ -121,10 +121,11 @@ def _build_system_prompt(session: dict, memory: dict, category: str, chapter_con
     subject = session["subject"]
     chapter = session["chapter"]
     difficulty = memory.get("difficulty", "medium")
-    weak  = ", ".join(memory.get("weak_topics", [])) or "none"
-    strong = ", ".join(memory.get("strong_topics", [])) or "none"
+    style     = memory.get("style", "balanced")
+    weak      = ", ".join(memory.get("weak_topics", [])) or "none"
+    strong    = ", ".join(memory.get("strong_topics", [])) or "none"
+    recent_quiz = memory.get("recent_quiz_avg")
 
-    # Shorter prompt when token budget is tight
     if max_tokens <= 150:
         return (
             f"You are a CBSE tutor. Class {cls} | {subject} | {chapter}. "
@@ -132,20 +133,39 @@ def _build_system_prompt(session: dict, memory: dict, category: str, chapter_con
             f"Student difficulty: {difficulty}."
         )
 
-    board_note = "🎯 BOARD EXAM FOCUS — mention exam patterns." if cls in ("10","12") else ""
+    board_note = "🎯 BOARD EXAM FOCUS — mention exam patterns and marking schemes." if cls in ("10","12") else ""
+
+    style_guide = {
+        "step-by-step": "Break every concept into numbered steps. More guidance, check understanding.",
+        "examples":     "Lead with 2-3 real-world examples before theory. Student needs concrete context.",
+        "brief":        "Student grasps fast. Be concise, skip basics, focus on depth.",
+        "visual":       "Use diagrams described in text, flowcharts, and analogies.",
+        "balanced":     "Balance theory and examples.",
+    }.get(style, "Balance theory and examples.")
+
+    quiz_note = f"Recent quiz avg: {recent_quiz}% — " + (
+        "student is struggling, use simpler explanations." if recent_quiz < 50 else
+        "student is improving, push slightly harder." if recent_quiz < 75 else
+        "student is excelling, challenge them."
+    ) if recent_quiz is not None else ""
+
     return f"""You are AceIt AI Tutor — expert CBSE educator.
 
 LESSON: Class {cls} | {subject} | {chapter}
-STUDENT: {_age_guidance(class_num)} | difficulty={difficulty}
-MEMORY: weak={weak} | strong={strong}
+STUDENT: {_age_guidance(class_num)} | difficulty={difficulty} | style={style}
+MEMORY: weak=[{weak}] | strong=[{strong}]
+{f"PERFORMANCE: {quiz_note}" if quiz_note else ""}
 {board_note}
 {f"CONTEXT:{chr(10)}{chapter_context}" if chapter_context else ""}
 
+STYLE GUIDE: {style_guide}
+
 RULES:
 • Build intuition before formulas. Short paragraphs (3 lines max).
-• Adapt to difficulty: {"simpler language, more examples" if difficulty=="easy" else "challenge mode" if difficulty=="hard" else "balanced depth"}
+• Use LaTeX math notation: $formula$ for inline, $$formula$$ for block equations.
 • End every response with ONE of: ⚡ Challenge | 🎯 Quick Check | 📝 Exam Tip
-• Keep response under {CHAT_WORD_LIMIT} words. If the question requires longer explanation, include a short note at the end.
+• Max {CHAT_WORD_LIMIT} words. Complete every sentence fully — never cut off.
+• Never truncate mathematical solutions.
 {"• Keep answer under 120 words (token budget active)" if max_tokens <= 250 else ""}"""
 
 
@@ -291,12 +311,15 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
         input_tokens_est = int(sum(len(m["content"].split()) * 1.3 for m in ai_messages))
         word_limit_warned = False
 
+        # Reserve 200 tokens for sentence completion — never cut off mid-sentence
+        generation_tokens = min(max_tokens, 2200)  # ~1500 words + buffer
+
         try:
             stream = await openai_client.chat.completions.create(
                 model=ai_model,
                 messages=ai_messages,
                 stream=True,
-                max_tokens=max_tokens,
+                max_tokens=generation_tokens,
                 temperature=0.75,
             )
             async for chunk in stream:
@@ -304,18 +327,19 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
                 if delta:
                     full_content += delta
                     word_count = len(full_content.split())
-                    # Soft cap: inject warning at 1000 words and stop
+                    # Soft cap: inject note at 1500 words but allow sentence to finish
                     if word_count >= CHAT_WORD_LIMIT and not word_limit_warned:
                         word_limit_warned = True
-                        warning = "\n\n⚠️ *Response is quite long (1000+ words). For a more focused answer, try asking a specific part of this topic.*"
-                        full_content += warning
+                        warning = "\n\n> ⚠️ *This is a detailed response (1500+ words). For a more focused answer, ask about a specific part of this topic.*"
                         yield f"data: {json.dumps({'type':'chunk','content':delta})}\n\n"
                         yield f"data: {json.dumps({'type':'chunk','content':warning})}\n\n"
-                        break
+                        full_content += warning
+                        # Continue streaming to finish the sentence
+                        continue
                     yield f"data: {json.dumps({'type':'chunk','content':delta})}\n\n"
         except Exception as e:
             logger.error(f"OpenAI error: {e}")
-            fallback = "Sorry, I hit a snag. Please try again in a moment."
+            fallback = "Sorry, I encountered an issue. Please try again in a moment."
             yield f"data: {json.dumps({'type':'chunk','content':fallback})}\n\n"
             full_content = fallback
 
@@ -343,14 +367,15 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
 
         # Variable credit deduction based on word count
         final_word_count = len(full_content.split())
-        await deduct_credits_for_chat(user["user_id"], final_word_count)
+        credit_result = await deduct_credits_for_chat(user["user_id"], final_word_count)
 
         # Usage + token tracking
         await increment_usage(user["user_id"], "ai_messages", 1)
         output_tokens_est = int(len(full_content.split()) * 1.3)
         await record_token_usage(user["user_id"], ai_model, input_tokens_est, output_tokens_est)
 
-        yield f"data: {json.dumps({'type':'done','word_count':final_word_count,'credits_used':calculate_chat_credits(final_word_count)})}\n\n"
+        credits_used = calculate_chat_credits(final_word_count)
+        yield f"data: {json.dumps({'type':'done','word_count':final_word_count,'credits_used':credits_used,'balance':credit_result.get('balance',0)})}\n\n"
 
     return StreamingResponse(
         generate(),

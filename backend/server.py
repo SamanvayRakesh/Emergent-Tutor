@@ -66,7 +66,16 @@ async def startup_event():
     await db.usage_counters.create_index("user_id", unique=True)
     await db.onboarding.create_index("user_id", unique=True)
 
-    # One-time credits backfill: any user without a credits field gets the 100 starter
+    await db.users.create_index("verification_token", sparse=True)
+    await db.credit_analytics.create_index([("user_id", 1), ("timestamp", -1)])
+    await db.student_profiles.create_index("user_id", unique=True)
+
+    # One-time backfill: existing users are considered verified (new field)
+    await db.users.update_many(
+        {"is_verified": {"$exists": False}},
+        {"$set": {"is_verified": True}},
+    )
+    # One-time credits backfill
     await db.users.update_many(
         {"credits": {"$exists": False}},
         {"$set": {"credits": 100}},
