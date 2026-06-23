@@ -1,0 +1,140 @@
+{
+  "summary": "Iteration 5 testing: Full backend + frontend verification of 10-feature batch. Backend: 30/30 tests PASS. Frontend: All key pages and flows work. CRITICAL FIX from iteration 4 VERIFIED: InteractiveQuizModal now correctly sends {answers: dict} without quiz_id in body. Quiz modal appears when triggered from chat. KaTeX CSS confirmed loaded. All branding, email verification, NCERT, credits, analytics, and quiz flows work.",
+
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "POST /api/auth/resend-verification (Resend API)",
+        "issue": "KNOWN/PERSISTENT: Resend API in sandbox mode — only sends to owner's email (truecursemahito28@gmail.com). API returns 200 but no email delivered to other addresses. Domain verification required to fix.",
+        "priority": "LOW (known limitation)"
+      }
+    ]
+  },
+
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "Dashboard greeting",
+        "issue": "Greeting shows 'Good afternoon, Aceit' — truncated from admin name 'AceIt AI Admin' (takes only first word). Minor cosmetic, persists from iteration 4.",
+        "selector": ".greeting-name",
+        "priority": "LOW"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "Interactive Quiz Modal",
+        "issues": ["First question in AI-generated quiz shows 'Short Answer' type but question text says 'Which of the following...' — AI occasionally generates MCQ-style questions with wrong type classification. Not a code bug, just AI generation quality."]
+      }
+    ]
+  },
+
+  "verified_features": {
+    "branding": {
+      "intro_screen": "PASS - AceIt AI with red AI, star logo",
+      "auth_page": "PASS - AceIt AI logo, no NeuraLearn",
+      "sidebar": "PASS - AceIt AI in top-left corner",
+      "email_verification_page": "PASS - AceIt AI header",
+      "chat_page": "PASS - AceIt AI in sidebar"
+    },
+    "email_verification": {
+      "register_requires_verification": "PASS - requires_verification=True",
+      "login_unverified_403": "PASS - 403 EMAIL_NOT_VERIFIED with email",
+      "resend_returns_200": "PASS - returns 200 with message",
+      "anti_enumeration": "PASS - unknown email → 200",
+      "invalid_token_400": "PASS - 400 INVALID_TOKEN code",
+      "admin_verify_user": "PASS - POST /api/auth/admin/verify-user works",
+      "verified_user_can_login": "PASS - after admin verify → login succeeds",
+      "non_admin_blocked": "PASS - unauthenticated → 401/403"
+    },
+    "ncert_titles": {
+      "class6_science_no_corrupt": "PASS - no 'Question Answer in Hindi'",
+      "class7_science_no_corrupt": "PASS - clean titles",
+      "class10_science_no_corrupt": "PASS - clean titles",
+      "verified_chapters": "PASS - all chapters have verified=True"
+    },
+    "credit_tiers": {
+      "200_words": "PASS - 2 credits",
+      "400_words": "PASS - 4 credits",
+      "700_words": "PASS - 6 credits",
+      "1000_words": "PASS - 8 credits",
+      "1300_words": "PASS - 10 credits"
+    },
+    "analytics_dashboard": {
+      "endpoint_200": "PASS - GET /api/analytics/dashboard returns 200",
+      "users_data": "PASS - total, verified, unverified counts present",
+      "quiz_stats": "PASS - quiz_stats field present",
+      "question_bank": "PASS - total_qa_pairs present",
+      "auth_required": "PASS - unauthenticated → 403"
+    },
+    "question_bank": {
+      "stats_200": "PASS - GET /api/question-bank/stats returns 200",
+      "total_qa_pairs": "PASS - 1902 Q&A pairs confirmed",
+      "structure": "PASS - all required fields present"
+    },
+    "quiz_flow": {
+      "generate_returns_quiz_id": "PASS - quiz_id and questions returned",
+      "submit_dict_format": "PASS - {answers: {'0':'A','1':'B'}} returns score",
+      "no_quiz_id_in_body": "PASS - quiz_id is path param only (body not required)",
+      "invalid_quiz_404": "PASS - non-existent quiz → 404",
+      "interactive_quiz_modal_fix": "PASS - dict format works without quiz_id in body",
+      "old_array_format_rejected": "PASS - array format returns 422 (correct rejection)"
+    },
+    "quiz_modal_frontend": {
+      "modal_appears": "PASS - quiz modal opens when user types 'Give me a quiz'",
+      "question_renders": "PASS - question text shown correctly",
+      "question_count": "PASS - shows 'Question 1 of 5'",
+      "modal_closeable": "PASS - X button present"
+    },
+    "katex": {
+      "css_loaded": "PASS - KaTeX CSS in page head (bundled via webpack)",
+      "component_exists": "PASS - MathRenderer.jsx exports MathText/MathLine components",
+      "chat_page_imports": "PASS - ChatPage.jsx imports MathText from MathRenderer",
+      "quiz_modal_uses_math": "PASS - InteractiveQuizModal renders questions with MathText"
+    },
+    "email_verification_page": {
+      "route_exists": "PASS - /verify-email renders",
+      "resend_form": "PASS - shown when no token",
+      "invalid_token_error": "PASS - shows 'Link Invalid' state",
+      "branding": "PASS - AceIt AI header"
+    }
+  },
+
+  "test_report_links": [
+    "/app/backend/tests/test_iteration5.py",
+    "/app/test_reports/pytest/iteration5_results.xml"
+  ],
+
+  "action_items": [
+    "LOW: Dashboard greeting truncates admin name 'AceIt AI Admin' to 'Aceit' — first word only shown. Fix greeting to show first 2 words or full name for admin users.",
+    "KNOWN: Resend API sandbox mode restricts delivery to owner email only. Requires domain verification at resend.com to fix.",
+    "NOTE: Quiz modal suggestion button click only fills input (does not auto-send). User must click send button or press Enter. This is intentional UX but suggestion button behavior should be clarified (fill-then-send vs auto-send).",
+    "LOW: Interactive quiz modal sometimes generates Short Answer type for MCQ-style questions. This is AI generation quality issue, not a code bug."
+  ],
+
+  "critical_code_review_comments": [
+    "MockExamPage.jsx: ESLint warning - useCallback missing dependency 'submitExam' (line 89). Functional but could cause stale closure bugs in edge cases.",
+    "ChatPage.jsx suggestion buttons: onClick only calls setInput(s), does NOT auto-send. If intent is to auto-send when suggestion clicked, add sendMessage() call. If intent is just to fill (user must confirm), add clearer UX indication.",
+    "QuizGenerateRequest in openQuizModal: passes topic=text where text='Give me a quiz' — this becomes the quiz title. Consider using session.chapter as default topic when text is a generic quiz intent phrase."
+  ],
+
+  "updated_files": [
+    "/app/backend/tests/test_iteration5.py"
+  ],
+
+  "success_rate": {
+    "backend": "100% (30/30 tests pass)",
+    "frontend": "95% (all pages load, branding correct, all flows work; minor greeting truncation cosmetic issue)"
+  },
+
+  "test_credentials": "admin@neuralearn.ai / Admin@123456 (admin, class_level=10, plan=pro, 895 credits, xp=5160). TEST_it5_* users created and verified during testing.",
+
+  "seed_data_creation": "TEST_it5_* unverified users created during test, then verified via admin endpoint. Multiple quiz sessions created (chat_cbd99f39d731, chat_5158fabb1492, etc.)",
+
+  "retest_needed": false,
+
+  "main_agent_can_self_test": true,
+
+  "context_for_next_testing_agent": "All 10 iteration 5 features verified. InteractiveQuizModal format bug CONFIRMED FIXED (dict answers, no quiz_id in body). Backend 30/30 tests pass (test_iteration5.py). Frontend all flows work. Known issues: (1) Resend sandbox mode (domain verification needed), (2) Dashboard greeting truncation cosmetic. Run: REACT_APP_BACKEND_URL=https://neural-exam-prep.preview.emergentagent.com pytest /app/backend/tests/test_iteration5.py -v. Admin: admin@neuralearn.ai / Admin@123456. For quiz modal: navigate to chat, select subject+chapter, start session, fill chat input with 'Give me a quiz', press Enter — modal appears after ~10s."
+}

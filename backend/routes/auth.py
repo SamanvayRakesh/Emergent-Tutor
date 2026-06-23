@@ -198,6 +198,25 @@ async def resend_verification(body: dict):
 
 # ── Standard auth ─────────────────────────────────────────────────────────────
 
+@router.post("/auth/admin/verify-user")
+async def admin_verify_user(body: dict, request: Request):
+    """Admin utility to manually verify a user's email (for testing/sandbox mode)."""
+    user = await get_current_user(request)
+    if not user.get("email", "").endswith("@neuralearn.ai") and user.get("plan", "free") != "elite":
+        raise HTTPException(status_code=403, detail="Admin only")
+    email = (body.get("email") or "").lower().strip()
+    if not email:
+        raise HTTPException(status_code=400, detail="Email required")
+    result = await db.users.update_one(
+        {"email": email},
+        {"$set": {"is_verified": True},
+         "$unset": {"verification_token": "", "verification_expires": ""}},
+    )
+    if result.modified_count:
+        return {"success": True, "message": f"User {email} verified successfully"}
+    return {"success": False, "message": "User not found or already verified"}
+
+
 @router.post("/auth/logout")
 async def logout(response: Response):
     response.delete_cookie("access_token")

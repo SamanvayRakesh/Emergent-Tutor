@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { FileText, Clock, Sparkles, ChevronDown, CheckCircle, XCircle, AlertCircle, Zap, RotateCcw, BookOpen, Target } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
+import { MathText } from './MathRenderer';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -241,7 +242,7 @@ export default function MockExamPage() {
                   className={`glass-surface rounded-2xl p-4 border transition-all ${answers[q.id] ? 'border-green-500/20' : 'border-white/5'}`}>
                   <div className="flex items-start gap-3 mb-3">
                     <span className="flex-shrink-0 px-2 py-0.5 rounded text-xs font-heading font-bold" style={{ background: '#22d3ee20', color: '#22d3ee' }}>{q.id}</span>
-                    <p className="text-white text-sm font-body leading-relaxed flex-1">{q.question}</p>
+                    <p className="text-white text-sm font-body leading-relaxed flex-1"><MathText text={q.question} /></p>
                     <span className="flex-shrink-0 text-xs text-zinc-600 font-body">[{q.marks}m]</span>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -337,7 +338,7 @@ export default function MockExamPage() {
                 {followUp.quiz.questions?.map((q, qi) => (
                   <div key={qi} className="p-3 rounded-xl bg-zinc-900/40 border border-white/5">
                     <p className="text-white text-sm font-body leading-relaxed mb-2.5">
-                      <span className="text-orange-400 font-heading font-bold mr-2">{qi + 1}.</span>{q.question}
+                      <span className="text-orange-400 font-heading font-bold mr-2">{qi + 1}.</span><MathText text={q.question} />
                     </p>
                     <div className="grid sm:grid-cols-2 gap-2">
                       {q.options?.map((opt, oi) => {

@@ -18,6 +18,7 @@ from routes import social as social_routes
 from routes import curriculum as curriculum_routes
 from routes import subscription as subscription_routes
 from routes import question_bank as question_bank_routes
+from routes import analytics as analytics_routes
 from curriculum_engine import load_curriculum_from_json
 
 
@@ -35,6 +36,7 @@ api_router.include_router(social_routes.router)
 api_router.include_router(curriculum_routes.router)
 api_router.include_router(subscription_routes.router)
 api_router.include_router(question_bank_routes.router)
+api_router.include_router(analytics_routes.router)
 
 app.add_middleware(
     CORSMiddleware,

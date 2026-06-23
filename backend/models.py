@@ -36,14 +36,14 @@ class ChatMessageRequest(BaseModel):
 class QuizGenerateRequest(BaseModel):
     class_level: str
     subject: str
-    topic: str
+    topic: str = ""
+    chapter: str = ""
     difficulty: str = "medium"
     num_questions: int = 5
 
 
 class QuizSubmitRequest(BaseModel):
-    quiz_id: str
-    answers: dict
+    answers: dict  # {"0": "A", "1": "B"} — quiz_id is a URL path param
 
 
 # ----- Progress -----

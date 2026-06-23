@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Trophy, Sparkles, ChevronDown, CheckCircle, XCircle, ArrowRight, RotateCcw, Zap, Brain, Star, Target } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
+import { MathText } from './MathRenderer';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -171,7 +172,7 @@ export default function QuizArena() {
                   <div className="w-7 h-7 rounded-lg bg-cyan-500/20 flex items-center justify-center flex-shrink-0 text-cyan-400 text-xs font-heading font-bold">
                     {current + 1}
                   </div>
-                  <p className="text-white font-body text-base leading-relaxed">{quiz.questions[current]?.question}</p>
+                  <p className="text-white font-body text-base leading-relaxed"><MathText text={quiz.questions[current]?.question} /></p>
                 </div>
                 <div className="space-y-2">
                   {quiz.questions[current]?.options?.map((opt, i) => {
@@ -238,13 +239,13 @@ export default function QuizArena() {
                   <div className="flex items-start gap-3">
                     {r.is_correct ? <CheckCircle size={18} className="text-green-400 mt-0.5 flex-shrink-0" /> : <XCircle size={18} className="text-red-400 mt-0.5 flex-shrink-0" />}
                     <div className="flex-1">
-                      <p className="text-white text-sm font-body leading-relaxed">{r.question}</p>
+                      <p className="text-white text-sm font-body leading-relaxed"><MathText text={r.question} /></p>
                       {!r.is_correct && (
                         <p className="text-zinc-400 text-xs font-body mt-1">
-                          Your: <span className="text-red-400">{r.user_answer}</span> • Correct: <span className="text-green-400">{r.correct_answer}</span>
+                          Your: <span className="text-red-400"><MathText text={String(r.user_answer ?? '')} /></span> • Correct: <span className="text-green-400"><MathText text={String(r.correct_answer ?? '')} /></span>
                         </p>
                       )}
-                      {r.explanation && <p className="text-zinc-400 text-xs font-body mt-1 leading-relaxed">{r.explanation}</p>}
+                      {r.explanation && <p className="text-zinc-400 text-xs font-body mt-1 leading-relaxed"><MathText text={r.explanation} /></p>}
                     </div>
                   </div>
                 </div>

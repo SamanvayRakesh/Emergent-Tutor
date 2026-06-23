@@ -72,7 +72,15 @@ async def send_verification_email(email: str, name: str, token: str) -> bool:
         logger.info(f"Verification email sent to {email}, id={result.get('id')}")
         return True
     except Exception as e:
+        err_str = str(e)
         logger.error(f"Failed to send verification email to {email}: {e}")
+        # Resend sandbox restriction: only owner's email can receive in test mode
+        # User needs to verify a domain at resend.com/domains to enable sending to all users
+        if "testing emails to your own email" in err_str.lower() or "domain" in err_str.lower():
+            logger.warning(
+                "RESEND SANDBOX MODE: Email delivery restricted to account owner's email. "
+                "To send verification emails to all users, verify a domain at https://resend.com/domains"
+            )
         return False
 
 

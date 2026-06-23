@@ -16,16 +16,33 @@ logger = logging.getLogger("aceit")
 _build_status = {"running": False, "done_chapters": 0, "total_chapters": 0, "last_run": None, "error": None}
 
 
+async def _get_build_status() -> dict:
+    """Get build status from MongoDB (persists across restarts)."""
+    doc = await db.kb_build_status.find_one({}, {"_id": 0}) or {}
+    # Merge with in-memory running state
+    return {**doc, "running": _build_status.get("running", False), "done_chapters": _build_status.get("done_chapters", doc.get("done_chapters", 0))}
+
+
+async def _save_build_status():
+    await db.kb_build_status.update_one({}, {"$set": {
+        "done_chapters": _build_status["done_chapters"],
+        "total_chapters": _build_status["total_chapters"],
+        "last_run": _build_status["last_run"],
+        "error": _build_status["error"],
+    }}, upsert=True)
+
+
 @router.get("/question-bank/stats")
 async def get_kb_stats():
     """Public stats about the question bank."""
     count = await db.question_bank.count_documents({})
+    status = await _get_build_status()
     return {
         "total_qa_pairs": count,
-        "build_running": _build_status["running"],
-        "done_chapters": _build_status["done_chapters"],
-        "total_chapters": _build_status["total_chapters"],
-        "last_run": _build_status["last_run"],
+        "build_running": status.get("running", False),
+        "done_chapters": status.get("done_chapters", 0),
+        "total_chapters": status.get("total_chapters", 0),
+        "last_run": status.get("last_run"),
     }
 
 

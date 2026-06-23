@@ -38,9 +38,13 @@ export default function InteractiveQuizModal({ quizData, onClose, onComplete }) 
     setTimeSpent(prev => ({ ...prev, [qIdx]: secs }));
   }
 
-  function selectAnswer(answer) {
+  function selectAnswer(answer, optionIndex = null) {
     recordTime(currentQ);
-    setAnswers(prev => ({ ...prev, [currentQ]: answer }));
+    // For MCQ: store letter (A/B/C/D) if index given, otherwise store the value as-is
+    const stored = optionIndex !== null
+      ? String.fromCharCode(65 + optionIndex)  // A, B, C, D
+      : answer;
+    setAnswers(prev => ({ ...prev, [currentQ]: stored }));
   }
 
   function nextQuestion() {
@@ -56,18 +60,25 @@ export default function InteractiveQuizModal({ quizData, onClose, onComplete }) 
     // Record time for last question
     recordTime(currentQ);
 
-    // Compile answers
-    const submissionAnswers = questions.map((q, i) => ({
-      question_index: i,
-      selected_answer: answers[i] ?? '',
-      time_spent_s: timeSpent[i] ?? 0,
-    }));
+    // Convert answers to dict format expected by backend {index: letter/answer}
+    const answersDict = {};
+    questions.forEach((q, i) => {
+      const ans = answers[i];
+      if (ans !== undefined && ans !== null) {
+        // For MCQ: store only the first char (letter) to match backend scoring
+        answersDict[String(i)] = typeof ans === 'string' && ans.length > 1 && ans.match(/^[A-D]/)
+          ? ans.charAt(0)
+          : String(ans);
+      } else {
+        answersDict[String(i)] = '';
+      }
+    });
 
     setSubmitting(true);
     try {
       const { data } = await axios.post(
         `${API}/api/quiz/${quizData.quiz_id}/submit`,
-        { answers: submissionAnswers },
+        { answers: answersDict },
         { withCredentials: true }
       );
       setResults(data);
@@ -169,11 +180,12 @@ export default function InteractiveQuizModal({ quizData, onClose, onComplete }) 
                     {(question?.type === 'mcq') && (
                       <div className="space-y-3" data-testid="mcq-options">
                         {(question?.options || []).map((opt, i) => {
-                          const isSelected = answers[currentQ] === opt || answers[currentQ] === i;
+                          const letter = String.fromCharCode(65 + i);
+                          const isSelected = answers[currentQ] === letter;
                           return (
                             <button
                               key={i}
-                              onClick={() => selectAnswer(opt)}
+                              onClick={() => selectAnswer(opt, i)}
                               data-testid={`option-${i}`}
                               className="w-full text-left px-4 py-3 rounded-xl text-sm transition-all duration-150 border"
                               style={{
