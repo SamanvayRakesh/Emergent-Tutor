@@ -1,24 +1,36 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { BookOpen, Mail, Lock, User, ArrowRight, Eye, EyeOff, Sparkles, CheckCircle2, RefreshCw } from 'lucide-react';
+import { BookOpen, Mail, Lock, User, ArrowRight, Eye, EyeOff, CheckCircle2, RefreshCw, AlertTriangle, Clock } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
+const EMAIL_REGEX = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
+
 export default function AuthPage() {
-  const [tab, setTab] = useState('login');
-  const [showPass, setShowPass] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [form, setForm] = useState({ email: '', password: '', name: '' });
-  const [registerSuccess, setRegisterSuccess] = useState(false); // email verification pending
+  const [tab, setTab]               = useState('login');
+  const [showPass, setShowPass]     = useState(false);
+  const [loading, setLoading]       = useState(false);
+  const [error, setError]           = useState('');
+  const [form, setForm]             = useState({ email: '', password: '', name: '' });
+  const [registerSuccess, setRegisterSuccess] = useState(false);
   const [unverifiedEmail, setUnverifiedEmail] = useState('');
-  const [resending, setResending] = useState(false);
+  const [resending, setResending]   = useState(false);
   const [resendDone, setResendDone] = useState(false);
+  const [cooldownSecs, setCooldownSecs]  = useState(0);
+  const cooldownRef = useRef(null);
   const { login } = useAuth();
   const nav = useNavigate();
+
+  // Cooldown countdown timer
+  useEffect(() => {
+    if (cooldownSecs > 0) {
+      cooldownRef.current = setTimeout(() => setCooldownSecs(s => s - 1), 1000);
+    }
+    return () => clearTimeout(cooldownRef.current);
+  }, [cooldownSecs]);
 
   const formatError = (detail) => {
     if (!detail) return 'Something went wrong';
@@ -28,16 +40,27 @@ export default function AuthPage() {
     return String(detail);
   };
 
+  const validateEmailFormat = (email) => EMAIL_REGEX.test(email.trim());
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true); setError('');
+    setError('');
+
+    // Client-side email format check
+    if (!validateEmailFormat(form.email)) {
+      setError('Invalid email format. Use the format: name@domain.tld');
+      return;
+    }
+
+    setLoading(true);
     try {
       const endpoint = tab === 'login' ? '/auth/login' : '/auth/register';
-      const payload = tab === 'login' ? { email: form.email, password: form.password } : form;
+      const payload  = tab === 'login'
+        ? { email: form.email, password: form.password }
+        : form;
       const { data } = await axios.post(`${API}${endpoint}`, payload, { withCredentials: true });
 
       if (data.requires_verification) {
-        // Registration successful — show email verification pending state
         setRegisterSuccess(true);
         return;
       }
@@ -45,10 +68,19 @@ export default function AuthPage() {
       nav('/', { replace: true });
     } catch (err) {
       const detail = err.response?.data?.detail;
-      // Handle email not verified on login
+
       if (detail?.code === 'EMAIL_NOT_VERIFIED') {
         setUnverifiedEmail(detail.email || form.email);
-        setError(detail.message || 'Email not verified. Please check your inbox.');
+        setError(detail.message || 'Please verify your email before accessing AceIt AI.');
+        return;
+      }
+      if (detail?.code === 'PENDING_VERIFICATION') {
+        setUnverifiedEmail(detail.email || form.email);
+        setError(detail.message || 'Please check your inbox and verify your email.');
+        return;
+      }
+      if (err.response?.status === 429) {
+        setError(formatError(detail));
         return;
       }
       setError(formatError(detail) || err.message);
@@ -59,13 +91,21 @@ export default function AuthPage() {
 
   const handleResendVerification = async () => {
     const email = unverifiedEmail || form.email;
-    if (!email) return;
+    if (!email || cooldownSecs > 0) return;
     setResending(true);
+    setError('');
     try {
-      await axios.post(`${API}/auth/resend-verification`, { email });
+      const { data } = await axios.post(`${API}/auth/resend-verification`, { email });
       setResendDone(true);
-    } catch {
-      setResendDone(true);
+      if (data?.cooldown_seconds) setCooldownSecs(data.cooldown_seconds);
+    } catch (err) {
+      const detail = err.response?.data?.detail;
+      if (detail?.code === 'RESEND_COOLDOWN') {
+        setCooldownSecs(detail.remaining_seconds || 60);
+        setError(detail.message || 'Please wait before requesting another email.');
+      } else {
+        setResendDone(true); // Show success anyway to avoid enumeration
+      }
     } finally {
       setResending(false);
     }
@@ -76,7 +116,7 @@ export default function AuthPage() {
     window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
   };
 
-  // Email verification pending state
+  // ── Registration success — email sent state ──────────────────────────────
   if (registerSuccess) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center px-4">
@@ -88,22 +128,35 @@ export default function AuthPage() {
           </div>
           <div className="glass rounded-2xl p-8 shadow-2xl text-center" data-testid="verify-email-pending">
             <CheckCircle2 size={52} className="mx-auto mb-4" style={{ color: '#22c55e' }} />
-            <h2 className="text-white text-xl font-heading font-bold mb-2">Check your email!</h2>
-            <p className="text-zinc-400 text-sm mb-2">
-              We sent a verification link to <span className="text-white font-medium">{form.email}</span>
+            <h2 className="text-white text-xl font-heading font-bold mb-2">Check your inbox!</h2>
+            <p className="text-zinc-400 text-sm mb-1">
+              Verification email sent to <span className="text-white font-medium">{form.email}</span>
             </p>
-            <p className="text-zinc-500 text-xs mb-6">Click the link to activate your account. Link expires in 24 hours.</p>
+            <p className="text-zinc-500 text-xs mb-6">
+              Please check your inbox to activate your AceIt AI account. Link expires in 24 hours.
+            </p>
+
             {!resendDone ? (
-              <button onClick={handleResendVerification} disabled={resending} data-testid="resend-email-btn"
-                className="text-sm text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1.5 mx-auto">
-                <RefreshCw size={14} className={resending ? 'animate-spin' : ''} />
-                {resending ? 'Sending…' : 'Resend email'}
+              <button
+                onClick={() => { setUnverifiedEmail(form.email); handleResendVerification(); }}
+                disabled={resending || cooldownSecs > 0}
+                data-testid="resend-email-btn"
+                className="text-sm text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1.5 mx-auto disabled:opacity-50"
+              >
+                {cooldownSecs > 0 ? (
+                  <><Clock size={14} />{`Resend in ${cooldownSecs}s`}</>
+                ) : (
+                  <><RefreshCw size={14} className={resending ? 'animate-spin' : ''} />{resending ? 'Sending…' : 'Resend email'}</>
+                )}
               </button>
             ) : (
               <p className="text-green-400 text-xs">Resent! Check your inbox again.</p>
             )}
-            <button onClick={() => { setRegisterSuccess(false); setTab('login'); }}
-              className="mt-4 text-zinc-500 text-xs hover:text-zinc-300 transition-colors block mx-auto">
+
+            <button
+              onClick={() => { setRegisterSuccess(false); setTab('login'); }}
+              className="mt-4 text-zinc-500 text-xs hover:text-zinc-300 transition-colors block mx-auto"
+            >
               Back to Sign In
             </button>
           </div>
@@ -112,11 +165,18 @@ export default function AuthPage() {
     );
   }
 
+  // ── Main auth form ─────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-zinc-950 flex items-center justify-center relative overflow-hidden px-4">
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-violet-600/8 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-cyan-500/8 rounded-full blur-3xl pointer-events-none" />
-      <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }} className="w-full max-w-md">
+
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6 }}
+        className="w-full max-w-md"
+      >
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-3 mb-4">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-400 to-violet-600 flex items-center justify-center">
@@ -130,16 +190,18 @@ export default function AuthPage() {
         </div>
 
         <div className="glass rounded-2xl p-7 shadow-2xl">
+          {/* Tab switcher */}
           <div className="flex rounded-xl bg-zinc-900 p-1 mb-6 gap-1">
             {['login', 'register'].map(t => (
               <button key={t} data-testid={`auth-tab-${t}`}
-                onClick={() => { setTab(t); setError(''); setUnverifiedEmail(''); setResendDone(false); }}
+                onClick={() => { setTab(t); setError(''); setUnverifiedEmail(''); setResendDone(false); setCooldownSecs(0); }}
                 className={`flex-1 py-2 rounded-lg text-sm font-body font-semibold transition-all ${tab === t ? 'bg-cyan-500 text-black shadow-lg' : 'text-zinc-400 hover:text-white'}`}>
                 {t === 'login' ? 'Sign In' : 'Sign Up'}
               </button>
             ))}
           </div>
 
+          {/* Google */}
           <button onClick={handleGoogle} data-testid="google-login-btn"
             className="w-full flex items-center justify-center gap-3 py-3 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-white text-sm font-body font-medium transition-all mb-4">
             <svg width="18" height="18" viewBox="0 0 18 18">
@@ -188,29 +250,53 @@ export default function AuthPage() {
               </button>
             </div>
 
+            {/* Error + resend actions */}
             {error && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                data-testid="auth-error" className="text-red-400 text-xs font-body p-3 bg-red-500/10 rounded-lg border border-red-500/20">
-                <p>{error}</p>
-                {unverifiedEmail && !resendDone && (
-                  <button onClick={handleResendVerification} disabled={resending} data-testid="resend-verification-link"
-                    className="mt-2 text-blue-400 hover:text-blue-300 text-xs flex items-center gap-1 transition-colors">
-                    <RefreshCw size={12} className={resending ? 'animate-spin' : ''} />
-                    {resending ? 'Sending…' : 'Resend verification email'}
-                  </button>
+                data-testid="auth-error"
+                className="text-red-400 text-xs font-body p-3 bg-red-500/10 rounded-lg border border-red-500/20">
+                <div className="flex gap-2">
+                  <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+                  <p>{error}</p>
+                </div>
+                {unverifiedEmail && (
+                  <div className="mt-2 pl-5">
+                    {!resendDone ? (
+                      <button
+                        type="button"
+                        onClick={handleResendVerification}
+                        disabled={resending || cooldownSecs > 0}
+                        data-testid="resend-verification-link"
+                        className="text-blue-400 hover:text-blue-300 text-xs flex items-center gap-1 transition-colors disabled:opacity-50"
+                      >
+                        {cooldownSecs > 0 ? (
+                          <><Clock size={12} />{`Resend available in ${cooldownSecs}s`}</>
+                        ) : (
+                          <><RefreshCw size={12} className={resending ? 'animate-spin' : ''} />
+                          {resending ? 'Sending…' : 'Resend verification email'}</>
+                        )}
+                      </button>
+                    ) : (
+                      <p className="text-green-400 text-xs">Verification email resent! Check your inbox.</p>
+                    )}
+                  </div>
                 )}
-                {resendDone && <p className="mt-1 text-green-400 text-xs">Verification email resent!</p>}
               </motion.div>
             )}
 
             <button type="submit" data-testid="auth-submit-btn" disabled={loading}
               className="w-full py-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-heading font-bold text-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50 mt-2">
-              {loading ? <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" /> : <>{tab === 'login' ? 'Sign In' : 'Create Account'}<ArrowRight size={16} /></>}
+              {loading
+                ? <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+                : <>{tab === 'login' ? 'Sign In' : 'Create Account'}<ArrowRight size={16} /></>
+              }
             </button>
           </form>
 
           {tab === 'register' && (
-            <p className="text-zinc-600 text-xs text-center mt-4 font-body">By signing up, you agree to learn and grow with AceIt AI</p>
+            <p className="text-zinc-600 text-xs text-center mt-4 font-body">
+              By signing up, you agree to learn and grow with AceIt AI
+            </p>
           )}
         </div>
 

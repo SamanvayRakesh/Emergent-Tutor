@@ -1,12 +1,142 @@
-"""Email service using Resend for transactional emails."""
+"""Email service using Resend for transactional emails.
+Includes disposable domain blocking + MX record validation.
+"""
 import asyncio
 import os
+import re
+import dns.resolver
 import resend
 from core import logger
 
 resend.api_key = os.environ.get("RESEND_API_KEY", "")
 SENDER_EMAIL = os.environ.get("SENDER_EMAIL", "onboarding@resend.dev")
 FRONTEND_BASE_URL = os.environ.get("FRONTEND_BASE_URL", "https://neural-exam-prep.preview.emergentagent.com")
+
+# ── Email format regex ─────────────────────────────────────────────────────────
+_EMAIL_REGEX = re.compile(r'^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$')
+
+# ── Disposable / throwaway email domains ──────────────────────────────────────
+DISPOSABLE_DOMAINS: set = {
+    "mailinator.com", "mailinator.net", "mailinator2.com",
+    "tempmail.com", "tempmail.net", "tempmail.org", "tempmail.de",
+    "tempmail.eu", "tempemail.com", "tempemail.net",
+    "guerrillamail.com", "guerrillamail.org", "guerrillamail.net",
+    "guerrillamail.biz", "guerrillamail.de", "guerrillamail.info",
+    "guerrillamailblock.com", "sharklasers.com", "grr.la", "spam4.me",
+    "10minutemail.com", "10minutemail.net", "10minutemail.org",
+    "10minutemail.co.uk", "10minutemail.de", "10minutemail.eu",
+    "20minutemail.com", "my10minutemail.com",
+    "yopmail.com", "yopmail.fr",
+    "throwaway.email", "throwam.com",
+    "trashmail.com", "trashmail.net", "trashmail.org", "trashmail.at",
+    "trashmail.io", "trashmail.me", "trashmail.xyz",
+    "fakeinbox.com", "fakemailgenerator.com",
+    "dispostable.com", "disposablemail.com",
+    "mailnull.com", "spamgourmet.com", "spamgourmet.net", "spamgourmet.org",
+    "spamex.com", "spamhole.com", "spamoff.de",
+    "maildrop.cc", "mailnesia.com",
+    "getonemail.com", "getairmail.com", "getmails.eu",
+    "mohmal.com", "mintemail.com", "mailtemp.info",
+    "nospam.ze.tc", "no-spam.ws", "spam.la",
+    "binkmail.com", "bobmail.info", "bugmenot.com",
+    "deadaddress.com", "devnullmail.com",
+    "dumpmail.de", "dumpyemail.com",
+    "emailias.com", "emailsensei.com", "emailwarden.com",
+    "filzmail.com", "fleckens.hu",
+    "hmamail.com", "ieatspam.eu", "ieatspam.info",
+    "incognitomail.com", "incognitomail.net", "incognitomail.org",
+    "jetable.com", "jetable.fr.nf", "jetable.net", "jetable.org",
+    "junk.to", "junkmail.com",
+    "kasmail.com", "killmail.com",
+    "kurzepost.de", "lortemail.dk",
+    "mail-temporaire.com", "mail-temporaire.fr",
+    "mailbucket.org", "mailcat.biz", "mailcatch.com",
+    "mailde.de", "mailde.info", "mailexpire.com",
+    "mailin8r.com", "mailinater.com",
+    "mailme.lv", "mailme24.com",
+    "mailmoat.com", "mailnew.com",
+    "mailquack.com", "mailslapping.com", "mailspam.me",
+    "mailtemporaire.com", "mailtemporaire.fr",
+    "mailtothis.com", "mailzilla.com", "mailzilla.org",
+    "neverbox.com", "nice-4u.com",
+    "objectmail.com", "opentrash.com",
+    "pancakemail.com", "pookmail.com",
+    "quickinbox.com", "quickmail.nl",
+    "rcpt.at", "rejectmail.com",
+    "rhyta.com", "rootfest.net",
+    "safe-mail.net", "sandelf.de",
+    "sharedmailbox.org", "shieldedmail.com",
+    "shiftmail.com", "shortmail.net",
+    "sibmail.com", "slam.com", "slushmail.com",
+    "soodomail.com", "spam.mn", "spambox.us",
+    "spamdecoy.net", "spamfree24.de",
+    "spamfree24.eu", "spamfree24.info",
+    "spamfree24.net", "spamfree24.org",
+    "spaml.de", "spammotel.com",
+    "spamspot.com", "spamtroll.net",
+    "supermailer.jp", "tafmail.com",
+    "tempail.com", "tempalias.com",
+    "tempimbox.com", "tempinbox.com",
+    "temporaryemail.net", "temporaryemail.us",
+    "temporaryinbox.com", "tempymail.com",
+    "thisisnotmyrealemail.com", "tilien.com",
+    "trash-mail.com", "trashdevil.com", "trashdevil.de",
+    "trashspam.com", "wegwerf-emails.de",
+    "wegwerfadresse.de", "wegwerfemail.com",
+    "wegwerfemail.de", "wegwerfemail.net",
+    "wegwerfmail.de", "wegwerfmail.info",
+    "welikecookies.com", "whyspam.me",
+    "wmail.cf", "xagloo.com", "xagloo.co",
+    "yapped.net", "zehnminuten.de",
+    "zehnminutenmail.de", "zetmail.com",
+    "zoemail.net", "zoemail.org",
+}
+
+
+# ── Email quality validation ───────────────────────────────────────────────────
+
+def _mx_lookup(domain: str) -> bool:
+    """Synchronous MX lookup — run in a thread via asyncio.to_thread."""
+    try:
+        resolver = dns.resolver.Resolver()
+        resolver.lifetime = 6.0
+        resolver.timeout = 6.0
+        answers = resolver.resolve(domain, "MX")
+        return len(answers) > 0
+    except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer,
+            dns.resolver.NoNameservers, dns.exception.DNSException):
+        return False
+    except Exception:
+        return False
+
+
+async def validate_email_quality(email: str) -> tuple:
+    """
+    Returns (is_valid: bool, rejection_reason: str).
+    Checks: format → disposable domain → MX records.
+    """
+    email = email.lower().strip()
+
+    # 1. Format
+    if not _EMAIL_REGEX.match(email):
+        return False, "Invalid email format. Use the format: name@domain.tld"
+
+    parts = email.split("@")
+    if len(parts) != 2 or not parts[0] or not parts[1]:
+        return False, "Invalid email format"
+
+    domain = parts[1].lower()
+
+    # 2. Disposable domain
+    if domain in DISPOSABLE_DOMAINS:
+        return False, "Disposable email addresses are not allowed. Please use a permanent email."
+
+    # 3. MX record check
+    has_mx = await asyncio.to_thread(_mx_lookup, domain)
+    if not has_mx:
+        return False, f"The domain '{domain}' has no valid mail servers. Please use a real email address."
+
+    return True, ""
 
 
 async def send_verification_email(email: str, name: str, token: str) -> bool:

@@ -1,7 +1,8 @@
 """AceIt AI Backend - FastAPI app entrypoint. Mounts all route modules."""
 import os
 import uuid
-from datetime import datetime, timezone
+import asyncio
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 from fastapi import FastAPI, APIRouter
@@ -50,9 +51,11 @@ app.include_router(api_router)
 
 @app.on_event("startup")
 async def startup_event():
-    # Indexes
+    # ── Indexes ────────────────────────────────────────────────────────────────
     await db.users.create_index("email", unique=True)
     await db.users.create_index("user_id", unique=True)
+    await db.users.create_index("verification_token", sparse=True)
+    await db.users.create_index("status", sparse=True)
     await db.user_sessions.create_index("session_token")
     await db.user_sessions.create_index("user_id")
     await db.chat_sessions.create_index("user_id")
@@ -67,41 +70,49 @@ async def startup_event():
     await db.subscriptions.create_index("user_id", unique=True)
     await db.usage_counters.create_index("user_id", unique=True)
     await db.onboarding.create_index("user_id", unique=True)
-
-    await db.users.create_index("verification_token", sparse=True)
     await db.credit_analytics.create_index([("user_id", 1), ("timestamp", -1)])
     await db.student_profiles.create_index("user_id", unique=True)
 
-    # One-time backfill: existing users are considered verified (new field)
+    # ── Backfills ──────────────────────────────────────────────────────────────
+    # Existing users without is_verified → mark as verified
     await db.users.update_many(
         {"is_verified": {"$exists": False}},
-        {"$set": {"is_verified": True}},
+        {"$set": {"is_verified": True, "email_verified": True, "status": "active"}},
     )
-    # One-time credits backfill
+    # Add status=active to all existing verified users missing it
+    await db.users.update_many(
+        {"is_verified": True, "status": {"$exists": False}},
+        {"$set": {"status": "active", "email_verified": True}},
+    )
+    # Unverified without status → mark pending
+    await db.users.update_many(
+        {"is_verified": False, "status": {"$exists": False}},
+        {"$set": {"status": "pending_verification", "email_verified": False}},
+    )
+    # Credits backfill
     await db.users.update_many(
         {"credits": {"$exists": False}},
         {"$set": {"credits": 100}},
     )
 
-    # Load verified curriculum from scraper output (idempotent — safe to call on every restart)
+    # ── Curriculum ─────────────────────────────────────────────────────────────
     try:
         await load_curriculum_from_json()
     except Exception as e:
         logger.warning(f"Curriculum load skipped: {e}")
 
-    # Auto-trigger question bank build in background if empty
+    # ── Auto-build question bank ───────────────────────────────────────────────
     try:
         kb_count = await db.question_bank.count_documents({})
         if kb_count < 100:
             from routes.question_bank import _run_kb_build
-            import asyncio
             asyncio.create_task(_run_kb_build())
             logger.info("Question bank build started in background (KB was empty)")
     except Exception as e:
         logger.warning(f"QB auto-build skipped: {e}")
 
-    # Seed admin
-    admin_email = os.environ.get("ADMIN_EMAIL", "admin@neuralearn.ai")
+    # ── Seed admin ─────────────────────────────────────────────────────────────
+    admin_email    = os.environ.get("ADMIN_EMAIL", "admin@neuralearn.ai")
     admin_password = os.environ.get("ADMIN_PASSWORD", "Admin@123456")
     existing = await db.users.find_one({"email": admin_email}, {"_id": 0})
     if not existing:
@@ -114,10 +125,24 @@ async def startup_event():
             "streak": 30, "longest_streak": 30, "last_active": now,
             "class_level": "12", "achievements": [],
             "created_at": now, "auth_type": "jwt",
+            "credits": 9999,
+            "is_verified": True,
+            "email_verified": True,
+            "status": "active",
+            "verified_at": now,
         })
         logger.info(f"Admin seeded: {admin_email}")
+    else:
+        # Ensure admin is always active/verified
+        await db.users.update_one(
+            {"email": admin_email},
+            {"$set": {"is_verified": True, "email_verified": True, "status": "active"}},
+        )
 
-    # Write test credentials
+    # ── Background cleanup task ────────────────────────────────────────────────
+    asyncio.create_task(_cleanup_unverified_accounts())
+
+    # ── Write test credentials ─────────────────────────────────────────────────
     creds_path = Path("/app/memory/test_credentials.md")
     creds_path.parent.mkdir(exist_ok=True)
     creds_path.write_text(f"""# AceIt AI Test Credentials
@@ -126,6 +151,7 @@ async def startup_event():
 - Email: {admin_email}
 - Password: {admin_password}
 - Role: admin
+- Status: verified / active
 
 ## Student Test Account
 - Email: student@neuralearn.ai
@@ -136,7 +162,9 @@ async def startup_event():
 - POST /api/auth/register
 - POST /api/auth/login
 - POST /api/auth/logout
-- GET /api/auth/me
+- GET  /api/auth/me
+- GET  /api/auth/verify-email?token=XYZ
+- POST /api/auth/resend-verification
 - POST /api/google-auth/session
 
 ## App URL
@@ -144,6 +172,26 @@ async def startup_event():
 - Backend API: {FRONTEND_URL}/api
 """)
     logger.info("AceIt AI backend started successfully!")
+
+
+async def _cleanup_unverified_accounts():
+    """Background task: delete unverified JWT accounts older than 48 hours. Runs hourly."""
+    while True:
+        try:
+            await asyncio.sleep(3600)  # Wait 1 hour between runs
+            cutoff = datetime.now(timezone.utc) - timedelta(hours=48)
+            cutoff_iso = cutoff.isoformat()
+            result = await db.users.delete_many({
+                "is_verified": False,
+                "auth_type": "jwt",
+                "created_at": {"$lt": cutoff_iso},
+            })
+            if result.deleted_count:
+                logger.info(f"Cleanup: removed {result.deleted_count} unverified accounts older than 48h")
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            logger.error(f"Cleanup task error: {e}")
 
 
 @app.on_event("shutdown")

@@ -1,6 +1,20 @@
-"""Auth: JWT register/login + Google OAuth session + email verification."""
+"""Auth: JWT register/login + Google OAuth session + email verification.
+
+Production features:
+- Email quality validation (format, disposable domain, MX records)
+- Cryptographically secure token hashing (SHA-256)
+- Token expiry (24 hours)
+- Login blocked until email verified
+- Resend with 60s cooldown
+- In-memory rate limiting (per IP)
+- Unverified account cleanup (handled by server.py background task)
+- Google users automatically marked verified
+"""
+import hashlib
+import time
 import uuid
 import secrets
+from collections import defaultdict
 from datetime import datetime, timezone, timedelta
 
 import httpx
@@ -14,14 +28,45 @@ from core import (
 )
 from models import UserRegister, UserLogin, GoogleSessionRequest, UpdateClassRequest
 from cbse_data import get_classes
-from email_service import send_verification_email, send_welcome_email
+from email_service import send_verification_email, send_welcome_email, validate_email_quality
 
 router = APIRouter()
 
 VERIFICATION_EXPIRY_HOURS = 24
+RESEND_COOLDOWN_SECONDS = 60
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
+# ── In-memory rate limiter ─────────────────────────────────────────────────────
+
+_rate_store: dict = defaultdict(list)
+
+
+def _check_rate_limit(key: str, max_calls: int, window_seconds: int) -> bool:
+    """Returns True if allowed, False if rate-limited. Thread-safe for single process."""
+    now = time.monotonic()
+    cutoff = now - window_seconds
+    _rate_store[key] = [t for t in _rate_store[key] if t > cutoff]
+    if len(_rate_store[key]) >= max_calls:
+        return False
+    _rate_store[key].append(now)
+    return True
+
+
+def _get_client_ip(request: Request) -> str:
+    forwarded = request.headers.get("X-Forwarded-For", "")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+# ── Token helpers ─────────────────────────────────────────────────────────────
+
+def _hash_token(token: str) -> str:
+    """SHA-256 hash of a token for safe storage."""
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+# ── Cookie / user helpers ─────────────────────────────────────────────────────
 
 def _set_auth_cookies(response: Response, user_id: str, email: str):
     response.set_cookie("access_token",  create_access_token(user_id, email),
@@ -31,65 +76,118 @@ def _set_auth_cookies(response: Response, user_id: str, email: str):
 
 
 def _strip_sensitive(user: dict) -> dict:
-    user.pop("password_hash", None)
-    user.pop("_id", None)
+    for key in ("password_hash", "_id", "verification_token",
+                "verification_token_hash", "resend_cooldown_until"):
+        user.pop(key, None)
     return user
 
 
 # ── Register ──────────────────────────────────────────────────────────────────
 
 @router.post("/auth/register")
-async def register(body: UserRegister, response: Response):
-    email = body.email.lower().strip()
-    if await db.users.find_one({"email": email}, {"_id": 0}):
-        raise HTTPException(status_code=400, detail="Email already registered")
+async def register(body: UserRegister, request: Request, response: Response):
+    client_ip = _get_client_ip(request)
 
-    user_id  = f"user_{uuid.uuid4().hex[:12]}"
-    token    = secrets.token_urlsafe(32)
-    now      = datetime.now(timezone.utc).isoformat()
-    expires  = (datetime.now(timezone.utc) + timedelta(hours=VERIFICATION_EXPIRY_HOURS)).isoformat()
+    # Rate limit: 5 registrations per hour per IP
+    if not _check_rate_limit(f"register:{client_ip}", 5, 3600):
+        raise HTTPException(
+            status_code=429,
+            detail="Too many registration attempts from this IP. Please try again later.",
+        )
+
+    email = body.email.lower().strip()
+
+    # Email quality validation (format + disposable + MX)
+    is_valid, reason = await validate_email_quality(email)
+    if not is_valid:
+        raise HTTPException(status_code=422, detail=reason)
+
+    # Duplicate check (generic message to avoid enumeration at register stage is impractical UX-wise)
+    existing = await db.users.find_one({"email": email}, {"_id": 0, "is_verified": 1})
+    if existing:
+        if not existing.get("is_verified", False):
+            # Account exists but unverified — tell them to check email (not leaking extra info)
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "code": "PENDING_VERIFICATION",
+                    "message": "An account with this email is pending verification. Please check your inbox or resend the verification email.",
+                    "email": email,
+                },
+            )
+        raise HTTPException(status_code=400, detail="An account with this email already exists.")
+
+    user_id = f"user_{uuid.uuid4().hex[:12]}"
+    plain_token = secrets.token_urlsafe(40)
+    token_hash = _hash_token(plain_token)
+    now = datetime.now(timezone.utc)
+    expires = (now + timedelta(hours=VERIFICATION_EXPIRY_HOURS)).isoformat()
 
     user_doc = {
-        "user_id": user_id, "email": email, "name": body.name,
+        "user_id": user_id,
+        "email": email,
+        "name": body.name,
         "password_hash": hash_password(body.password),
-        "role": "student", "avatar": None,
+        "role": "student",
+        "avatar": None,
         "xp": 0, "level": 1, "streak": 0, "longest_streak": 0,
-        "last_active": now, "class_level": body.class_level or "9",
-        "achievements": [], "created_at": now, "auth_type": "jwt",
+        "last_active": now.isoformat(),
+        "class_level": body.class_level or "9",
+        "achievements": [],
+        "created_at": now.isoformat(),
+        "auth_type": "jwt",
         "credits": 100,
-        # Verification
+        # Verification fields
         "is_verified": False,
-        "verification_token": token,
+        "email_verified": False,
+        "status": "pending_verification",
+        "verification_token": token_hash,
         "verification_expires": expires,
+        "verified_at": None,
     }
     await db.users.insert_one(user_doc)
 
-    # Send verification email (non-blocking — don't fail registration if email fails)
-    sent = await send_verification_email(email, body.name, token)
+    # Send verification email (non-blocking — registration succeeds regardless)
+    sent = await send_verification_email(email, body.name, plain_token)
     if not sent:
-        logger.warning(f"Verification email not sent to {email} — check Resend key")
+        logger.warning(f"Verification email not delivered to {email}")
 
     user_doc = _strip_sensitive(user_doc)
-    return {**user_doc, "requires_verification": True,
-            "message": "Account created! Check your email to verify before logging in."}
+    user_doc.pop("password_hash", None)
+    return {
+        **user_doc,
+        "requires_verification": True,
+        "message": "Verification email sent. Please check your inbox to activate your AceIt AI account.",
+    }
 
 
 # ── Login ─────────────────────────────────────────────────────────────────────
 
 @router.post("/auth/login")
-async def login(body: UserLogin, response: Response):
+async def login(body: UserLogin, request: Request, response: Response):
+    client_ip = _get_client_ip(request)
+
+    # Rate limit: 10 login attempts per hour per IP
+    if not _check_rate_limit(f"login:{client_ip}", 10, 3600):
+        raise HTTPException(
+            status_code=429,
+            detail="Too many login attempts. Please try again later.",
+        )
+
     email = body.email.lower().strip()
     user  = await db.users.find_one({"email": email}, {"_id": 0})
+
+    # Generic invalid credentials (prevent account enumeration)
     if not user or not user.get("password_hash") or not verify_password(body.password, user["password_hash"]):
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
-    # Email verification gate (only for JWT users — Google users are always verified)
+    # Email verification gate (JWT users only — Google users always verified)
     if user.get("auth_type", "jwt") == "jwt" and not user.get("is_verified", False):
         raise HTTPException(
             status_code=403,
             detail={
                 "code": "EMAIL_NOT_VERIFIED",
-                "message": "Please verify your email before logging in. Check your inbox.",
+                "message": "Please verify your email before accessing AceIt AI.",
                 "email": email,
             },
         )
@@ -120,20 +218,24 @@ async def login(body: UserLogin, response: Response):
     return user
 
 
-# ── Email verification endpoints ─────────────────────────────────────────────
+# ── Verify email ──────────────────────────────────────────────────────────────
 
 @router.get("/auth/verify-email")
 async def verify_email(token: str):
-    """Verify email using the token from the link."""
+    """Verify email using the token from the link. Token is hashed before DB lookup."""
     if not token:
         raise HTTPException(status_code=400, detail="Verification token missing")
 
-    user = await db.users.find_one({"verification_token": token}, {"_id": 0})
+    token_hash = _hash_token(token)
+    user = await db.users.find_one({"verification_token": token_hash}, {"_id": 0})
     if not user:
-        raise HTTPException(status_code=400, detail={
-            "code": "INVALID_TOKEN",
-            "message": "This verification link is invalid or has already been used.",
-        })
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "code": "INVALID_TOKEN",
+                "message": "This verification link is invalid or has already been used.",
+            },
+        )
 
     # Check expiry
     expires = user.get("verification_expires")
@@ -143,60 +245,121 @@ async def verify_email(token: str):
             if exp_dt.tzinfo is None:
                 exp_dt = exp_dt.replace(tzinfo=timezone.utc)
             if datetime.now(timezone.utc) > exp_dt:
-                raise HTTPException(status_code=400, detail={
-                    "code": "TOKEN_EXPIRED",
-                    "message": "This verification link has expired. Request a new one.",
-                    "email": user.get("email"),
-                })
+                raise HTTPException(
+                    status_code=400,
+                    detail={
+                        "code": "TOKEN_EXPIRED",
+                        "message": "This verification link has expired. Please request a new verification email.",
+                        "email": user.get("email"),
+                    },
+                )
         except HTTPException:
             raise
         except Exception:
-            pass
+            pass  # If expiry parse fails, allow verification
 
+    verified_at = datetime.now(timezone.utc).isoformat()
     await db.users.update_one(
         {"user_id": user["user_id"]},
-        {"$set": {"is_verified": True},
-         "$unset": {"verification_token": "", "verification_expires": ""}},
+        {
+            "$set": {
+                "is_verified": True,
+                "email_verified": True,
+                "status": "active",
+                "verified_at": verified_at,
+            },
+            "$unset": {
+                "verification_token": "",
+                "verification_expires": "",
+                "resend_cooldown_until": "",
+            },
+        },
     )
 
-    # Send welcome email async
     import asyncio
     asyncio.create_task(send_welcome_email(user["email"], user.get("name", "")))
 
-    return {"success": True, "message": "Email verified! You can now log in.", "email": user["email"]}
+    return {
+        "success": True,
+        "message": "Email verified successfully. Welcome to AceIt AI.",
+        "email": user["email"],
+    }
 
+
+# ── Resend verification ───────────────────────────────────────────────────────
 
 @router.post("/auth/resend-verification")
-async def resend_verification(body: dict):
-    """Resend verification email. Body: {email: string}"""
+async def resend_verification(body: dict, request: Request):
+    """Resend verification email. Body: {email: string}. 60s cooldown enforced."""
+    client_ip = _get_client_ip(request)
+
+    # Rate limit: 3 resend attempts per hour per IP
+    if not _check_rate_limit(f"resend:{client_ip}", 3, 3600):
+        raise HTTPException(
+            status_code=429,
+            detail="Too many resend requests. Please try again later.",
+        )
+
     email = (body.get("email") or "").lower().strip()
     if not email:
         raise HTTPException(status_code=400, detail="Email required")
 
     user = await db.users.find_one({"email": email}, {"_id": 0})
+
+    # Anti-enumeration: always return success-looking response
     if not user:
-        # Return success to avoid email enumeration
         return {"message": "If this email is registered, a new verification link has been sent."}
 
     if user.get("is_verified"):
         return {"message": "Email already verified. You can log in."}
 
     if user.get("auth_type") != "jwt":
-        return {"message": "Google sign-in accounts don't need email verification."}
+        return {"message": "Google sign-in accounts do not need email verification."}
 
-    # Generate new token
-    token   = secrets.token_urlsafe(32)
-    expires = (datetime.now(timezone.utc) + timedelta(hours=VERIFICATION_EXPIRY_HOURS)).isoformat()
+    # 60-second cooldown check
+    cooldown_until = user.get("resend_cooldown_until")
+    if cooldown_until:
+        try:
+            cd = datetime.fromisoformat(cooldown_until)
+            if cd.tzinfo is None:
+                cd = cd.replace(tzinfo=timezone.utc)
+            now = datetime.now(timezone.utc)
+            if now < cd:
+                remaining = int((cd - now).total_seconds()) + 1
+                raise HTTPException(
+                    status_code=429,
+                    detail={
+                        "code": "RESEND_COOLDOWN",
+                        "message": f"Please wait {remaining} seconds before requesting another verification email.",
+                        "remaining_seconds": remaining,
+                    },
+                )
+        except HTTPException:
+            raise
+        except Exception:
+            pass  # Ignore parse errors
+
+    plain_token = secrets.token_urlsafe(40)
+    token_hash  = _hash_token(plain_token)
+    expires     = (datetime.now(timezone.utc) + timedelta(hours=VERIFICATION_EXPIRY_HOURS)).isoformat()
+    cooldown    = (datetime.now(timezone.utc) + timedelta(seconds=RESEND_COOLDOWN_SECONDS)).isoformat()
+
     await db.users.update_one(
         {"email": email},
-        {"$set": {"verification_token": token, "verification_expires": expires}},
+        {"$set": {
+            "verification_token": token_hash,
+            "verification_expires": expires,
+            "resend_cooldown_until": cooldown,
+        }},
     )
 
-    await send_verification_email(email, user.get("name", ""), token)
-    return {"message": "Verification email sent! Check your inbox."}
+    sent = await send_verification_email(email, user.get("name", ""), plain_token)
+    if sent:
+        return {"message": "Verification email sent! Check your inbox.", "cooldown_seconds": RESEND_COOLDOWN_SECONDS}
+    return {"message": "Verification email queued. Check your inbox shortly.", "cooldown_seconds": RESEND_COOLDOWN_SECONDS}
 
 
-# ── Standard auth ─────────────────────────────────────────────────────────────
+# ── Admin: manual verify ───────────────────────────────────────────────────────
 
 @router.post("/auth/admin/verify-user")
 async def admin_verify_user(body: dict, request: Request):
@@ -207,15 +370,30 @@ async def admin_verify_user(body: dict, request: Request):
     email = (body.get("email") or "").lower().strip()
     if not email:
         raise HTTPException(status_code=400, detail="Email required")
+
+    verified_at = datetime.now(timezone.utc).isoformat()
     result = await db.users.update_one(
         {"email": email},
-        {"$set": {"is_verified": True},
-         "$unset": {"verification_token": "", "verification_expires": ""}},
+        {
+            "$set": {
+                "is_verified": True,
+                "email_verified": True,
+                "status": "active",
+                "verified_at": verified_at,
+            },
+            "$unset": {
+                "verification_token": "",
+                "verification_expires": "",
+                "resend_cooldown_until": "",
+            },
+        },
     )
     if result.modified_count:
         return {"success": True, "message": f"User {email} verified successfully"}
     return {"success": False, "message": "User not found or already verified"}
 
+
+# ── Standard auth ─────────────────────────────────────────────────────────────
 
 @router.post("/auth/logout")
 async def logout(response: Response):
@@ -242,8 +420,10 @@ async def refresh_token(request: Request, response: Response):
         user = await db.users.find_one({"user_id": payload["sub"]}, {"_id": 0})
         if not user:
             raise HTTPException(status_code=401, detail="User not found")
-        response.set_cookie("access_token", create_access_token(payload["sub"], user["email"]),
-                            httponly=True, secure=False, samesite="lax", max_age=3600, path="/")
+        response.set_cookie(
+            "access_token", create_access_token(payload["sub"], user["email"]),
+            httponly=True, secure=False, samesite="lax", max_age=3600, path="/",
+        )
         return {"message": "Token refreshed"}
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Refresh token expired")
@@ -281,9 +461,15 @@ async def google_session(body: GoogleSessionRequest, response: Response):
                 pass
         await db.users.update_one(
             {"user_id": user_id},
-            {"$set": {"name": data.get("name", existing["name"]), "avatar": data.get("picture"),
-                      "last_active": now.isoformat(), "streak": streak,
-                      "is_verified": True}},  # Google users always verified
+            {"$set": {
+                "name": data.get("name", existing["name"]),
+                "avatar": data.get("picture"),
+                "last_active": now.isoformat(),
+                "streak": streak,
+                "is_verified": True,
+                "email_verified": True,
+                "status": "active",
+            }},
         )
     else:
         user_id  = f"user_{uuid.uuid4().hex[:12]}"
@@ -294,7 +480,10 @@ async def google_session(body: GoogleSessionRequest, response: Response):
             "role": "student", "xp": 0, "level": 1, "streak": 1, "longest_streak": 1,
             "last_active": now_iso, "class_level": "9", "achievements": [],
             "created_at": now_iso, "auth_type": "google", "credits": 100,
-            "is_verified": True,   # Google users automatically verified
+            "is_verified": True,
+            "email_verified": True,
+            "status": "active",
+            "verified_at": now_iso,
         })
 
     session_token = secrets.token_urlsafe(32)
