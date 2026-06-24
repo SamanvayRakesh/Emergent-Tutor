@@ -87,20 +87,20 @@ def _strip_sensitive(user: dict) -> dict:
 @router.post("/auth/register")
 async def register(body: UserRegister, request: Request, response: Response):
     client_ip = _get_client_ip(request)
+    email = body.email.lower().strip()
 
-    # Rate limit: 5 registrations per hour per IP
+    # Email quality validation FIRST (format + disposable + MX)
+    # Rate limit only counts after validation passes — spam/garbage requests don't burn quota
+    is_valid, reason = await validate_email_quality(email)
+    if not is_valid:
+        raise HTTPException(status_code=422, detail=reason)
+
+    # Rate limit: 5 valid registration attempts per hour per IP
     if not _check_rate_limit(f"register:{client_ip}", 5, 3600):
         raise HTTPException(
             status_code=429,
             detail="Too many registration attempts from this IP. Please try again later.",
         )
-
-    email = body.email.lower().strip()
-
-    # Email quality validation (format + disposable + MX)
-    is_valid, reason = await validate_email_quality(email)
-    if not is_valid:
-        raise HTTPException(status_code=422, detail=reason)
 
     # Duplicate check (generic message to avoid enumeration at register stage is impractical UX-wise)
     existing = await db.users.find_one({"email": email}, {"_id": 0, "is_verified": 1})

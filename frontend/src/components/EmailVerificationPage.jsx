@@ -169,7 +169,7 @@ export default function EmailVerificationPage() {
                   </button>
                 </form>
               ) : (
-                <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4">
+                <div className="rounded-xl p-4" style={{ background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.35)' }}>
                   <p className="text-green-400 text-sm">New verification email sent! Check your inbox.</p>
                 </div>
               )}
@@ -211,7 +211,7 @@ export default function EmailVerificationPage() {
                   </button>
                 </form>
               ) : (
-                <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-4 text-center">
+                <div className="rounded-xl p-4 text-center" style={{ background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.35)' }}>
                   <CheckCircle2 size={28} className="mx-auto mb-2 text-green-400" />
                   <p className="text-green-400 text-sm">Verification email sent! Check your inbox.</p>
                   <button onClick={() => navigate('/')} className="mt-4 text-zinc-400 text-sm underline">
