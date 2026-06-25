@@ -95,7 +95,9 @@ async def create_study_plan(body: StudyPlanRequest, request: Request):
     # Days until exam
     try:
         exam_dt = datetime.fromisoformat(body.exam_date.replace("Z", "+00:00"))
-        days_until = max(1, (exam_dt.replace(tzinfo=None) - datetime.now()).days)
+        if exam_dt.tzinfo is None:
+            exam_dt = exam_dt.replace(tzinfo=timezone.utc)
+        days_until = max(1, (exam_dt - datetime.now(timezone.utc)).days)
     except Exception:
         days_until = 30
 
@@ -232,7 +234,9 @@ async def get_study_plan(request: Request):
     if plan.get("exam_date"):
         try:
             exam_dt = datetime.fromisoformat(plan["exam_date"].replace("Z", "+00:00"))
-            plan["days_remaining"] = max(0, (exam_dt.replace(tzinfo=None) - datetime.now()).days)
+            if exam_dt.tzinfo is None:
+                exam_dt = exam_dt.replace(tzinfo=timezone.utc)
+            plan["days_remaining"] = max(0, (exam_dt - datetime.now(timezone.utc)).days)
         except Exception:
             pass
     return plan
