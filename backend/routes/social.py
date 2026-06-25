@@ -56,18 +56,24 @@ async def get_leaderboard(request: Request, scope: str = Query("global", regex="
     except Exception:
         pass
 
+    # Base filter: exclude admin accounts and internal test accounts
+    base_filter = {
+        "role": {"$ne": "admin"},
+        "email": {"$not": {"$regex": "^test_.*@neuralearn\\.ai"}},
+    }
+
     if scope == "class":
         if not current_user:
             raise HTTPException(status_code=401, detail="Sign in to view your class leaderboard")
-        query = {"class_level": current_user.get("class_level", "9")}
+        query = {**base_filter, "class_level": current_user.get("class_level", "9")}
     elif scope == "friends":
         if not current_user:
             raise HTTPException(status_code=401, detail="Sign in to view your friends leaderboard")
         friends = await _friend_ids(current_user["user_id"])
         friends.add(current_user["user_id"])  # include self
-        query = {"user_id": {"$in": list(friends)}}
+        query = {**base_filter, "user_id": {"$in": list(friends)}}
     else:
-        query = {}
+        query = base_filter
 
     users = await db.users.find(
         query, {"_id": 0, "user_id": 1, "name": 1, "xp": 1, "streak": 1, "class_level": 1}

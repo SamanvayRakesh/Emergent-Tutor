@@ -81,19 +81,24 @@ export default function InteractiveQuizModal({ quizData, onClose, onComplete }) 
         { answers: answersDict },
         { withCredentials: true }
       );
-      setResults(data);
+      // Normalize: backend returns is_correct, display layer uses correct
+      const normalized = {
+        ...data,
+        results: (data.results || []).map(r => ({ ...r, correct: r.is_correct ?? r.correct })),
+      };
+      setResults(normalized);
       setPhase('results');
-      if (onComplete) onComplete(data);
+      if (onComplete) onComplete(normalized);
     } catch (err) {
       // Compute local score as fallback
       let correct = 0;
       const resultsList = questions.map((q, i) => {
         const userAns = (answers[i] ?? '').toString().toLowerCase().trim();
-        const correct_ans = (q.correct_answer ?? '').toString().toLowerCase().trim();
+        const correct_ans = (q.correct ?? q.correct_answer ?? '').toString().toLowerCase().trim();
         const isCorrect = userAns === correct_ans ||
           (q.options && q.options.findIndex(o => o.toLowerCase() === userAns) === q.correct_index);
         if (isCorrect) correct++;
-        return { question: q.question, correct: isCorrect, user_answer: answers[i], correct_answer: q.correct_answer, explanation: q.explanation };
+        return { question: q.question, correct: isCorrect, user_answer: answers[i], correct_answer: q.correct ?? q.correct_answer, explanation: q.explanation };
       });
       const score_pct = Math.round((correct / questions.length) * 100);
       setResults({ score: score_pct, correct_count: correct, total_questions: questions.length, results: resultsList, xp_earned: correct * 5 });

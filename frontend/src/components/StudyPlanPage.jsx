@@ -1,14 +1,19 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CalendarDays, Target, Clock, Zap, BookOpen, ChevronDown, Sparkles, Check, ChevronRight, Award, Users } from 'lucide-react';
+import { CalendarDays, Target, Clock, Zap, BookOpen, ChevronDown, Sparkles, Check, ChevronRight, Award, Users, Lock, ArrowRight } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
+import { useSubscription } from '../contexts/SubscriptionContext';
+import { useNavigate } from 'react-router-dom';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const SUBJECTS = ['Mathematics', 'Physics', 'Chemistry', 'Biology', 'English', 'Social Science', 'Computer Science', 'Science'];
 
 export default function StudyPlanPage() {
   const { user } = useAuth();
+  const { plan } = useSubscription();
+  const nav = useNavigate();
+  const isFree = !plan || plan.plan_id === 'free';
   const [existingPlan, setExistingPlan] = useState(null);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -68,7 +73,35 @@ export default function StudyPlanPage() {
     </div>
   );
 
-  const plan = existingPlan?.plan;
+  // Free plan gate
+  if (isFree) {
+    return (
+      <div className="p-4 sm:p-6 max-w-3xl mx-auto">
+        <div className="mb-6">
+          <h1 className="text-2xl sm:text-3xl font-heading font-black text-white flex items-center gap-3">
+            <CalendarDays size={28} className="text-violet-400" /> Study Plan
+          </h1>
+        </div>
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
+          className="rounded-2xl border border-violet-500/20 p-10 text-center"
+          style={{ background: 'rgba(139,92,246,0.05)' }}>
+          <div className="w-16 h-16 rounded-full bg-violet-500/15 border border-violet-500/20 flex items-center justify-center mx-auto mb-5">
+            <Lock size={28} className="text-violet-400" />
+          </div>
+          <h2 className="text-white text-xl font-heading font-bold mb-2">Study Plans are a Pro Feature</h2>
+          <p className="text-zinc-400 text-sm font-body mb-6 max-w-sm mx-auto">
+            Upgrade your plan to access Study Plans — AI-generated personalized exam prep schedules built around your weak areas.
+          </p>
+          <button onClick={() => nav('/pricing')}
+            className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-violet-500 hover:bg-violet-400 text-white font-heading font-bold text-sm transition-all">
+            Upgrade to Pro <ArrowRight size={16} />
+          </button>
+        </motion.div>
+      </div>
+    );
+  }
+
+  const studyPlan = existingPlan?.plan;
   const daysLeft = existingPlan?.days_remaining ?? existingPlan?.days_until_exam;
 
   return (
@@ -156,7 +189,7 @@ export default function StudyPlanPage() {
           </motion.div>
         )}
 
-        {phase === 'plan' && plan && (
+        {phase === 'plan' && studyPlan && (
           <motion.div key="plan" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-4">
             {/* Overview */}
             <div className="glass rounded-2xl p-4 border border-violet-500/15" style={{ background: 'rgba(139,92,246,0.04)' }}>
@@ -164,13 +197,13 @@ export default function StudyPlanPage() {
                 <Sparkles size={16} className="text-violet-400" />
                 <p className="text-violet-400 text-sm font-body font-semibold">AI Strategy</p>
               </div>
-              <p className="text-zinc-300 text-sm font-body leading-relaxed">{plan.overview}</p>
+              <p className="text-zinc-300 text-sm font-body leading-relaxed">{studyPlan.overview}</p>
             </div>
 
             {/* Tips */}
-            {plan.tips?.length > 0 && (
+            {studyPlan.tips?.length > 0 && (
               <div className="grid sm:grid-cols-3 gap-3">
-                {plan.tips.slice(0, 3).map((tip, i) => (
+                {studyPlan.tips.slice(0, 3).map((tip, i) => (
                   <div key={i} className="glass-surface rounded-xl p-3 border border-white/5">
                     <div className="w-6 h-6 rounded-full bg-violet-500/20 flex items-center justify-center mb-2">
                       <Check size={12} className="text-violet-400" />
@@ -184,7 +217,7 @@ export default function StudyPlanPage() {
             {/* Weekly plan */}
             <div className="space-y-3">
               <h3 className="text-white font-heading font-bold">Week-by-Week Plan</h3>
-              {plan.weeks?.slice(0, 4).map((week, i) => (
+              {studyPlan.weeks?.slice(0, 4).map((week, i) => (
                 <motion.div key={i} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.08 }}
                   className="glass-surface rounded-2xl border border-white/5 overflow-hidden">
                   <div className="flex items-center justify-between p-4 cursor-pointer">
@@ -206,10 +239,10 @@ export default function StudyPlanPage() {
             </div>
 
             {/* Exam week */}
-            {plan.exam_week && (
+            {studyPlan.exam_week && (
               <div className="p-4 rounded-2xl border border-red-500/20 bg-red-500/5">
                 <p className="text-red-400 font-body font-semibold text-sm mb-1">Exam Week Strategy</p>
-                <p className="text-zinc-300 text-sm font-body">{plan.exam_week}</p>
+                <p className="text-zinc-300 text-sm font-body">{studyPlan.exam_week}</p>
               </div>
             )}
           </motion.div>

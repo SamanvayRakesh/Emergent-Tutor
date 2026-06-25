@@ -117,6 +117,12 @@ export default function SyllabusPage() {
         {view === 'chapters' && (
           <motion.div key="chapters" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }}>
             <div className="flex items-center gap-3 mb-4">
+              <button
+                onClick={() => { setView('subjects'); setSelectedSubject(null); setSearch(''); }}
+                data-testid="back-to-subjects-btn"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-white/10 bg-white/5 text-zinc-400 hover:text-white hover:border-white/20 text-xs font-body transition-all">
+                ← Back
+              </button>
               <h2 className="text-white font-heading font-bold flex-1">{selectedSubject?.name} Chapters</h2>
               <div className="relative">
                 <Search size={14} className="absolute left-3 top-2.5 text-zinc-500" />

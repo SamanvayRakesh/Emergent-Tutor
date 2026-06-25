@@ -41,11 +41,12 @@ _CATEGORY_B_KW = {
 }
 
 # Response length limits per budget tier (tokens)
+# Category C normal = 1800 tokens ≈ 1350 words (supports 1500-word limit)
 _MAX_TOKENS = {
     #              normal  near  critical
     "A":          (0,      0,    0),
-    "B":          (200,    120,  100),
-    "C":          (500,    200,  120),
+    "B":          (800,    300,  150),
+    "C":          (1800,   600,  200),
 }
 
 

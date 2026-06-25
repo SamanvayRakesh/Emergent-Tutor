@@ -403,14 +403,14 @@ export default function ChatPage() {
   const QUIZ_INTENTS = ['give me a quiz', 'quiz me', 'test me', 'practice quiz', 'quick quiz', 'start a quiz', 'quiz on this'];
   const isQuizIntent = (text) => QUIZ_INTENTS.some(q => text.toLowerCase().includes(q));
 
-  const openQuizModal = useCallback(async (text) => {
+  const openQuizModal = useCallback(async () => {
     if (!session) return false;
     try {
       const { data } = await axios.post(`${API}/quiz/generate`, {
         class_level: session.class_level,
         subject: session.subject,
         chapter: session.chapter,
-        topic: text,
+        topic: session.chapter,   // use the actual chapter as quiz topic
         num_questions: 5,
       }, { withCredentials: true });
       setQuizModal({ quizData: data });
@@ -420,17 +420,17 @@ export default function ChatPage() {
     }
   }, [session]);
 
-  const sendMessage = async () => {
-    const text = input.trim();
+  const sendMessage = async (forced) => {
+    const text = (forced !== undefined ? forced : input).trim();
     if (!text || streaming || !session) return;
-    setInput('');
+    if (forced === undefined) setInput('');
 
-    // Detect quiz intent → open quiz modal instead of chat
+    // Detect quiz intent → open quiz modal
     if (isQuizIntent(text)) {
       setMessages(p => [...p, { role: 'user', content: text, timestamp: new Date().toISOString() }]);
-      const opened = await openQuizModal(text);
+      const opened = await openQuizModal();
       if (opened) return;
-      // Fallback: send as regular chat if quiz generation fails
+      // Fallback: continue to send as chat if quiz generation fails
     }
 
     setMessages(p => [...p, { role: 'user', content: text, timestamp: new Date().toISOString() }]);
@@ -529,10 +529,15 @@ export default function ChatPage() {
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.length === 0 && !streaming && (
-          <div className="flex items-center justify-center h-full text-zinc-600 text-sm font-body">
-            Starting your session...
-          </div>
+      {messages.length === 0 && !streaming && (
+          <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+            className="flex flex-col items-center justify-center h-full gap-3 text-center px-4">
+            <div className="w-10 h-10 rounded-full border border-violet-500/25 bg-violet-500/10 flex items-center justify-center">
+              <Sparkles size={18} className="text-violet-400" />
+            </div>
+            <p className="text-zinc-300 text-sm font-body font-semibold">Session Started</p>
+            <p className="text-zinc-600 text-xs font-body">Ask anything about <span className="text-zinc-400">{session?.chapter}</span></p>
+          </motion.div>
         )}
         {messages.map((msg, i) => (
           <MessageBubble key={i} msg={msg} isStreaming={false} />
@@ -561,7 +566,7 @@ export default function ChatPage() {
       {messages.length < 3 && !streaming && session && (
         <div className="px-4 pb-2 flex gap-2 overflow-x-auto no-scrollbar">
           {SUGGESTIONS.map(s => (
-            <button key={s} onClick={() => { setInput(s); }}
+            <button key={s} onClick={() => sendMessage(s)}
               className="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-body glass border border-white/10 text-zinc-400 hover:text-white hover:border-white/20 transition-all">
               {s}
             </button>
