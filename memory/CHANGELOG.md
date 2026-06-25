@@ -36,7 +36,13 @@
 - Milestones section: 8 milestones tracking sessions, quizzes, streak, XP
 - Weak topics section retained
 
-### Bug Fix: StudyPlanPage Variable Collision
+### Code Quality Hardening (June 2026)
+- XSS fix: IntroScreen.jsx outerHTML → React imgError state
+- subprocess fix: curriculum.py uses sys.executable
+- Silent catch blocks replaced with console.warn in 5 files
+- Stable React keys in ChatPage, QuizArena, ProgressPage, StudyPlanPage
+- Dashboard greeting truncation (truncate + max-w classes)
+
 - Fixed: `plan` declared twice (useSubscription + existingPlan?.plan)
 - Renamed inner var to `studyPlan` — prevented app compilation crash
 

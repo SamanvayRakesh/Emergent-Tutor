@@ -174,7 +174,17 @@ Build "AceIt AI" (formerly NeuraLearn), a complete production-level full-stack A
 - Notification system (streak warnings, grade change toasts)
 - Password reset flow
 
-### Completed Phases 6/7/8/10 (June 2026)
+### Code Quality Hardening (Complete — June 2026)
+- **XSS Fix**: `IntroScreen.jsx` — replaced `outerHTML` DOM injection with React state (`imgError`) for safe fallback rendering
+- **Subprocess Fix**: `curriculum.py` — replaced hardcoded `"python"` with `sys.executable` for correct interpreter
+- **Silent Error Logging**: Added `console.warn` to all empty `catch {}` blocks across `AuthContext.js`, `CreditsContext.jsx`, `SubscriptionContext.jsx`, `StudyPlanPage.jsx`, `ProfilePage.jsx`
+- **Stable React Keys**: Replaced `key={i}` index keys with semantic stable keys:
+  - `ChatPage.jsx`: `key={msg.timestamp || i}` for message list
+  - `QuizArena.jsx`: `key={opt}` for options, `key={r.question?.slice(0,40) || i}` for results
+  - `ProgressPage.jsx`: `key={entry.name}` for pie chart cells
+  - `StudyPlanPage.jsx`: `key={tip}`, `key={week.week}`, `key={task.day-j}` for plan items
+- **Dashboard UX**: Added `truncate max-w-[220px]` to greeting h1 preventing overflow on long names
+
 - Phase 6: Quiz Arena — chapter selection, adaptive difficulty auto-set
 - Phase 7: Mock exam weak-area persistence, weak-area tracker UI
 - Phase 8: Study Plan personalised from quiz history + exam weak areas + time availability
