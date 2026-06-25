@@ -168,16 +168,21 @@ Build "AceIt AI" (formerly NeuraLearn), a complete production-level full-stack A
 ## Prioritized Backlog
 
 ### P1 — Next Up
-- Subscription Management Profile UI (View/Change/Upgrade plan)
+- Phase 8: Personalized Study Plan using quiz/exam history + weak areas
+- Phase 9: Friends system + real-time global/friend rankings
 
 ### P2 — Upcoming
-- Notification system (toast for grade changes, streak warnings)
-- Dashboard greeting name truncation fix (first 2 words)
-- Quiz modal auto-send suggestion button fix
+- Notification system (streak warnings, grade change toasts)
+- Password reset flow
+- Dashboard greeting truncation fix (first 2 words)
+
+### Completed Phases 6/7/10 (June 2026)
+- Phase 6: Quiz Arena — subject→chapter→topic selection, adaptive difficulty auto-set
+- Phase 7: Mock exam weak-area persistence to student_profiles, weak-area tracker UI
+- Phase 10: ProfilePage subscription management (plan, credits, upgrade, cancel)
 
 ### P3 — Future
-- Email domain verification at resend.com/domains (to send to all users)
-- Redis-backed rate limiting (for multi-instance deployments)
-- Password reset flow
-- Account suspension management
+- Email domain verification at resend.com/domains
+- Redis-backed rate limiting for multi-instance
 - Admin dashboard
+- Account suspension management
