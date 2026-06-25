@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { motion } from 'framer-motion';
 import { gsap } from 'gsap';
 import * as THREE from 'three';
@@ -9,6 +9,7 @@ const SUBJECT_COLORS = ['#22d3ee', '#8b5cf6', '#d946ef', '#10b981', '#f59e0b', '
 export default function IntroScreen({ onComplete }) {
   const canvasRef = useRef(null);
   const completedRef = useRef(false);
+  const [imgError, setImgError] = useState(false);
 
   const handleComplete = useCallback(() => {
     if (completedRef.current) return;
@@ -103,12 +104,15 @@ export default function IntroScreen({ onComplete }) {
         <div className="i-orb opacity-0 scale-50 mb-8 relative">
           <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full bg-gradient-to-br from-cyan-400 via-violet-500 to-fuchsia-600 p-0.5 pulse-glow">
             <div className="w-full h-full rounded-full overflow-hidden bg-zinc-950 flex items-center justify-center">
-              <img
-                src="https://static.prod-images.emergentagent.com/jobs/67404889-8268-4733-8667-87fc9a4ec0ca/images/bf4cba685d50c58744b9ad1fdf41aa422bd3e7f97bf21e955c63589fc698d2a9.png"
-                alt="AI"
-                className="w-full h-full object-cover"
-                onError={(e) => { e.target.outerHTML = '<div class="text-4xl">N</div>'; }}
-              />
+              {imgError
+                ? <div className="text-4xl text-white font-heading font-black">N</div>
+                : <img
+                    src="https://static.prod-images.emergentagent.com/jobs/67404889-8268-4733-8667-87fc9a4ec0ca/images/bf4cba685d50c58744b9ad1fdf41aa422bd3e7f97bf21e955c63589fc698d2a9.png"
+                    alt="AI"
+                    className="w-full h-full object-cover"
+                    onError={() => setImgError(true)}
+                  />
+              }
             </div>
           </div>
           <div className="absolute -inset-3 rounded-full bg-cyan-400/15 blur-xl animate-pulse" />

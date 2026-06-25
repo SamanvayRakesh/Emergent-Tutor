@@ -125,7 +125,7 @@ export default function Dashboard() {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-zinc-400 text-sm font-body mb-1">{greeting},</p>
-            <h1 className="text-2xl sm:text-3xl font-heading font-black text-white">{user?.name?.split(' ')[0] || 'Student'}</h1>
+            <h1 className="text-2xl sm:text-3xl font-heading font-black text-white truncate max-w-[220px] sm:max-w-xs">{user?.name?.split(' ')[0] || 'Student'}</h1>
             <p className="text-zinc-500 text-sm font-body mt-1">Class {user?.class_level || '9'} • Keep the momentum going!</p>
           </div>
           <div className="hidden sm:flex flex-col items-center gap-1">

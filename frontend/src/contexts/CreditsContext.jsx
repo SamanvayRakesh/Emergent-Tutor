@@ -30,7 +30,7 @@ export function CreditsProvider({ children }) {
       const { data } = await axios.get(`${API}/credits`, { withCredentials: true });
       setCredits(data.credits);
       setLowThreshold(data.low_threshold || 10);
-    } catch { /* ignore */ }
+    } catch (e) { console.warn('Credits refresh failed:', e); }
   }, [user]);
 
   useEffect(() => { refresh(); }, [refresh]);

@@ -238,7 +238,7 @@ export default function QuizArena() {
                   </span>
                   <div className="flex gap-1">
                     {quiz.questions.map((_, i) => (
-                      <button key={i} onClick={() => setCurrent(i)}
+                      <button key={`qnav-${i}`} onClick={() => setCurrent(i)}
                         className={`w-6 h-1.5 rounded-full transition-all ${i === current ? 'bg-cyan-400' : answers[i] ? 'bg-green-500/60' : 'bg-zinc-700'}`} />
                     ))}
                   </div>
@@ -266,7 +266,7 @@ export default function QuizArena() {
                     const letter = opt.charAt(0);
                     const isSelected = answers[current] === letter;
                     return (
-                      <button key={i} onClick={() => !result && setAnswers(p => ({ ...p, [current]: letter }))}
+                      <button key={opt} onClick={() => !result && setAnswers(p => ({ ...p, [current]: letter }))}
                         data-testid={`quiz-option-${letter}`}
                         className={`w-full text-left px-4 py-3 rounded-xl border text-sm font-body transition-all flex items-center gap-3
                           ${isSelected ? 'border-cyan-500/50 bg-cyan-500/10 text-white' : 'border-white/10 bg-zinc-900/50 text-zinc-300 hover:border-white/20 hover:bg-zinc-800/50'}`}>
@@ -338,7 +338,7 @@ export default function QuizArena() {
             {/* Per-question results */}
             <div className="space-y-3 mb-5">
               {result.results?.map((r, i) => (
-                <div key={i} className={`p-4 rounded-xl border ${r.correct || r.is_correct ? 'border-green-500/20 bg-green-500/5' : 'border-red-500/20 bg-red-500/5'}`}>
+                <div key={r.question_id || r.question?.slice(0, 40) || i} className={`p-4 rounded-xl border ${r.correct || r.is_correct ? 'border-green-500/20 bg-green-500/5' : 'border-red-500/20 bg-red-500/5'}`}>
                   <div className="flex items-start gap-3">
                     {(r.correct || r.is_correct)
                       ? <CheckCircle size={18} className="text-green-400 mt-0.5 flex-shrink-0" />

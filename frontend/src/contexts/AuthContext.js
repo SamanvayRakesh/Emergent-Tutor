@@ -36,7 +36,9 @@ export function AuthProvider({ children }) {
     try {
       await axios.post(`${API}/auth/logout`, {}, { withCredentials: true });
       await axios.post(`${API}/google-auth/logout`, {}, { withCredentials: true });
-    } catch {}
+    } catch (e) {
+      console.warn('Logout error:', e);
+    }
     setUser(null);
   };
 

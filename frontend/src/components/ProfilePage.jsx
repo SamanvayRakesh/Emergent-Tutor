@@ -29,11 +29,11 @@ export default function ProfilePage() {
 
   useEffect(() => {
     axios.get(`${API}/users/grade-status`, { withCredentials: true })
-      .then(r => setGradeStatus(r.data)).catch(() => {});
+      .then(r => setGradeStatus(r.data)).catch((e) => { console.warn('Grade status fetch failed:', e); });
     axios.get(`${API}/users/grade-appeal`, { withCredentials: true })
-      .then(r => setAppealResult(r.data.request)).catch(() => {});
+      .then(r => setAppealResult(r.data.request)).catch((e) => { console.warn('Grade appeal fetch failed:', e); });
     axios.get(`${API}/credits`, { withCredentials: true })
-      .then(r => setCredits(r.data?.credits ?? user?.credits ?? 0)).catch(() => {});
+      .then(r => setCredits(r.data?.credits ?? user?.credits ?? 0)).catch((e) => { console.warn('Credits fetch failed:', e); });
   }, []);
 
   const handleCancelPlan = async () => {

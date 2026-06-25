@@ -51,7 +51,7 @@ export default function StudyPlanPage() {
     ]).then(([planRes, refRes]) => {
       if (planRes.data.plan) { setExistingPlan(planRes.data); setPhase('plan'); }
       setReferralCode(refRes.data);
-    }).catch(() => {}).finally(() => setLoading(false));
+    }).catch((e) => { console.warn('Study plan fetch failed:', e); }).finally(() => setLoading(false));
 
     // Load learning context (quiz history + weak areas)
     axios.get(`${API}/study-plan/context`, { withCredentials: true })
@@ -374,7 +374,7 @@ export default function StudyPlanPage() {
             <div className="space-y-3">
               <h3 className="text-white font-heading font-bold">Week-by-Week Plan</h3>
               {studyPlan.weeks?.map((week, i) => (
-                <motion.div key={i} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.07 }}
+                <motion.div key={week.week || i} initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.07 }}
                   className="glass-surface rounded-2xl border border-white/5 overflow-hidden">
                   <div className="flex items-center gap-3 p-4">
                     <div className="w-9 h-9 rounded-xl bg-violet-500/20 flex items-center justify-center text-violet-400 font-heading font-bold text-sm flex-shrink-0">
@@ -396,7 +396,7 @@ export default function StudyPlanPage() {
                     <div className="px-4 pb-4 space-y-1.5">
                       <p className="text-zinc-600 text-[10px] font-body uppercase tracking-wider mb-2">Daily Tasks</p>
                       {week.daily_tasks.slice(0, 5).map((task, j) => (
-                        <div key={j} className="flex items-center gap-2.5 p-2 rounded-lg bg-zinc-900/50">
+                        <div key={`${task.day}-${j}`} className="flex items-center gap-2.5 p-2 rounded-lg bg-zinc-900/50">
                           <span className="text-zinc-500 text-xs font-heading font-bold w-8 flex-shrink-0">{task.day}</span>
                           <span className="px-2 py-0.5 rounded text-[10px] font-heading font-bold capitalize"
                             style={{ background: (TYPE_COLORS[task.type] || '#94a3b8') + '20', color: TYPE_COLORS[task.type] || '#94a3b8' }}>

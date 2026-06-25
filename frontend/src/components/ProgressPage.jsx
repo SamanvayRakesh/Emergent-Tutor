@@ -156,7 +156,7 @@ export default function ProgressPage() {
               <ResponsiveContainer width="100%" height={200}>
                 <PieChart>
                   <Pie data={pieData} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="value">
-                    {pieData.map((entry, i) => <Cell key={i} fill={entry.color} />)}
+                    {pieData.map((entry, i) => <Cell key={entry.name || i} fill={entry.color} />)}
                   </Pie>
                   <Tooltip formatter={(v) => [`${v}%`, 'Mastery']}
                     contentStyle={{ background: '#18181b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '12px', color: '#fff' }} />

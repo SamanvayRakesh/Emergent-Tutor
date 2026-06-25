@@ -156,11 +156,11 @@ function MessageBubble({ msg, isStreaming }) {
           <div className={`text-sm font-body ${isStreaming ? 'streaming-cursor' : ''}`}>
             {parts?.map((part, i) =>
               part.type === 'quiz' ? (
-                <QuizCard key={i} data={part.data} />
+                <QuizCard key={`quiz-${i}`} data={part.data} />
               ) : part.type === 'youtube' ? (
-                <YouTubeCard key={i} query={part.query} />
+                <YouTubeCard key={`yt-${i}`} query={part.query} />
               ) : (
-                <div key={i} className="markdown-content">
+                <div key={`text-${i}`} className="markdown-content">
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
                     components={{
@@ -540,7 +540,7 @@ export default function ChatPage() {
           </motion.div>
         )}
         {messages.map((msg, i) => (
-          <MessageBubble key={i} msg={msg} isStreaming={false} />
+          <MessageBubble key={msg.timestamp || i} msg={msg} isStreaming={false} />
         ))}
         {streaming && streamingContent && (
           <MessageBubble msg={{ role: 'assistant', content: streamingContent }} isStreaming={true} />
@@ -553,7 +553,7 @@ export default function ChatPage() {
             <div className="message-ai px-4 py-3">
               <div className="flex gap-1">
                 {[0, 1, 2].map(i => (
-                  <div key={i} className="w-1.5 h-1.5 rounded-full bg-zinc-500 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />
+                  <div key={`dot-${i}`} className="w-1.5 h-1.5 rounded-full bg-zinc-500 animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />
                 ))}
               </div>
             </div>

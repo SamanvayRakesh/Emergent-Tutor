@@ -2,6 +2,7 @@
 import asyncio
 import os
 import subprocess
+import sys
 
 from fastapi import APIRouter, HTTPException, Request
 
@@ -33,7 +34,7 @@ async def curriculum_refresh(request: Request):
 
     async def _bg():
         proc = await asyncio.create_subprocess_exec(
-            "python", script,
+            sys.executable, script,
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         )
         await proc.wait()

@@ -18,7 +18,7 @@ export function SubscriptionProvider({ children }) {
       const { data } = await axios.get(`${API}/subscription/me`, { withCredentials: true });
       setPlan(data);
       setUsage(data.usage);
-    } catch { /* ignore */ }
+    } catch (e) { console.warn('Subscription refresh failed:', e); }
     setLoading(false);
   }, [user]);
 
