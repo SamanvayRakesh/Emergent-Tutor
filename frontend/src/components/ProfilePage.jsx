@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Mail, BookOpen, Zap, Flame, Trophy, Save, Shield, Star, Clock, Lock, Send, X, CheckCircle, AlertTriangle, Crown, ArrowRight } from 'lucide-react';
+import { User, Mail, BookOpen, Zap, Flame, Trophy, Save, Shield, Star, Clock, Lock, Send, X, CheckCircle, AlertTriangle, Crown, ArrowRight, CreditCard, Package, Calendar, TrendingUp, LogOut } from 'lucide-react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -13,24 +13,41 @@ const CLASSES = ['6', '7', '8', '9', '10', '11', '12'];
 
 export default function ProfilePage() {
   const { user, setUser } = useAuth();
+  const { plan } = useSubscription();
+  const nav = useNavigate();
   const [selectedClass, setSelectedClass] = useState(user?.class_level || '9');
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [gradeStatus, setGradeStatus] = useState(null);
-  const [appealOpen, setAppealOpen] = useState(false);
-  const [appealForm, setAppealForm] = useState({ desired_class: '', reason: '' });
-  const [appealResult, setAppealResult] = useState(null);
+  const [saving, setSaving]               = useState(false);
+  const [saved, setSaved]                 = useState(false);
+  const [gradeStatus, setGradeStatus]     = useState(null);
+  const [appealOpen, setAppealOpen]       = useState(false);
+  const [appealForm, setAppealForm]       = useState({ desired_class: '', reason: '' });
+  const [appealResult, setAppealResult]   = useState(null);
   const [appealSubmitting, setAppealSubmitting] = useState(false);
-  const [errorMsg, setErrorMsg] = useState('');
+  const [errorMsg, setErrorMsg]           = useState('');
+  const [cancelLoading, setCancelLoading] = useState(false);
+  const [credits, setCredits]             = useState(user?.credits || 0);
 
   useEffect(() => {
     axios.get(`${API}/users/grade-status`, { withCredentials: true })
-      .then(r => setGradeStatus(r.data))
-      .catch(() => {});
+      .then(r => setGradeStatus(r.data)).catch(() => {});
     axios.get(`${API}/users/grade-appeal`, { withCredentials: true })
-      .then(r => setAppealResult(r.data.request))
-      .catch(() => {});
+      .then(r => setAppealResult(r.data.request)).catch(() => {});
+    axios.get(`${API}/credits`, { withCredentials: true })
+      .then(r => setCredits(r.data?.credits ?? user?.credits ?? 0)).catch(() => {});
   }, []);
+
+  const handleCancelPlan = async () => {
+    if (!window.confirm('Cancel your subscription? You will revert to the free plan at the end of the billing period.')) return;
+    setCancelLoading(true);
+    try {
+      await axios.post(`${API}/subscription/cancel`, {}, { withCredentials: true });
+      toast.success('Subscription cancelled. You will retain access until the billing period ends.');
+      window.location.reload();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || 'Could not cancel subscription');
+    }
+    setCancelLoading(false);
+  };
 
   const xp = user?.xp || 0;
   const level = Math.max(1, Math.floor(xp / 500) + 1);
@@ -272,6 +289,82 @@ export default function ProfilePage() {
               </div>
             </div>
           ))}
+        </div>
+      </motion.div>
+
+      {/* ── Subscription Management ───────────────────────────────── */}
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
+        className="glass-surface rounded-2xl p-5 border border-white/5" data-testid="subscription-section">
+        <h3 className="text-white font-heading font-bold mb-4 flex items-center gap-2">
+          <CreditCard size={18} className="text-violet-400" /> Subscription & Credits
+        </h3>
+
+        {/* Current Plan */}
+        <div className="flex items-center justify-between mb-4 p-4 rounded-xl border"
+          style={{ borderColor: plan?.color ? plan.color + '30' : 'rgba(255,255,255,0.08)', background: plan?.color ? plan.color + '08' : 'rgba(255,255,255,0.02)' }}>
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+              style={{ background: plan?.color ? plan.color + '20' : 'rgba(255,255,255,0.08)' }}>
+              <Package size={18} style={{ color: plan?.color || '#94a3b8' }} />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <p className="text-white font-heading font-bold text-base capitalize">
+                  {plan?.name || plan?.plan_id || 'Free'} Plan
+                </p>
+                {plan?.plan_id && plan.plan_id !== 'free' && (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-heading font-bold bg-green-500/20 text-green-400 border border-green-500/20">ACTIVE</span>
+                )}
+              </div>
+              <p className="text-zinc-500 text-xs font-body mt-0.5">
+                {plan?.plan_id === 'free' ? 'Limited features — upgrade to unlock more' : plan?.tagline || 'Full access'}
+              </p>
+            </div>
+          </div>
+          {plan?.plan_id && plan.plan_id !== 'free' && plan?.price_monthly > 0 && (
+            <p className="text-white font-heading font-bold text-sm">₹{plan.price_monthly}<span className="text-zinc-500 font-body text-xs">/mo</span></p>
+          )}
+        </div>
+
+        {/* Credits */}
+        <div className="flex items-center gap-3 mb-4 p-3 rounded-xl bg-amber-500/8 border border-amber-500/15">
+          <Zap size={16} className="text-amber-400" />
+          <div className="flex-1">
+            <p className="text-white text-sm font-body font-semibold">{credits} credits remaining</p>
+            <p className="text-zinc-500 text-xs font-body">Credits are used for AI tutoring (2–10 per response)</p>
+          </div>
+        </div>
+
+        {/* Renewal / billing info */}
+        {plan?.renewal_date && (
+          <div className="flex items-center gap-2 mb-4 text-xs font-body text-zinc-400">
+            <Calendar size={13} />
+            <span>Renews on <strong className="text-zinc-200">{new Date(plan.renewal_date).toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' })}</strong></span>
+          </div>
+        )}
+
+        {/* Actions */}
+        <div className="flex gap-3 flex-wrap">
+          {plan?.plan_id === 'free' || !plan?.plan_id ? (
+            <button onClick={() => nav('/pricing')}
+              data-testid="upgrade-plan-btn"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-violet-500 hover:bg-violet-400 text-white font-heading font-bold text-sm transition-all">
+              <Crown size={15} /> Upgrade Plan <ArrowRight size={14} />
+            </button>
+          ) : (
+            <>
+              <button onClick={() => nav('/pricing')}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-violet-500/30 bg-violet-500/10 hover:bg-violet-500/20 text-violet-300 font-heading font-bold text-sm transition-all">
+                <TrendingUp size={15} /> Change Plan
+              </button>
+              <button onClick={handleCancelPlan} disabled={cancelLoading}
+                data-testid="cancel-plan-btn"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-red-500/20 bg-red-500/8 hover:bg-red-500/15 text-red-400 font-heading font-bold text-sm transition-all disabled:opacity-50">
+                {cancelLoading ? <div className="w-4 h-4 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin" /> : <LogOut size={14} />}
+                Cancel Plan
+              </button>
+            </>
+          )}
         </div>
       </motion.div>
     </div>

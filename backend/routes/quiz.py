@@ -93,6 +93,31 @@ async def get_quiz_history(request: Request):
     return await db.quizzes.find({"user_id": user["user_id"]}, {"_id": 0}).sort("created_at", -1).limit(20).to_list(20)
 
 
+@router.get("/quiz/topic-mastery")
+async def get_topic_mastery(topic: str, request: Request):
+    """Return adaptive difficulty recommendation for a topic based on quiz history."""
+    user = await get_current_user(request)
+    profile = await db.student_profiles.find_one({"user_id": user["user_id"]}, {"_id": 0, "topics": 1})
+    if not profile:
+        return {"topic": topic, "mastery": 0.5, "recommended_difficulty": "medium", "attempts": 0}
+    data = profile.get("topics", {}).get(topic, {})
+    mastery = data.get("mastery", 0.5)
+    attempts = data.get("attempts", 0)
+    if mastery < 0.4:
+        difficulty = "easy"
+    elif mastery < 0.7:
+        difficulty = "medium"
+    else:
+        difficulty = "hard"
+    return {
+        "topic": topic,
+        "mastery": round(mastery, 2),
+        "mastery_pct": int(mastery * 100),
+        "recommended_difficulty": difficulty,
+        "attempts": attempts,
+    }
+
+
 @router.post("/quiz/{quiz_id}/submit")
 async def submit_quiz(quiz_id: str, body: QuizSubmitRequest, request: Request):
     user = await get_current_user(request)
@@ -125,8 +150,13 @@ async def submit_quiz(quiz_id: str, body: QuizSubmitRequest, request: Request):
     )
     await db.users.update_one({"user_id": user["user_id"]}, {"$inc": {"xp": xp_earned}})
 
-    # Feed quiz result into adaptive engine
+    # Feed quiz result into adaptive engine (per-question tracking)
     await record_quiz_result(user["user_id"], quiz.get("topic", "General"), score_pct, correct_count, total)
+    for i, q in enumerate(questions):
+        ua = body.answers.get(str(i))
+        is_correct = ua == q.get("correct")
+        topic_label = q.get("topic") or quiz.get("topic") or quiz.get("chapter") or "General"
+        await update_topic_performance(user["user_id"], topic_label, is_correct)
 
     return {"score": score_pct, "correct_count": correct_count, "total_questions": total,
             "xp_earned": xp_earned, "results": results}

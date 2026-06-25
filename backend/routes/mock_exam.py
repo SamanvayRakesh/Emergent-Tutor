@@ -143,6 +143,18 @@ async def submit_mock_exam(exam_id: str, body: QuizSubmitRequest, request: Reque
     )
     await db.users.update_one({"user_id": user["user_id"]}, {"$inc": {"xp": xp_earned}})
 
+    # Phase 7: Persist weak topics to student_profiles for cross-session recommendations
+    if weak_unique:
+        now_str = datetime.now(timezone.utc).isoformat()
+        await db.student_profiles.update_one(
+            {"user_id": user["user_id"]},
+            {
+                "$addToSet": {"weak_topics": {"$each": weak_unique}},
+                "$set": {"updated_at": now_str},
+            },
+            upsert=True,
+        )
+
     return {
         "score": score_pct, "earned_marks": earned_marks, "total_marks": total_marks,
         "xp_earned": xp_earned, "section_results": section_results, "weak_topics": weak_unique,
@@ -219,3 +231,40 @@ Vary difficulty: 2 medium, 2 hard, 1 application-based."""
     await db.quizzes.insert_one(quiz_doc)
     quiz_doc.pop("_id", None)
     return quiz_doc
+
+
+
+@router.get("/weak-areas")
+async def get_weak_areas(request: Request):
+    """Return user's cumulative weak topics from exam history + student profile."""
+    user = await get_current_user(request)
+    uid = user["user_id"]
+
+    # From student_profiles (persisted across all exams)
+    profile = await db.student_profiles.find_one({"user_id": uid}, {"_id": 0, "weak_topics": 1, "topics": 1})
+    profile_weak = profile.get("weak_topics", []) if profile else []
+
+    # From recent 10 exams
+    recent = await db.mock_exams.find(
+        {"user_id": uid, "completed": True, "weak_topics": {"$exists": True, "$ne": []}},
+        {"_id": 0, "weak_topics": 1, "subject": 1, "score": 1, "completed_at": 1},
+    ).sort("completed_at", -1).limit(10).to_list(10)
+
+    from collections import Counter
+    exam_weak = [t for e in recent for t in e.get("weak_topics", [])]
+    all_weak = profile_weak + exam_weak
+    freq = Counter(all_weak).most_common(15)
+
+    # Low-mastery topics from adaptive engine
+    adaptive_weak = []
+    if profile and profile.get("topics"):
+        for topic, data in profile["topics"].items():
+            if data.get("mastery", 1) < 0.45 and data.get("attempts", 0) >= 2:
+                adaptive_weak.append({"topic": topic, "mastery": round(data["mastery"], 2)})
+        adaptive_weak.sort(key=lambda x: x["mastery"])
+
+    return {
+        "weak_topics": [{"topic": t, "frequency": f} for t, f in freq],
+        "adaptive_weak": adaptive_weak[:8],
+        "exam_count": len(recent),
+    }

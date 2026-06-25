@@ -49,8 +49,9 @@ export default function MockExamPage() {
   const [phase, setPhase] = useState('setup');
   const [currentSection, setCurrentSection] = useState(0);
   const [timerRunning, setTimerRunning] = useState(false);
-  const [history, setHistory] = useState([]);
-  const [followUp, setFollowUp] = useState(null); // { quiz, answers, results }
+  const [history, setHistory]       = useState([]);
+  const [weakAreas, setWeakAreas]   = useState(null);
+  const [followUp, setFollowUp]     = useState(null);
   const [followUpLoading, setFollowUpLoading] = useState(false);
 
   useEffect(() => {
@@ -58,6 +59,7 @@ export default function MockExamPage() {
     setForm(p => ({ ...p, class: userClass }));
     axios.get(`${API}/syllabus/${userClass}/subjects`, { withCredentials: true }).then(r => setSubjects(r.data)).catch(() => {});
     axios.get(`${API}/mock-exam/history`, { withCredentials: true }).then(r => setHistory(r.data)).catch(() => {});
+    axios.get(`${API}/weak-areas`, { withCredentials: true }).then(r => setWeakAreas(r.data)).catch(() => {});
   }, [userClass]);
 
   const onClassChange = async (cls) => {
@@ -201,6 +203,29 @@ export default function MockExamPage() {
                       </div>
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {/* Weak Area Tracker */}
+            {weakAreas?.weak_topics?.length > 0 && (
+              <div data-testid="weak-area-tracker">
+                <h3 className="text-zinc-400 text-sm font-body font-semibold mb-3 uppercase tracking-wider flex items-center gap-2">
+                  <Target size={14} className="text-red-400" /> Weak Areas — Needs Practice
+                </h3>
+                <div className="p-4 rounded-2xl border border-red-500/15 space-y-3" style={{ background: 'rgba(239,68,68,0.04)' }}>
+                  <div className="flex flex-wrap gap-2">
+                    {weakAreas.weak_topics.slice(0, 8).map(({ topic, frequency }) => (
+                      <span key={topic}
+                        className="px-3 py-1 rounded-full text-xs font-body border border-red-500/20 text-red-300"
+                        style={{ background: 'rgba(239,68,68,0.07)' }}>
+                        {topic}{frequency > 1 && <span className="opacity-50 ml-1">×{frequency}</span>}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="text-zinc-600 text-xs font-body">
+                    These topics appeared as weak areas across {weakAreas.exam_count} exam{weakAreas.exam_count !== 1 ? 's' : ''}. Focus on them to improve your score.
+                  </p>
                 </div>
               </div>
             )}
