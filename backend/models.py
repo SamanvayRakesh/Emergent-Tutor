@@ -70,6 +70,8 @@ class StudyPlanRequest(BaseModel):
     daily_hours: float = 2.0
     class_level: str
     subjects: List[str] = []
+    available_days: List[str] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    session_preference: str = "flexible"  # morning | afternoon | evening | flexible
 
 
 # ----- Referral -----

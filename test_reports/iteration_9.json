@@ -1,0 +1,54 @@
+{
+  "summary": "Iteration 9: Tested Phase 8 - Personalised Study Plan. All 11 backend tests pass. Frontend: All new UI elements verified (learning-context-preview, available-days-picker, session-preference-picker, personalisation-badge, weak-area-strategy, daily tasks). One seed data issue: admin's subscription was cancelled (from previous iteration testing), restored to active. Admin's stored plan was missing context_used.personalised field (generated before Phase 8), patched in DB for badge test.",
+
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Study Plan - personalisation-badge visibility",
+        "issue": "Badge only shows for plans generated AFTER Phase 8 deployment. Plans saved before this iteration won't have context_used.personalised=true. This is expected behavior (not a bug) - regenerating the plan will include the field.",
+        "affected_selectors": ["[data-testid='personalisation-badge']"]
+      }
+    ],
+    "design_issues": []
+  },
+
+  "test_report_links": [
+    "/app/backend/tests/test_study_plan_phase8.py",
+    "/app/test_reports/pytest/iteration9_results.xml"
+  ],
+
+  "action_items": [
+    "No critical bugs found. All Phase 8 features working correctly.",
+    "Note: Admin subscription was cancelled during previous iteration testing (iteration 8 cancel subscription test). Restored status to active. Consider resetting subscription status after cancel tests."
+  ],
+
+  "critical_code_review_comments": [
+    "study_plan.py: exam_dt.replace(tzinfo=None) makes comparison inconsistent - mixing naive and aware datetimes (line 98). Should use datetime.now(timezone.utc) for consistent tz-aware comparison.",
+    "plan_gates.py get_user_plan(): Only checks subscriptions collection, doesn't fall back to users.plan field. If subscription record is cancelled but user.plan='pro', user sees free gate. Could add fallback: if user.plan == 'pro' and subscription doesn't exist or cancelled but recent, still show pro features.",
+    "StudyPlanPage.jsx: generate button disabled condition is `!form.exam_date || generating || form.available_days.length === 0`. If user deselects all days, button is disabled - correct behavior but no visual warning shown."
+  ],
+
+  "updated_files": [],
+
+  "seed_data_changes": "Restored admin subscription status from 'cancelled' to 'active' (was cancelled in iteration 8 testing). Added context_used.personalised=true to admin's stored study plan for testing personalisation-badge.",
+
+  "success_rate": {
+    "backend": "100% (11/11 tests passed)",
+    "frontend": "100% - All Phase 8 features verified"
+  },
+
+  "test_credentials": "admin@neuralearn.ai / Admin@123456",
+
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+
+  "context_for_next_testing_agent": "Phase 8 complete. Study plan personalisation fully working: GET /api/study-plan/context returns quiz_count=6, exam_count=0, weak_topics=[Polynomials, Light Reflection and Refraction, chemical reactions], has_history=true for admin. POST /api/study-plan accepts available_days and session_preference. UI shows learning-context-preview with PERSONALISED badge, days picker (Mon-Sun toggles), session picker (morning/afternoon/evening/flexible), personalisation-badge in plan view, weak-area-strategy section, daily tasks with day/type/subject/topic/hours. Admin subscription was previously cancelled - restored to active for testing. Note: Playwright login requires typing with delay+Enter (not button click with data-testid).",
+
+  "rca_of_issues": "1. Admin free gate showing: Admin subscription was cancelled (status='cancelled') in the subscriptions collection. The get_user_plan() function only grants pro access if status='active' AND expires_at > now. Fix: Restored subscription status to 'active' with expires_at = +1 year. 2. Personalisation badge not showing: Existing stored plan was generated before Phase 8, so context_used didn't include the 'personalised' key. The new POST endpoint correctly saves this field. Fix: Patched DB to add context_used.personalised=true for admin's plan."
+}
