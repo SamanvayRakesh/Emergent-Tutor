@@ -36,7 +36,14 @@
 - Milestones section: 8 milestones tracking sessions, quizzes, streak, XP
 - Weak topics section retained
 
-### Quiz Flow Fix (June 2026)
+### Multi-Issue Fix Batch (June 2026)
+- **AI response cutoff**: `ai_router.py` token limits increased (B: 800→2000, C: 1800→3500); removed mid-stream word-limit injection from `chat.py`; `generation_tokens` now uses max_tokens directly with no artificial cap
+- **Math symbols**: System prompt updated — Unicode symbols preferred (½ ¼ π √ ²) over raw LaTeX `\frac{}{}`; LaTeX only for complex multi-line equations
+- **Subscription plans (2 plans)**: Starter (500cr, ₹399) and Pro (1000cr, ₹699) — `plan_gates.py` updated with new features; `credits.py` Pro credits 1500→1000; PricingPage filters to show only Starter+Pro; subscription.py fixed to accept 'starter' plan
+- **Study plan navigation**: `StudyPlanPage` nav('/pricing') → nav('/upgrade'); gate title updated to "Starter"
+- **Credits toast mismatch**: `CreditsContext.jsx` ROUTE_COST quiz 5→15, mock 30 (was 10)
+- **Bug caught by testing agent**: `subscription.py` create-order/subscribe/verify-payment only accepted 'pro'/'elite' — fixed to include 'starter'; bonus_credits map updated
+
 - **Root cause**: Backend generated quiz questions without `type` field; InteractiveQuizModal only renders options when `type === 'mcq'` → no options shown
 - **Backend fix**: Added `"type": "mcq"` to prompt + server-side normalization (if no type but options exist → type=mcq)
 - **Frontend fix**: Added `qType` inference (`question?.type || (options?.length ? 'mcq' : 'short_answer')`) in InteractiveQuizModal; all `question?.type ===` checks now use `qType`
