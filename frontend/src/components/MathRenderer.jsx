@@ -5,11 +5,9 @@ import { InlineMath, BlockMath } from 'react-katex';
  * MathRenderer — parses text containing LaTeX math notation and renders it.
  *
  * Supports:
- *   $formula$       → inline math
+ *   $formula$       → inline math (only when content looks like LaTeX)
  *   $$formula$$     → block/display math
- *   \frac{a}{b}     → rendered as fraction
- *   x^2, x_n        → superscript/subscript
- *   \sqrt{x}        → square root
+ *   ( \formula )    → auto-converted to inline math (AI sometimes uses this pattern)
  */
 
 function safeRenderInline(latex) {
@@ -29,30 +27,55 @@ function safeRenderBlock(latex) {
 }
 
 /**
+ * Pre-process text: convert ( \latex ) patterns → $\latex$
+ * These are emitted by some AI models that use parentheses as math delimiters.
+ */
+function preprocessMath(text) {
+  // Convert ( \frac{a}{b} ) and similar ( \command{} ) patterns to $...$
+  return text.replace(/\(\s*(\\[^)]{1,200})\s*\)/g, (_, inner) => `$${inner.trim()}$`);
+}
+
+/**
+ * Check if a string looks like actual LaTeX math (not currency/plain numbers).
+ * Must contain at least one LaTeX indicator: \, ^, _, {, }
+ */
+function isLaTeXContent(str) {
+  return /[\\^_{}\|]/.test(str);
+}
+
+/**
  * Parse text and split into segments: plain text, inline math, block math.
  */
 function parseSegments(text) {
+  // Pre-process to convert ( \formula ) → $\formula$
+  const processed = preprocessMath(text);
+
   const segments = [];
   // Match $$...$$ first (block), then $...$ (inline)
   const regex = /\$\$([^$]+)\$\$|\$([^$\n]+)\$/g;
   let lastIdx = 0;
   let match;
 
-  while ((match = regex.exec(text)) !== null) {
-    // Text before this match
+  while ((match = regex.exec(processed)) !== null) {
     if (match.index > lastIdx) {
-      segments.push({ type: 'text', content: text.slice(lastIdx, match.index) });
+      segments.push({ type: 'text', content: processed.slice(lastIdx, match.index) });
     }
     if (match[1] !== undefined) {
       segments.push({ type: 'block', content: match[1].trim() });
     } else if (match[2] !== undefined) {
-      segments.push({ type: 'inline', content: match[2].trim() });
+      const content = match[2].trim();
+      // Only render as math if it contains LaTeX indicators (avoids $10 → $4 mismatches)
+      if (isLaTeXContent(content)) {
+        segments.push({ type: 'inline', content });
+      } else {
+        // Treat the whole match as plain text (restore the $ signs)
+        segments.push({ type: 'text', content: match[0] });
+      }
     }
     lastIdx = match.index + match[0].length;
   }
-  // Remaining text
-  if (lastIdx < text.length) {
-    segments.push({ type: 'text', content: text.slice(lastIdx) });
+  if (lastIdx < processed.length) {
+    segments.push({ type: 'text', content: processed.slice(lastIdx) });
   }
   return segments;
 }
@@ -61,9 +84,9 @@ function parseSegments(text) {
  * MathLine — render a single line with mixed text + math.
  */
 export function MathLine({ text }) {
-  if (!text || (!text.includes('$') && !text.includes('\\frac') && !text.includes('\\sqrt'))) {
-    return <span>{text}</span>;
-  }
+  if (!text) return <span>{text}</span>;
+  const hasLaTeX = /\$|\\\w|(?:\(\s*\\)/.test(text);
+  if (!hasLaTeX) return <span>{text}</span>;
   const segments = parseSegments(text);
   return (
     <span>
@@ -82,12 +105,9 @@ export function MathLine({ text }) {
 export function MathText({ text, className = '' }) {
   if (!text) return null;
 
-  const hasMath = text.includes('$') || text.includes('\\frac') || text.includes('\\sqrt')
-    || text.includes('\\times') || text.includes('\\div');
-
+  const hasMath = /\$|\\\w|(?:\(\s*\\)/.test(text);
   if (!hasMath) return <span className={className}>{text}</span>;
 
-  // Split by newlines, render each line
   const lines = text.split('\n');
   return (
     <span className={className}>

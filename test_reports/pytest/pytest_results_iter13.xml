@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="5" time="1.101" timestamp="2026-06-26T17:45:52.730217+00:00" hostname="agent-env-e00d3f97-b169-4f3c-83c9-dc4128636116"><testcase classname="backend.tests.test_iteration13" name="test_curriculum_status" time="0.177" /><testcase classname="backend.tests.test_iteration13" name="test_subtopics_real_numbers" time="0.453" /><testcase classname="backend.tests.test_iteration13" name="test_subtopics_fallback" time="0.099" /><testcase classname="backend.tests.test_iteration13" name="test_subscription_plans_starter_highlights" time="0.117"><failure message="AssertionError: Expected 7 highlights, got 10: ['500 AI credits / month', 'Everything in Free', 'Personalised AI Study Plan', '5 mock exams / week', 'Unlimited quizzes', 'Adaptive difficulty engine', 'Full leaderboard access', 'AI memory &amp; personalisation', 'Deep subject analytics', 'Priority support']&#10;assert 10 == 7&#10; +  where 10 = len(['500 AI credits / month', 'Everything in Free', 'Personalised AI Study Plan', '5 mock exams / week', 'Unlimited quizzes', 'Adaptive difficulty engine', ...])">def test_subscription_plans_starter_highlights():
+        """Starter plan should have exactly 7 highlights, no '5 mock exams / week'"""
+        r = requests.get(f"{BASE_URL}/api/subscription/plans")
+        assert r.status_code == 200, f"Expected 200, got {r.status_code}: {r.text}"
+        data = r.json()
+        plans = data if isinstance(data, list) else data.get("plans", [])
+        starter = next((p for p in plans if p.get("id") == "starter"), None)
+        assert starter is not None, "Starter plan not found"
+        highlights = starter.get("highlights", [])
+        print(f"Starter highlights ({len(highlights)}): {highlights}")
+&gt;       assert len(highlights) == 7, f"Expected 7 highlights, got {len(highlights)}: {highlights}"
+E       AssertionError: Expected 7 highlights, got 10: ['500 AI credits / month', 'Everything in Free', 'Personalised AI Study Plan', '5 mock exams / week', 'Unlimited quizzes', 'Adaptive difficulty engine', 'Full leaderboard access', 'AI memory &amp; personalisation', 'Deep subject analytics', 'Priority support']
+E       assert 10 == 7
+E        +  where 10 = len(['500 AI credits / month', 'Everything in Free', 'Personalised AI Study Plan', '5 mock exams / week', 'Unlimited quizzes', 'Adaptive difficulty engine', ...])
+
+backend/tests/test_iteration13.py:68: AssertionError</failure></testcase><testcase classname="backend.tests.test_iteration13" name="test_subscription_plans_pro_highlights" time="0.169" /></testsuite></testsuites>

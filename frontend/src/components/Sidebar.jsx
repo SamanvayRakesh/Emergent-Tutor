@@ -131,8 +131,8 @@ export default function Sidebar({ onClose }) {
             <motion.div className="absolute inset-0 bg-gradient-to-r from-transparent via-amber-400/10 to-transparent"
               animate={{ x: ['-100%', '100%'] }} transition={{ duration: 2.5, repeat: Infinity, ease: 'linear' }} />
             <Sparkles size={16} className="relative z-10 text-amber-400" />
-            <span className="relative z-10 flex-1 text-left">Upgrade to Pro</span>
-            <span className="relative z-10 text-amber-400 text-[10px] font-body uppercase tracking-wider">₹299</span>
+            <span className="relative z-10 flex-1 text-left">Upgrade to Starter</span>
+            <span className="relative z-10 text-amber-400 text-[10px] font-body uppercase tracking-wider">₹399</span>
           </button>
         )}
         {plan && isPaid && (

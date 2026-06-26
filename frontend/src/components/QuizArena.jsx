@@ -20,7 +20,8 @@ export default function QuizArena() {
 
   const [subjects, setSubjects]     = useState([]);
   const [chapters, setChapters]     = useState([]);
-  const [mastery, setMastery]       = useState(null);   // adaptive difficulty hint
+  const [subtopics, setSubtopics]   = useState([]);
+  const [mastery, setMastery]       = useState(null);
   const [form, setForm]             = useState({ subject: '', chapter: '', topic: '', difficulty: 'medium', num: 5 });
   const [quiz, setQuiz]             = useState(null);
   const [answers, setAnswers]       = useState({});
@@ -50,18 +51,29 @@ export default function QuizArena() {
     } catch { setChapters([]); }
   };
 
-  // Auto-fill topic and fetch adaptive difficulty when chapter changes
+  // Auto-fill topic and fetch adaptive difficulty + subtopics when chapter changes
   const onChapterChange = async (chapter) => {
     setForm(p => ({ ...p, chapter, topic: chapter }));
     setMastery(null);
+    setSubtopics([]);
     if (!chapter) return;
+    // Fetch subtopics
+    try {
+      const { data } = await axios.get(`${API}/quiz/subtopics`, {
+        params: { class_level: userClass, subject: form.subject, chapter },
+        withCredentials: true,
+      });
+      const subs = data.subtopics || [];
+      setSubtopics(subs);
+      setForm(p => ({ ...p, chapter, topic: subs[0] || chapter }));
+    } catch { setSubtopics([]); }
+    // Fetch adaptive difficulty hint
     try {
       const { data } = await axios.get(`${API}/quiz/topic-mastery`, {
         params: { topic: chapter }, withCredentials: true,
       });
       setMastery(data);
-      // Auto-set difficulty to adaptive recommendation
-      setForm(p => ({ ...p, chapter, topic: chapter, difficulty: data.recommended_difficulty }));
+      setForm(p => ({ ...p, difficulty: data.recommended_difficulty }));
       setAdaptiveUsed(true);
     } catch { setAdaptiveUsed(false); }
   };
@@ -154,11 +166,17 @@ export default function QuizArena() {
                 </div>
               )}
 
-              {/* Topic (editable, pre-filled from chapter) */}
-              <input value={form.topic} onChange={e => setForm(p => ({ ...p, topic: e.target.value }))}
-                placeholder="Topic (e.g., Photosynthesis, Newton's Laws…)"
-                data-testid="quiz-topic-input"
-                className="w-full bg-zinc-900 border border-white/10 rounded-xl px-4 py-3 text-white text-sm font-body focus:outline-none focus:border-cyan-500/50 placeholder-zinc-600" />
+              {/* Subtopics dropdown (populated after chapter selection) */}
+              {subtopics.length > 0 && (
+                <div className="relative">
+                  <select value={form.topic}
+                    onChange={e => setForm(p => ({ ...p, topic: e.target.value }))}
+                    data-testid="quiz-subtopic-select" className={sel}>
+                    {subtopics.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                  <ChevronDown size={14} className="absolute right-3 top-3.5 text-zinc-500 pointer-events-none" />
+                </div>
+              )}
 
               {/* Adaptive mastery hint */}
               {mastery && mastery.attempts > 0 && (
@@ -192,7 +210,7 @@ export default function QuizArena() {
                 </div>
               </div>
 
-              <button onClick={generateQuiz} disabled={!form.subject || !form.topic || loading}
+              <button onClick={generateQuiz} disabled={!form.subject || !form.chapter || loading}
                 data-testid="generate-quiz-btn"
                 className="w-full py-3 rounded-xl bg-amber-400 hover:bg-amber-300 disabled:opacity-40 text-black font-heading font-bold text-sm transition-all flex items-center justify-center gap-2">
                 {loading

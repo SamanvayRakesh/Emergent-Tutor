@@ -14,6 +14,86 @@ from adaptive_engine import record_quiz_result, update_topic_performance
 
 router = APIRouter()
 
+# ── CBSE chapter subtopics mapping ────────────────────────────────────────────
+# Format: { "chapter name (lowercase)": ["Subtopic 1", ...] }
+_SUBTOPICS: dict = {
+    # Class 10 Maths
+    "real numbers": ["Euclid's Division Lemma", "Fundamental Theorem of Arithmetic", "Irrational Numbers", "Rational Numbers & Decimals"],
+    "polynomials": ["Zeros of Polynomials", "Relationship between Zeros & Coefficients", "Division Algorithm"],
+    "pair of linear equations in two variables": ["Graphical Method", "Substitution Method", "Elimination Method", "Cross Multiplication"],
+    "quadratic equations": ["Factorisation Method", "Completing the Square", "Quadratic Formula", "Nature of Roots"],
+    "arithmetic progressions": ["nth Term of AP", "Sum of First n Terms", "Applications of AP"],
+    "triangles": ["Similarity of Triangles", "Basic Proportionality Theorem", "Pythagoras Theorem", "Areas of Similar Triangles"],
+    "coordinate geometry": ["Distance Formula", "Section Formula", "Midpoint Formula", "Area of a Triangle"],
+    "introduction to trigonometry": ["Trigonometric Ratios", "Trigonometric Identities", "Values of Specific Angles"],
+    "some applications of trigonometry": ["Heights and Distances", "Angle of Elevation", "Angle of Depression"],
+    "circles": ["Tangent to a Circle", "Number of Tangents from a Point", "Properties of Tangents"],
+    "areas related to circles": ["Perimeter and Area of a Circle", "Areas of Sector and Segment", "Combination Figures"],
+    "surface areas and volumes": ["Surface Area of Cuboid & Cylinder", "Volume of Cone & Sphere", "Conversion of Solids", "Frustum of a Cone"],
+    "statistics": ["Mean", "Median", "Mode", "Cumulative Frequency"],
+    "probability": ["Classical Probability", "Complementary Events", "Problems on Playing Cards & Dice"],
+    # Class 10 Science
+    "chemical reactions and equations": ["Types of Chemical Reactions", "Balancing Equations", "Oxidation & Reduction"],
+    "acids, bases and salts": ["Properties of Acids & Bases", "pH Scale", "Salts & Their Properties"],
+    "metals and non-metals": ["Physical Properties", "Chemical Properties", "Reactivity Series", "Ionic Compounds"],
+    "carbon and its compounds": ["Bonding in Carbon", "Homologous Series", "Functional Groups", "Chemical Properties"],
+    "life processes": ["Nutrition", "Respiration", "Transportation", "Excretion"],
+    "control and coordination": ["Nervous System", "Hormones", "Reflex Action", "Endocrine System"],
+    "heredity and evolution": ["Mendel's Laws", "Sex Determination", "Evolution & Natural Selection"],
+    "light - reflection and refraction": ["Laws of Reflection", "Spherical Mirrors", "Refraction of Light", "Lenses"],
+    "electricity": ["Ohm's Law", "Resistance & Resistors", "Electric Power", "Heating Effect"],
+    "magnetic effects of electric current": ["Magnetic Field", "Electromagnet", "Electric Motor", "Electromagnetic Induction"],
+    # Class 9 Maths
+    "number systems": ["Irrational Numbers", "Real Numbers on Number Line", "Laws of Exponents", "Decimal Expansions"],
+    "linear equations in two variables": ["Graphical Representation", "Equations of Lines Parallel to Axes"],
+    "euclid's geometry": ["Euclid's Axioms & Postulates", "Theorems based on Lines & Angles"],
+    "lines and angles": ["Basic Terms", "Parallel Lines & Transversal", "Angle Sum Property"],
+    "statistics": ["Collection of Data", "Graphical Representation", "Measures of Central Tendency"],
+    # Class 9 Science
+    "matter in our surroundings": ["States of Matter", "Change of State", "Evaporation"],
+    "is matter around us pure": ["Mixtures & Solutions", "Separation Techniques", "Elements & Compounds"],
+    "atoms and molecules": ["Laws of Chemical Combination", "Atomic Mass", "Molecular Mass & Mole Concept"],
+    "structure of atom": ["Thomson's Model", "Rutherford's Model", "Bohr's Model", "Valency & Electronic Configuration"],
+    "motion": ["Distance & Displacement", "Speed & Velocity", "Acceleration", "Equations of Motion", "Graphical Representation"],
+    "force and laws of motion": ["Newton's First Law", "Newton's Second Law", "Newton's Third Law", "Conservation of Momentum"],
+    "gravitation": ["Universal Law of Gravitation", "Free Fall & Acceleration due to Gravity", "Thrust & Pressure", "Archimedes' Principle"],
+    "work and energy": ["Work Done", "Kinetic & Potential Energy", "Power", "Law of Conservation of Energy"],
+    # Class 11 & 12 (common)
+    "sets": ["Types of Sets", "Venn Diagrams", "Operations on Sets", "De Morgan's Laws"],
+    "relations and functions": ["Types of Relations", "Types of Functions", "Composition of Functions"],
+    "trigonometric functions": ["Radian Measure", "Trigonometric Functions", "Identities & Equations"],
+    "complex numbers": ["Algebra of Complex Numbers", "Modulus & Argument", "Polar Form", "Quadratic Equations"],
+    "permutations and combinations": ["Fundamental Principle of Counting", "Permutations", "Combinations"],
+    "binomial theorem": ["Binomial Expansion", "General Term", "Middle Term"],
+    "limits and derivatives": ["Concept of Limit", "Algebra of Limits", "Derivative of Functions"],
+    "mathematical reasoning": ["Statements", "Logical Connectives", "Contrapositive & Converse"],
+    "electric charges and fields": ["Coulomb's Law", "Electric Field Lines", "Gauss's Law", "Electric Dipole"],
+    "current electricity": ["Electric Current & Drift Velocity", "Ohm's Law", "Kirchhoff's Laws", "Wheatstone Bridge"],
+    "moving charges and magnetism": ["Biot–Savart Law", "Ampere's Circuital Law", "Magnetic Force on Current", "Cyclotron"],
+    "organic chemistry – basic principles": ["IUPAC Nomenclature", "Isomerism", "Reaction Mechanisms"],
+    "biomolecules": ["Carbohydrates", "Proteins", "Lipids", "Nucleic Acids", "Enzymes"],
+    "evolution": ["Origin of Life", "Darwin's Theory", "Evidence of Evolution", "Human Evolution"],
+}
+
+def _get_subtopics(chapter: str) -> list[str]:
+    """Return subtopics for a chapter. Falls back to a generic split."""
+    key = chapter.lower().strip()
+    if key in _SUBTOPICS:
+        return _SUBTOPICS[key]
+    # Generic fallback — split chapter into concept buckets
+    return [
+        f"{chapter} — Introduction & Concepts",
+        f"{chapter} — Key Definitions",
+        f"{chapter} — Solved Examples",
+        f"{chapter} — Practice Problems",
+    ]
+
+
+@router.get("/quiz/subtopics")
+async def get_subtopics(class_level: str, subject: str, chapter: str, request: Request):
+    """Return subtopics for a chapter to populate the quiz setup dropdown."""
+    await get_current_user(request)
+    return {"chapter": chapter, "subtopics": _get_subtopics(chapter)}
 
 @router.post("/quiz/generate")
 async def generate_quiz(body: QuizGenerateRequest, request: Request):

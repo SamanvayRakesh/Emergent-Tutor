@@ -166,7 +166,10 @@ MATH FORMAT (mandatory):
 • Common symbols: π √ ∞ ≈ ≠ ≤ ≥ ± ∈ ∑ ∫ ∆ ∝ °C →
 • For multi-step or complex equations: wrap in $...$ for inline, $$...$$ for block
 • NEVER output raw LaTeX like \\frac{{}}{{}} — use ½ or (a/b) format for simple fractions
+• NEVER use ( \\formula ) parenthesis-wrapped notation — use $\\formula$ instead
+• NEVER use dollar signs ($) to represent currency in responses
 • Example: "The slope is ½" not "The slope is \\frac{{1}}{{2}}"
+• Example inline: "We know $a^2 + b^2 = c^2$" for Pythagoras
 
 RULES:
 • Build intuition before formulas. Short paragraphs (3 lines max).
