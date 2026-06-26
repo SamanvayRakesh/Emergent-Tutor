@@ -36,7 +36,15 @@
 - Milestones section: 8 milestones tracking sessions, quizzes, streak, XP
 - Weak topics section retained
 
-### Code Quality Hardening (June 2026)
+### Quiz Flow Fix (June 2026)
+- **Root cause**: Backend generated quiz questions without `type` field; InteractiveQuizModal only renders options when `type === 'mcq'` → no options shown
+- **Backend fix**: Added `"type": "mcq"` to prompt + server-side normalization (if no type but options exist → type=mcq)
+- **Frontend fix**: Added `qType` inference (`question?.type || (options?.length ? 'mcq' : 'short_answer')`) in InteractiveQuizModal; all `question?.type ===` checks now use `qType`
+- **Next button fix**: `canAdvance` now correctly uses `qType` for fill_blank check → enabled after selecting MCQ option
+- **AI validation in chat**: `onComplete` in ChatPage now sends quiz results as a chat message → AI responds with per-question explanations of wrong answers
+- **Results modal simplified**: removed per-question breakdown from modal; shows just score + "AI Tutor is reviewing" spinner + "Back to Chat" button
+- **Fallback onComplete fix**: fallback (offline scoring) now passes full `results` array to `onComplete`
+
 - XSS fix: IntroScreen.jsx outerHTML → React imgError state
 - subprocess fix: curriculum.py uses sys.executable
 - Silent catch blocks replaced with console.warn in 5 files
