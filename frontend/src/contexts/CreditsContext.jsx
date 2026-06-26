@@ -9,8 +9,8 @@ const CreditsContext = createContext({});
 // Map server routes → cost (so we know which client calls debit credits)
 const ROUTE_COST = [
   { match: /\/api\/chat\/sessions\/.+\/message$/, kind: 'ai_message',         cost: 1  },
-  { match: /\/api\/quiz\/generate$/,              kind: 'quiz_generate',      cost: 5  },
-  { match: /\/api\/mock-exam\/generate$/,         kind: 'mock_exam_generate', cost: 10 },
+  { match: /\/api\/quiz\/generate$/,              kind: 'quiz_generate',      cost: 15 },
+  { match: /\/api\/mock-exam\/generate$/,         kind: 'mock_exam_generate', cost: 30 },
 ];
 
 function routeMeta(url, method) {

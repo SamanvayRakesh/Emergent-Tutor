@@ -80,8 +80,8 @@ async def create_order(body: SubscribeRequest, request: Request):
     """Create a Razorpay order for the chosen plan. Returns order details + key_id.
     If RAZORPAY_KEY_ID isn't configured, returns mock_mode=true so frontend can fall back."""
     user = await get_current_user(request)
-    if body.plan not in ("pro", "elite"):
-        raise HTTPException(status_code=400, detail="Plan must be 'pro' or 'elite'")
+    if body.plan not in ("starter", "pro", "elite"):
+        raise HTTPException(status_code=400, detail="Plan must be 'starter', 'pro' or 'elite'")
     if body.billing_cycle not in ("monthly", "yearly"):
         raise HTTPException(status_code=400, detail="billing_cycle must be 'monthly' or 'yearly'")
 
@@ -140,7 +140,7 @@ async def verify_payment(body: dict, request: Request):
 
     if not (order_id and payment_id and signature and plan_id):
         raise HTTPException(status_code=400, detail="Missing payment fields")
-    if plan_id not in ("pro", "elite") or cycle not in ("monthly", "yearly"):
+    if plan_id not in ("starter", "pro", "elite") or cycle not in ("monthly", "yearly"):
         raise HTTPException(status_code=400, detail="Invalid plan/cycle")
 
     # HMAC-SHA256 signature verification
@@ -160,7 +160,7 @@ async def _activate_subscription(user: dict, plan_id: str, cycle: str,
     plan = PLANS[plan_id]
     amount = plan["price_yearly"] if cycle == "yearly" else plan["price_monthly"]
     days = 365 if cycle == "yearly" else 30
-    bonus_credits = {"pro": 500, "elite": 2000}.get(plan_id, 0)
+    bonus_credits = {"starter": 500, "pro": 1000, "elite": 2000}.get(plan_id, 0)
     now = datetime.now(timezone.utc)
     expires = now + timedelta(days=days)
 
@@ -196,8 +196,8 @@ async def _activate_subscription(user: dict, plan_id: str, cycle: str,
 async def subscribe(body: SubscribeRequest, request: Request):
     """Legacy/mock subscribe — flips DB record. Used as fallback when Razorpay keys absent."""
     user = await get_current_user(request)
-    if body.plan not in ("pro", "elite"):
-        raise HTTPException(status_code=400, detail="Plan must be 'pro' or 'elite'")
+    if body.plan not in ("starter", "pro", "elite"):
+        raise HTTPException(status_code=400, detail="Plan must be 'starter', 'pro' or 'elite'")
     if body.billing_cycle not in ("monthly", "yearly"):
         raise HTTPException(status_code=400, detail="billing_cycle must be 'monthly' or 'yearly'")
     return await _activate_subscription(user, body.plan, body.billing_cycle, provider="mock")

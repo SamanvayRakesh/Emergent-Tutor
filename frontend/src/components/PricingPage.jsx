@@ -11,9 +11,10 @@ import { loadRazorpayCheckout } from '../lib/razorpay';
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const PLAN_VISUALS = {
-  free:  { gradient: 'from-slate-700 to-slate-900',         glow: '#64748b', icon: Sparkles, accent: '#94a3b8' },
-  pro:   { gradient: 'from-blue-600 via-indigo-700 to-blue-900', glow: '#2563eb', icon: Zap,      accent: '#3b82f6' },
-  elite: { gradient: 'from-rose-600 via-amber-600 to-yellow-500', glow: '#dc2626', icon: Crown,    accent: '#fbbf24' },
+  free:    { gradient: 'from-slate-700 to-slate-900',             glow: '#64748b', icon: Sparkles, accent: '#94a3b8' },
+  starter: { gradient: 'from-blue-600 via-indigo-700 to-blue-900', glow: '#2563eb', icon: Zap,      accent: '#3b82f6' },
+  pro:     { gradient: 'from-violet-600 via-purple-700 to-indigo-900', glow: '#7c3aed', icon: Crown, accent: '#a78bfa' },
+  elite:   { gradient: 'from-rose-600 via-amber-600 to-yellow-500', glow: '#dc2626', icon: Crown,    accent: '#fbbf24' },
 };
 
 export default function PricingPage() {
@@ -27,7 +28,11 @@ export default function PricingPage() {
 
   useEffect(() => {
     axios.get(`${API}/subscription/plans`)
-      .then(r => setPlans(r.data.plans))
+      .then(r => {
+        // Show only Starter and Pro — the 2 paid plans
+        const paid = (r.data.plans || []).filter(p => p.id === 'starter' || p.id === 'pro');
+        setPlans(paid);
+      })
       .catch(() => setPlans([]));
   }, []);
 
@@ -119,8 +124,8 @@ export default function PricingPage() {
         </div>
       </motion.div>
 
-      {/* Plan cards */}
-      <div className="grid md:grid-cols-3 gap-4 sm:gap-5">
+      {/* Plan cards — 2 plans side-by-side */}
+      <div className="grid md:grid-cols-2 gap-5 max-w-3xl mx-auto">
         {plans.map((p, i) => {
           const v = PLAN_VISUALS[p.id] || PLAN_VISUALS.free;
           const Icon = v.icon;

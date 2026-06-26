@@ -38,7 +38,7 @@ PLAN_TOKEN_CAPS = {
 PLAN_STARTER_CREDITS = {
     "free":    100,
     "starter": 500,
-    "pro":     1500,
+    "pro":     1000,
     "elite":   5000,
 }
 

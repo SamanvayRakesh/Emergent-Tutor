@@ -1,0 +1,35 @@
+{
+  "summary": "Iteration 12: Tested 5 new fixes. All frontend changes verified via browser automation and code review. Found and fixed one critical backend bug: subscription endpoints rejected 'starter' plan. Code review confirmed all other fixes are correctly implemented.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "POST /api/subscription/create-order & /api/subscription/subscribe",
+        "issue": "Endpoints only accepted 'pro' or 'elite' plans. After adding 'starter' and 'pro' to the pricing page, clicking 'Upgrade to Starter' returned HTTP 400 'Plan must be pro or elite'. FIXED in this iteration.",
+        "priority": "CRITICAL"
+      }
+    ],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/test_reports/iteration_12.json"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "subscription.py verify-payment also had same restriction (only pro/elite) — fixed to include starter",
+    "bonus_credits in _activate_subscription was {pro:500, elite:2000} — updated to {starter:500, pro:1000, elite:2000} to match new plan credit allocations"
+  ],
+  "updated_files": ["/app/backend/routes/subscription.py"],
+  "success_rate": {
+    "backend": "100% - All 5 fixes verified in code + API test. Subscription bug fixed.",
+    "frontend": "100% - Pricing page shows exactly 2 cards (Starter+Pro), correct features, correct prices. StudyPlan nav('/upgrade') confirmed in code."
+  },
+  "test_credentials": "admin@neuralearn.ai / Admin@123456",
+  "seed_data_creation": "",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Iteration 12: All 5 fixes verified. (1) ai_router.py B=2000, C=3500 tokens - CONFIRMED. (2) chat.py no word_limit_warned - CONFIRMED. (3) Pricing page shows Starter(₹399/500cr) + Pro(₹699/1000cr) only - CONFIRMED in UI. (4) StudyPlanPage nav('/upgrade') - CONFIRMED in code. (5) CreditsContext quiz=15, mock=30 - CONFIRMED. Fixed bug: subscription.py now accepts 'starter' plan for create-order/subscribe/verify-payment. Admin account is on Pro plan - study plan locked gate cannot be tested with admin.",
+  "rca_of_issue": "subscription.py create-order and subscribe endpoints had hardcoded plan validation ('pro' or 'elite') which was written before the plan restructure. After plan names changed to 'starter' and 'pro', the validation was not updated, causing 400 errors when subscribing to Starter plan. Fix: updated all 3 subscription endpoints to accept ('starter', 'pro', 'elite') and updated bonus_credits mapping."
+}

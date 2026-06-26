@@ -160,13 +160,19 @@ MEMORY: weak=[{weak}] | strong=[{strong}]
 
 STYLE GUIDE: {style_guide}
 
+MATH FORMAT (mandatory):
+• Simple fractions: use Unicode symbols → ½ ¼ ¾ ⅓ ⅔ ⅕ ⅖ ⅗ ⅘ ⅙ ⅚ ⅛ ⅜ ⅝ ⅞
+• Powers and subscripts: write x² y³ H₂O CO₂ (not x^2 or H_2O)
+• Common symbols: π √ ∞ ≈ ≠ ≤ ≥ ± ∈ ∑ ∫ ∆ ∝ °C →
+• For multi-step or complex equations: wrap in $...$ for inline, $$...$$ for block
+• NEVER output raw LaTeX like \\frac{{}}{{}} — use ½ or (a/b) format for simple fractions
+• Example: "The slope is ½" not "The slope is \\frac{{1}}{{2}}"
+
 RULES:
 • Build intuition before formulas. Short paragraphs (3 lines max).
-• Use LaTeX math notation: $formula$ for inline, $$formula$$ for block equations.
 • End every response with ONE of: ⚡ Challenge | 🎯 Quick Check | 📝 Exam Tip
-• Max {CHAT_WORD_LIMIT} words. Complete every sentence fully — never cut off.
-• Never truncate mathematical solutions.
-{"• Keep answer under 120 words (token budget active)" if max_tokens <= 250 else ""}"""
+• Always complete every sentence and explanation fully — never truncate mid-thought.
+• Never truncate mathematical derivations or multi-step solutions."""
 
 
 # ── Main message handler ──────────────────────────────────────────────────────
@@ -309,10 +315,9 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
         full_content = ""
         word_count = 0
         input_tokens_est = int(sum(len(m["content"].split()) * 1.3 for m in ai_messages))
-        word_limit_warned = False
 
-        # Reserve 200 tokens for sentence completion — never cut off mid-sentence
-        generation_tokens = min(max_tokens, 2200)  # ~1500 words + buffer
+        # Reserve generous headroom so the model can always finish its response
+        generation_tokens = max_tokens  # no artificial cap — trust the router limits
 
         try:
             stream = await openai_client.chat.completions.create(
@@ -327,15 +332,6 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
                 if delta:
                     full_content += delta
                     word_count = len(full_content.split())
-                    # Soft cap: inject note at 1500 words but allow sentence to finish
-                    if word_count >= CHAT_WORD_LIMIT and not word_limit_warned:
-                        word_limit_warned = True
-                        warning = "\n\n> ⚠️ *This is a detailed response (1500+ words). For a more focused answer, ask about a specific part of this topic.*"
-                        yield f"data: {json.dumps({'type':'chunk','content':delta})}\n\n"
-                        yield f"data: {json.dumps({'type':'chunk','content':warning})}\n\n"
-                        full_content += warning
-                        # Continue streaming to finish the sentence
-                        continue
                     yield f"data: {json.dumps({'type':'chunk','content':delta})}\n\n"
         except Exception as e:
             logger.error(f"OpenAI error: {e}")

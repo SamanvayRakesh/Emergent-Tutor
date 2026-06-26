@@ -103,13 +103,13 @@ export default function StudyPlanPage() {
         <div className="w-16 h-16 rounded-full bg-violet-500/15 border border-violet-500/20 flex items-center justify-center mx-auto mb-5">
           <Lock size={28} className="text-violet-400" />
         </div>
-        <h2 className="text-white text-xl font-heading font-bold mb-2">Study Plans are a Pro Feature</h2>
+        <h2 className="text-white text-xl font-heading font-bold mb-2">Study Plans unlock on Starter</h2>
         <p className="text-zinc-400 text-sm font-body mb-6 max-w-sm mx-auto">
-          Upgrade your plan to access personalised AI Study Plans built around your quiz history and weak areas.
+          Upgrade to Starter or Pro to access personalised AI Study Plans built around your quiz history and weak areas.
         </p>
-        <button onClick={() => nav('/pricing')}
+        <button onClick={() => nav('/upgrade')}
           className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-violet-500 hover:bg-violet-400 text-white font-heading font-bold text-sm transition-all">
-          Upgrade to Pro <ArrowRight size={16} />
+          Upgrade to Starter <ArrowRight size={16} />
         </button>
       </motion.div>
     </div>
