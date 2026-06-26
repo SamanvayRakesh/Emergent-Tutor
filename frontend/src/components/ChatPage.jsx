@@ -502,11 +502,22 @@ export default function ChatPage() {
           quizData={quizModal.quizData}
           onClose={() => { setQuizModal(null); refreshCredits?.(); }}
           onComplete={(results) => {
-            toast.success(`Quiz done! Score: ${results.score}%`, {
-              duration: 3000,
-              style: { background: 'rgba(30,27,75,0.85)', color: '#86efac', border: '1px solid rgba(34,197,94,0.4)' },
-            });
             refreshCredits?.();
+            // Build a message that sends the quiz results to the AI tutor for validation
+            const topic = session?.chapter || session?.subject || 'this topic';
+            const wrongAnswers = results.results?.filter(r => !r.correct) || [];
+            let msg = `I just finished a quiz on **${topic}**. My score: **${results.correct_count}/${results.total_questions} (${results.score}%)**.\n\n`;
+            if (wrongAnswers.length > 0) {
+              msg += `I got ${wrongAnswers.length} question(s) wrong. Please explain these:\n\n`;
+              wrongAnswers.forEach((r, i) => {
+                msg += `**Q${i + 1}:** ${r.question}\n`;
+                msg += `My answer: ${r.user_answer || '(skipped)'} | Correct answer: ${r.correct_answer}\n\n`;
+              });
+              msg += `Please explain why those answers are correct and help me understand the concepts I missed.`;
+            } else {
+              msg += `I got all questions correct! Can you give me a slightly harder follow-up question or introduce the next concept?`;
+            }
+            sendMessage(msg);
           }}
         />
       )}

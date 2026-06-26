@@ -40,13 +40,14 @@ async def generate_quiz(body: QuizGenerateRequest, request: Request):
 
 Difficulty level: {body.difficulty}
 
-Return ONLY a JSON object with this structure:
+Return ONLY a JSON object with this EXACT structure (every question MUST have "type": "mcq"):
 {{
   "title": "Quiz: {body.topic}",
   "subject": "{body.subject}",
   "class_level": "{body.class_level}",
   "questions": [
     {{
+      "type": "mcq",
       "question": "...",
       "options": ["A. ...", "B. ...", "C. ...", "D. ..."],
       "correct": "A",
@@ -73,11 +74,18 @@ Make questions test conceptual understanding, not just memorization. Include a b
 
     quiz_id = f"quiz_{uuid.uuid4().hex[:12]}"
     now = datetime.now(timezone.utc).isoformat()
+
+    # Normalize questions: ensure every question has type="mcq" as fallback
+    raw_questions = quiz_data.get("questions", [])
+    for q in raw_questions:
+        if not q.get("type"):
+            q["type"] = "mcq" if q.get("options") else "short_answer"
+
     quiz_doc = {
         "quiz_id": quiz_id, "user_id": user["user_id"],
         "class_level": body.class_level, "subject": body.subject,
         "topic": body.topic, "difficulty": body.difficulty,
-        "questions": quiz_data.get("questions", []),
+        "questions": raw_questions,
         "title": quiz_data.get("title", f"Quiz: {body.topic}"),
         "completed": False, "score": None, "created_at": now,
     }

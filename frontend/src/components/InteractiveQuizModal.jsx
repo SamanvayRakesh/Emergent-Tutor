@@ -1,12 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, CheckCircle2, XCircle, Trophy, ChevronRight, Loader2, Clock } from 'lucide-react';
+import { X, Trophy, ChevronRight, Loader2 } from 'lucide-react';
 import axios from 'axios';
 import { MathText } from './MathRenderer';
 
 const API = process.env.REACT_APP_BACKEND_URL;
-
-const QUESTION_TIME_LIMIT = 45; // seconds per question (for timing analytics)
 
 /**
  * InteractiveQuizModal
@@ -26,6 +24,8 @@ export default function InteractiveQuizModal({ quizData, onClose, onComplete }) 
 
   const questions = quizData?.questions || [];
   const question  = questions[currentQ];
+  // Infer type from structure if backend didn't include it (MCQ if options exist)
+  const qType = question?.type || (question?.options?.length ? 'mcq' : 'short_answer');
 
   // Track time per question
   useEffect(() => {
@@ -48,7 +48,7 @@ export default function InteractiveQuizModal({ quizData, onClose, onComplete }) 
   }
 
   function nextQuestion() {
-    if (fillInput.trim() && question?.type === 'fill_blank') {
+    if (fillInput.trim() && ['fill_blank', 'short_answer'].includes(qType)) {
       selectAnswer(fillInput.trim());
     }
     if (currentQ < questions.length - 1) {
@@ -101,15 +101,16 @@ export default function InteractiveQuizModal({ quizData, onClose, onComplete }) 
         return { question: q.question, correct: isCorrect, user_answer: answers[i], correct_answer: q.correct ?? q.correct_answer, explanation: q.explanation };
       });
       const score_pct = Math.round((correct / questions.length) * 100);
-      setResults({ score: score_pct, correct_count: correct, total_questions: questions.length, results: resultsList, xp_earned: correct * 5 });
+      const fallbackResults = { score: score_pct, correct_count: correct, total_questions: questions.length, results: resultsList, xp_earned: correct * 5 };
+      setResults(fallbackResults);
       setPhase('results');
-      if (onComplete) onComplete({ score: score_pct, correct_count: correct });
+      if (onComplete) onComplete(fallbackResults);
     } finally {
       setSubmitting(false);
     }
   }
 
-  const canAdvance = answers[currentQ] !== undefined || (question?.type === 'fill_blank' && fillInput.trim());
+  const canAdvance = answers[currentQ] !== undefined || (['fill_blank', 'short_answer'].includes(qType) && fillInput.trim());
   const isLastQ    = currentQ === questions.length - 1;
   const answered   = Object.keys(answers).length;
   const progress   = ((answered) / questions.length) * 100;
@@ -170,10 +171,10 @@ export default function InteractiveQuizModal({ quizData, onClose, onComplete }) 
                     <div className="mb-2">
                       <span className="text-xs font-semibold px-2 py-1 rounded-md"
                         style={{
-                          background: question?.type === 'mcq' ? '#1e3a8a' : question?.type === 'true_false' ? '#14532d' : '#451a03',
-                          color: question?.type === 'mcq' ? '#93c5fd' : question?.type === 'true_false' ? '#86efac' : '#fde68a',
+                          background: qType === 'mcq' ? '#1e3a8a' : qType === 'true_false' ? '#14532d' : '#451a03',
+                          color: qType === 'mcq' ? '#93c5fd' : qType === 'true_false' ? '#86efac' : '#fde68a',
                         }}>
-                        {question?.type === 'mcq' ? 'Multiple Choice' : question?.type === 'true_false' ? 'True / False' : question?.type === 'fill_blank' ? 'Fill in the Blank' : 'Short Answer'}
+                        {qType === 'mcq' ? 'Multiple Choice' : qType === 'true_false' ? 'True / False' : qType === 'fill_blank' ? 'Fill in the Blank' : 'Short Answer'}
                       </span>
                     </div>
 
@@ -182,7 +183,7 @@ export default function InteractiveQuizModal({ quizData, onClose, onComplete }) 
                     </p>
 
                     {/* MCQ options */}
-                    {(question?.type === 'mcq') && (
+                    {qType === 'mcq' && (
                       <div className="space-y-3" data-testid="mcq-options">
                         {(question?.options || []).map((opt, i) => {
                           const letter = String.fromCharCode(65 + i);
@@ -210,7 +211,7 @@ export default function InteractiveQuizModal({ quizData, onClose, onComplete }) 
                     )}
 
                     {/* True / False */}
-                    {question?.type === 'true_false' && (
+                    {qType === 'true_false' && (
                       <div className="flex gap-3" data-testid="true-false-options">
                         {['True', 'False'].map(opt => {
                           const isSelected = answers[currentQ] === opt;
@@ -234,7 +235,7 @@ export default function InteractiveQuizModal({ quizData, onClose, onComplete }) 
                     )}
 
                     {/* Fill in blank */}
-                    {question?.type === 'fill_blank' && (
+                    {qType === 'fill_blank' && (
                       <input
                         type="text"
                         placeholder="Type your answer…"
@@ -248,7 +249,7 @@ export default function InteractiveQuizModal({ quizData, onClose, onComplete }) 
                     )}
 
                     {/* Short answer */}
-                    {question?.type === 'short_answer' && (
+                    {qType === 'short_answer' && (
                       <textarea
                         placeholder="Write your answer…"
                         value={fillInput}
@@ -298,58 +299,34 @@ export default function InteractiveQuizModal({ quizData, onClose, onComplete }) 
             </>
           )}
 
-          {/* Results phase */}
+          {/* Results phase — brief score only; full validation is in the chat */}
           {phase === 'results' && results && (
-            <div className="p-6" data-testid="quiz-results">
-              <div className="text-center mb-6">
-                <div className="text-5xl font-black font-heading mb-1" style={{
-                  color: results.score >= 80 ? '#22c55e' : results.score >= 60 ? '#fbbf24' : '#ef4444'
-                }}>
-                  {results.score}%
-                </div>
-                <p className="text-zinc-400 text-sm">
-                  {results.correct_count}/{results.total_questions} correct
-                  {results.xp_earned ? ` · +${results.xp_earned} XP` : ''}
-                </p>
-                <p className="text-zinc-300 text-sm mt-1 font-medium">
-                  {results.score >= 80 ? 'Excellent work!' : results.score >= 60 ? 'Good effort!' : 'Keep practising!'}
-                </p>
+            <div className="p-8 text-center" data-testid="quiz-results">
+              <Trophy size={44} className="mx-auto mb-4 text-amber-400" />
+              <div
+                className="text-6xl font-black font-heading mb-2"
+                style={{ color: results.score >= 80 ? '#22c55e' : results.score >= 60 ? '#fbbf24' : '#ef4444' }}
+              >
+                {results.score}%
               </div>
-
-              {/* Per-question results */}
-              <div className="space-y-3 max-h-64 overflow-y-auto pr-1" data-testid="results-list">
-                {(results.results || []).map((r, i) => (
-                  <div key={i} className="rounded-xl p-3 border"
-                    style={{
-                      background: r.correct ? 'rgba(34,197,94,0.07)' : 'rgba(239,68,68,0.07)',
-                      borderColor: r.correct ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)',
-                    }}>
-                    <div className="flex items-start gap-2">
-                      {r.correct ? <CheckCircle2 size={16} className="text-green-400 mt-0.5 flex-shrink-0" />
-                                 : <XCircle size={16} className="text-red-400 mt-0.5 flex-shrink-0" />}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-zinc-300 text-xs leading-relaxed"><MathText text={r.question} /></p>
-                        {!r.correct && (
-                          <p className="text-zinc-500 text-xs mt-1">
-                            Correct: <span className="text-green-400"><MathText text={String(r.correct_answer)} /></span>
-                          </p>
-                        )}
-                        {r.explanation && (
-                          <p className="text-zinc-500 text-xs mt-1 italic"><MathText text={r.explanation} /></p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
+              <p className="text-zinc-300 text-base font-medium mb-1">
+                {results.correct_count}/{results.total_questions} correct
+                {results.xp_earned ? ` · +${results.xp_earned} XP` : ''}
+              </p>
+              <p className="text-zinc-500 text-sm mb-2">
+                {results.score >= 80 ? 'Excellent work!' : results.score >= 60 ? 'Good effort!' : 'Keep practising!'}
+              </p>
+              <p className="text-zinc-600 text-xs mb-6 flex items-center justify-center gap-1.5">
+                <Loader2 size={12} className="animate-spin text-cyan-400" />
+                <span className="text-cyan-500">AI Tutor is reviewing your answers…</span>
+              </p>
               <button
                 onClick={onClose}
                 data-testid="close-results-btn"
-                className="w-full mt-5 py-3 rounded-xl font-heading font-bold text-white text-sm"
+                className="w-full py-3 rounded-xl font-heading font-bold text-white text-sm transition-all hover:opacity-90"
                 style={{ background: '#dc2626' }}
               >
-                Back to Chat
+                Back to Chat &amp; See Feedback
               </button>
             </div>
           )}
