@@ -45,15 +45,12 @@ PLANS = {
         },
         "highlights": [
             "500 AI credits / month",
-            "Everything in Free",
             "Personalised AI Study Plan",
-            "5 mock exams / week",
             "Unlimited quizzes",
             "Adaptive difficulty engine",
             "Full leaderboard access",
             "AI memory & personalisation",
             "Deep subject analytics",
-            "Priority support",
         ],
     },
     "pro": {

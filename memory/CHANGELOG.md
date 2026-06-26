@@ -36,7 +36,15 @@
 - Milestones section: 8 milestones tracking sessions, quizzes, streak, XP
 - Weak topics section retained
 
-### Multi-Issue Fix Batch (June 2026)
+### Math + UI + QuizArena Fix (June 2026)
+- **MathRenderer**: Added `preprocessMath()` to convert AI's `( \frac{0}{b} )` → `$\frac{0}{b}$` before parsing; added `isLaTeXContent()` check to prevent `$10…$4` currency strings being parsed as math
+- **System prompt**: Added explicit rule — NEVER write `( \formula )` pattern; NEVER use `$` for currency; always use `$...$` or Unicode
+- **Sidebar**: Changed "Upgrade to Pro ₹299" → "Upgrade to Starter ₹399"
+- **Starter plan features**: Reduced to 7 highlights (removed "5 mock exams/week", "Everything in Free", "Priority support")
+- **Pro plan features**: Reduced to 6 clean highlights
+- **Quiz Arena**: Removed free-text topic input; replaced with subtopic SELECT dropdown populated from new `GET /api/quiz/subtopics` endpoint; subtopics auto-loaded on chapter change; covers 50+ CBSE chapters across Maths/Science/9-12
+- **StudyPlanPage**: Already has Starter nav fix and correct gate title from previous batch
+
 - **AI response cutoff**: `ai_router.py` token limits increased (B: 800→2000, C: 1800→3500); removed mid-stream word-limit injection from `chat.py`; `generation_tokens` now uses max_tokens directly with no artificial cap
 - **Math symbols**: System prompt updated — Unicode symbols preferred (½ ¼ π √ ²) over raw LaTeX `\frac{}{}`; LaTeX only for complex multi-line equations
 - **Subscription plans (2 plans)**: Starter (500cr, ₹399) and Pro (1000cr, ₹699) — `plan_gates.py` updated with new features; `credits.py` Pro credits 1500→1000; PricingPage filters to show only Starter+Pro; subscription.py fixed to accept 'starter' plan
