@@ -172,8 +172,6 @@ async def generate_quiz(body: QuizGenerateRequest, request: Request):
 
 Difficulty level: {body.difficulty}
 
-Difficulty level: {body.difficulty}
-
 Return ONLY a JSON object with this EXACT structure (every question MUST have "type": "mcq"):
 {{
   "title": "Quiz: {body.topic}",

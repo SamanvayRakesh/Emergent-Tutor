@@ -79,6 +79,18 @@ Build "AceIt AI" (formerly NeuraLearn), a complete production-level full-stack A
 - Leaderboard (social)
 - Analytics endpoint
 
+### Phase 5: BNPS School Integration & Math Rendering (Complete — June 2026)
+- **KaTeX Math Rendering**: Installed `remark-math` + `rehype-katex`; `ChatPage.jsx` ReactMarkdown now uses native math plugins. No more raw LaTeX strings.
+- **Global KaTeX CSS**: `import 'katex/dist/katex.min.css'` added to `App.js`
+- **Brooklyn National Public School (BNPS)**: Full Grade 8 curriculum integration
+  - 4 subjects: Mathematics (16ch), Science (13ch), Social Studies (7ch), English (13ch)
+  - School selector on AuthPage
+  - BNPS subjects/chapters served from `school_curriculum.py`
+  - Syllabus shows "BNPS" badge instead of "NCERT" for school students
+- **BNPS PDF Download**: Script downloads NCERT 2024-25 textbooks (Ganita Prakash, Curiosity, Exploring Society, Poorvi) — 31 PDFs
+- **BNPS Question Bank**: 988 Q&A pairs covering all 49 BNPS chapters (built via `/api/question-bank/build-bnps`)
+- **School Context in AI**: Quiz and Mock Exam generation prompts include BNPS chapter list for school students
+- **BNPS Subtopics**: All 49 BNPS chapters have curated subtopics in quiz.py
 ### Phase 3: Production Features (Complete — June 2026)
 - **Global rebranding to "AceIt AI"**
 - **Background Question Bank Builder** (PyMuPDF PDF → Q&A)

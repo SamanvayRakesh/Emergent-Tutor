@@ -22,6 +22,11 @@ export default function SyllabusPage() {
   const nav = useNavigate();
   const { user } = useAuth();
   const userClass = user?.class_level || '9';
+  const isBNPS = user?.school === 'brooklyn_national';
+  const verifiedLabel = isBNPS ? 'BNPS' : 'NCERT';
+  const verifiedTitle = isBNPS
+    ? 'Chapters verified against Brooklyn National Public School curriculum'
+    : 'Chapters verified against official NCERT textbooks';
   const [subjects, setSubjects] = useState([]);
   const [selectedSubject, setSelectedSubject] = useState(null);
   const [chapters, setChapters] = useState([]);
@@ -101,8 +106,8 @@ export default function SyllabusPage() {
                         {subj.verified && (
                           <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-body font-semibold"
                             style={{ background: '#10b98122', color: '#10b981', border: '1px solid #10b98155' }}
-                            data-testid={`verified-${subj.name}`} title="Chapters verified against official NCERT textbooks">
-                            <ShieldCheck size={10} /> NCERT
+                            data-testid={`verified-${subj.name}`} title={verifiedTitle}>
+                            <ShieldCheck size={10} /> {verifiedLabel}
                           </span>
                         )}
                       </div>
@@ -145,13 +150,13 @@ export default function SyllabusPage() {
                       {ch.verified && (
                         <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-body font-semibold flex-shrink-0"
                           style={{ background: '#10b98122', color: '#10b981', border: '1px solid #10b98155' }}
-                          title="Chapter verified against official NCERT textbook">
-                          <ShieldCheck size={10} /> NCERT
+                          title={verifiedTitle}>
+                          <ShieldCheck size={10} /> {verifiedLabel}
                         </span>
                       )}
                     </div>
                     <p className="text-zinc-600 text-xs font-body mt-0.5">
-                      {ch.book_title || 'NCERT Textbook'}
+                      {ch.book_title || (isBNPS ? 'BNPS Textbook' : 'NCERT Textbook')}
                     </p>
                   </div>
                   <button onClick={() => startChat(ch)} data-testid={`start-chapter-${ch.id}`}
