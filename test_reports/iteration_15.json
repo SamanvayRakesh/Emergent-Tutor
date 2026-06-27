@@ -1,0 +1,61 @@
+{
+  "summary": "Iteration 15: Tested BNPS Curriculum features and Math Rendering (KaTeX) implementation. Backend tested via internal API (external URL had transient 502 during pytest). All BNPS features working correctly. KaTeX CSS confirmed loaded in DOM. Minor UI issue: hardcoded 'NCERT' label shows for BNPS students on Syllabus page.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "external /api/*", "issue": "Transient 502 Bad Gateway during automated pytest run - backend recovers. Internal API works perfectly."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "SyllabusPage.jsx",
+        "issue": "Hardcoded 'NCERT' badge displayed for all subjects including BNPS students. Lines 104-105 and 149 show <ShieldCheck/> NCERT regardless of school.",
+        "selector": "[data-testid='verified-*']",
+        "priority": "LOW"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "All pages after login",
+        "issues": ["Onboarding wizard (STEP 1 OF 5) persists on every session for new BNPS student - no close/skip button visible. Blocks background UI but doesn't block actual functionality."]
+      }
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_bnps_features.py",
+    "/app/test_reports/pytest/pytest_results_iter15.xml"
+  ],
+  "action_items": [
+    "Fix SyllabusPage.jsx hardcoded 'NCERT' label - should display 'BNPS' or 'Brooklyn National' for brooklyn_national school users (lines 104-105, 149)",
+    "Consider adding a 'Skip' or 'Close' button to the onboarding wizard for existing/returning BNPS students"
+  ],
+  "critical_code_review_comments": [
+    "SyllabusPage.jsx lines 104-105, 149: 'NCERT' label hardcoded - not dynamic based on school. BNPS students see 'NCERT' instead of school-appropriate label",
+    "quiz.py line 175: 'Difficulty level:' appears twice in the prompt template (duplicate line 173 and 175) - minor but should be cleaned up"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_bnps_features.py"
+  ],
+  "success_rate": {
+    "backend": "90% (internal API 100%, external transient 502 during test run)",
+    "frontend": "85% (BNPS subjects/chapters/subtopics all correct, KaTeX CSS loaded, minor NCERT label issue)"
+  },
+  "test_credentials": {
+    "bnps_student": "bnps@student.edu / Test@12345",
+    "admin": "admin@neuralearn.ai / Admin@123456"
+  },
+  "features_verified": {
+    "math_rendering": "KaTeX CSS rules confirmed in DOM (bundled via webpack). remarkPlugins=[remarkMath] and rehypePlugins=[rehypeKatex] correctly set in ChatPage.jsx. import 'katex/dist/katex.min.css' in App.js confirmed.",
+    "bnps_subjects": "Syllabus returns Science(13ch), Mathematics(16ch), Social Studies(7ch), English(13ch) for BNPS student - CORRECT",
+    "bnps_chapters": "Quiz chapter dropdown for Mathematics shows: Rational Numbers, Exponents and Powers, Squares and Square Roots, etc. - BNPS chapters confirmed",
+    "bnps_subtopics": "Rational Numbers subtopics: Properties of Rational Numbers, Representation on Number Line, Operations on Rational Numbers, Rational Numbers between Two Rationals - CORRECT",
+    "build_bnps_status": "GET /api/question-bank/build-bnps/status returns {running: false, bnps_qa_count: 550} - build completed!",
+    "chat_session": "BNPS student can create chat session for Mathematics/Rational Numbers via API with chapter_id"
+  },
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "BNPS build completed with 550 Q&As. KaTeX math rendering is implemented correctly at code level. Minor issue: SyllabusPage shows NCERT label for BNPS students - needs school-aware label. Auth uses cookie-based auth, login requires data-testid='auth-submit-btn' click (not button:has-text('Sign In') which matches the tab button). The previous login failures in browser automation were due to wrong button selector."
+}

@@ -3,13 +3,14 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
 import { Send, Plus, BookOpen, ChevronDown, Trash2, Sparkles, CheckCircle, XCircle, MessageSquare, Brain, ArrowLeft, Youtube, ExternalLink, Zap } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { useCredits } from '../contexts/CreditsContext';
 import { toast } from 'sonner';
-import { MathText } from './MathRenderer';
 import InteractiveQuizModal from './InteractiveQuizModal';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -162,24 +163,17 @@ function MessageBubble({ msg, isStreaming }) {
               ) : (
                 <div key={`text-${i}`} className="markdown-content">
                   <ReactMarkdown
-                    remarkPlugins={[remarkGfm]}
+                    remarkPlugins={[remarkGfm, remarkMath]}
+                    rehypePlugins={[rehypeKatex]}
                     components={{
-                      // Render math in inline code and paragraphs
                       p: ({ children }) => (
-                        <p className="mb-2 last:mb-0 leading-relaxed">
-                          {typeof children === 'string' ? <MathText text={children} /> : children}
-                        </p>
+                        <p className="mb-2 last:mb-0 leading-relaxed">{children}</p>
                       ),
-                      code: ({ inline, children }) => {
-                        const text = String(children).trim();
-                        // Detect LaTeX-like patterns
-                        if (inline && (text.includes('\\frac') || text.includes('\\sqrt') || text.startsWith('$'))) {
-                          return <MathText text={`$${text}$`} />;
-                        }
-                        return inline
+                      code: ({ inline, children }) => (
+                        inline
                           ? <code className="bg-black/30 text-cyan-300 px-1 py-0.5 rounded text-xs">{children}</code>
-                          : <pre className="bg-black/30 text-cyan-300 p-3 rounded-xl text-xs overflow-x-auto my-2"><code>{children}</code></pre>;
-                      },
+                          : <pre className="bg-black/30 text-cyan-300 p-3 rounded-xl text-xs overflow-x-auto my-2"><code>{children}</code></pre>
+                      ),
                     }}
                   >{part.content}</ReactMarkdown>
                 </div>

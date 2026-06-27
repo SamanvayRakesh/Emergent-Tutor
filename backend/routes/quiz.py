@@ -11,6 +11,7 @@ from plan_gates import check_limit, increment_usage
 from credits import deduct_credits
 from models import QuizGenerateRequest, QuizSubmitRequest
 from adaptive_engine import record_quiz_result, update_topic_performance
+from school_curriculum import get_school_chapters, has_school_curriculum
 
 router = APIRouter()
 
@@ -58,21 +59,59 @@ _SUBTOPICS: dict = {
     "force and laws of motion": ["Newton's First Law", "Newton's Second Law", "Newton's Third Law", "Conservation of Momentum"],
     "gravitation": ["Universal Law of Gravitation", "Free Fall & Acceleration due to Gravity", "Thrust & Pressure", "Archimedes' Principle"],
     "work and energy": ["Work Done", "Kinetic & Potential Energy", "Power", "Law of Conservation of Energy"],
-    # Class 11 & 12 (common)
-    "sets": ["Types of Sets", "Venn Diagrams", "Operations on Sets", "De Morgan's Laws"],
-    "relations and functions": ["Types of Relations", "Types of Functions", "Composition of Functions"],
-    "trigonometric functions": ["Radian Measure", "Trigonometric Functions", "Identities & Equations"],
-    "complex numbers": ["Algebra of Complex Numbers", "Modulus & Argument", "Polar Form", "Quadratic Equations"],
-    "permutations and combinations": ["Fundamental Principle of Counting", "Permutations", "Combinations"],
-    "binomial theorem": ["Binomial Expansion", "General Term", "Middle Term"],
-    "limits and derivatives": ["Concept of Limit", "Algebra of Limits", "Derivative of Functions"],
-    "mathematical reasoning": ["Statements", "Logical Connectives", "Contrapositive & Converse"],
-    "electric charges and fields": ["Coulomb's Law", "Electric Field Lines", "Gauss's Law", "Electric Dipole"],
-    "current electricity": ["Electric Current & Drift Velocity", "Ohm's Law", "Kirchhoff's Laws", "Wheatstone Bridge"],
-    "moving charges and magnetism": ["Biot–Savart Law", "Ampere's Circuital Law", "Magnetic Force on Current", "Cyclotron"],
-    "organic chemistry – basic principles": ["IUPAC Nomenclature", "Isomerism", "Reaction Mechanisms"],
-    "biomolecules": ["Carbohydrates", "Proteins", "Lipids", "Nucleic Acids", "Enzymes"],
-    "evolution": ["Origin of Life", "Darwin's Theory", "Evidence of Evolution", "Human Evolution"],
+    # Class 8 BNPS / NCERT Mathematics (Ganita Prakash)
+    "rational numbers": ["Properties of Rational Numbers", "Representation on Number Line", "Operations on Rational Numbers", "Rational Numbers between Two Rationals"],
+    "exponents and powers": ["Laws of Exponents", "Negative Exponents", "Numbers in Standard Form", "Comparing Very Large & Small Numbers"],
+    "squares and square roots": ["Perfect Squares & Patterns", "Finding Square Root by Division", "Square Root by Estimation", "Pythagorean Triplets"],
+    "cubes and cube roots": ["Perfect Cubes", "Cube Root by Prime Factorisation", "Cube Root of Decimals"],
+    "playing with numbers": ["Generalised Form of Numbers", "Games with Numbers", "Letters for Digits", "Divisibility Tests"],
+    "algebraic expressions and identities": ["Terms & Factors", "Addition & Subtraction of Expressions", "Multiplication of Expressions", "Standard Identities"],
+    "factorisation": ["Common Factors", "Factorising by Regrouping", "Factorisation using Identities", "Division of Algebraic Expressions"],
+    "linear equations in one variable": ["Solving Linear Equations", "Applications: Word Problems", "Equations with Variables on Both Sides", "Reducing Equations to Simpler Form"],
+    "comparing quantities": ["Ratios & Percentages", "Profit & Loss", "Simple Interest", "Compound Interest"],
+    "direct and indirect variations": ["Direct Proportion", "Inverse Proportion", "Applications of Variation"],
+    "understanding quadrilaterals": ["Angle Sum Property", "Types of Quadrilaterals", "Properties of Parallelogram", "Special Parallelograms"],
+    "visualising solid shapes": ["Views of 3D Shapes", "Mapping Spaces", "Faces Edges & Vertices", "Euler's Formula"],
+    "practical geometry": ["Constructing Quadrilaterals", "Special Quadrilaterals Construction", "Some Special Cases"],
+    "mensuration": ["Area of Trapezium & General Quadrilateral", "Area of Polygons", "Surface Area of Cube & Cuboid", "Volume of Cube & Cuboid"],
+    "introduction to graphs": ["Linear Graphs", "Types of Graphs", "Reading Graphs", "Drawing Graphs"],
+    "data handling": ["Organising Data", "Grouping Data & Histograms", "Circle Graphs/Pie Charts", "Probability"],
+    # Class 8 BNPS Science (Curiosity)
+    "exploring the investigative world of science": ["Scientific Method", "Types of Investigations", "Making Observations", "Fair Testing"],
+    "the invisible living world: beyond our naked eye": ["Microorganisms & Their Types", "Bacteria & Viruses", "Useful Microorganisms", "Harmful Microorganisms & Diseases"],
+    "health: the ultimate treasure": ["Diseases & Their Causes", "Balanced Diet & Nutrition", "Healthcare & Hygiene", "Communicable vs Non-Communicable Diseases"],
+    "electricity: magnetic and heating effects": ["Magnetic Effect of Current", "Electromagnets", "Electric Bell", "Heating Effect & Its Applications"],
+    "exploring forces": ["Types of Forces", "Contact & Non-Contact Forces", "Effects of Force", "Friction & Its Applications"],
+    "pressure, winds, storms, and cyclones": ["Air Pressure", "Atmospheric Pressure", "Wind & Weather", "Thunderstorms & Cyclones"],
+    "particulate nature of matter": ["States of Matter", "Diffusion & Brownian Motion", "Kinetic Theory", "Change of State"],
+    "nature of matter: elements, compounds, and mixtures": ["Elements & Symbols", "Compounds vs Mixtures", "Separation Techniques", "Physical & Chemical Changes"],
+    "the amazing world of solutes, solvents and solutions": ["Types of Solutions", "Solubility & Factors", "Concentration of Solutions", "Saturated & Unsaturated Solutions"],
+    "light: mirrors and lenses": ["Reflection & Laws", "Spherical Mirrors", "Refraction & Laws", "Lenses & Their Uses"],
+    "keeping time with the skies": ["Solar & Lunar Calendar", "Phases of Moon", "Seasons", "Tides"],
+    "how nature works in harmony": ["Food Chains & Webs", "Ecosystems", "Biodiversity", "Conservation"],
+    "our home: earth, a unique life sustaining planet": ["Earth's Atmosphere", "Water Cycle", "Climate Change", "Sustainability"],
+    # Class 8 BNPS Social Studies (Exploring Society)
+    "natural resources: treasures of the earth": ["Types of Resources", "Land & Soil Resources", "Water Resources", "Mineral & Energy Resources"],
+    "the changing political landscape of india": ["Mughal Empire Decline", "Rise of Regional Powers", "Maratha Confederacy", "European Powers in India"],
+    "the rise of the marathas": ["Shivaji & Maratha Empire", "Administration", "Maratha Expansion", "Anglo-Maratha Wars"],
+    "the colonial transformation of india": ["British East India Company", "Economic Exploitation", "Social & Cultural Impact", "Resistance Movements"],
+    "from ballot to bharat: the spirit of universal franchise": ["Indian Constitution", "Universal Adult Franchise", "Elections in India", "Role of Election Commission"],
+    "the parliamentary system: legislature and executive": ["Parliament Structure", "Lok Sabha & Rajya Sabha", "Role of President", "Prime Minister & Council of Ministers"],
+    "resources at work": ["Human Resources", "Agricultural Resources", "Industrial Resources", "Sustainable Development"],
+    # Class 8 BNPS English (Poorvi)
+    "the time machine": ["Plot Summary", "Characters", "Science Fiction Elements", "Themes of Time & Society"],
+    "when the mop count did not tally": ["Story Plot", "Characters", "Themes of Honesty & Integrity", "Narrative Style"],
+    "stopping by woods on a snowy evening": ["Poem Analysis", "Literary Devices", "Themes & Symbolism", "Tone & Mood"],
+    "the portrait of a lady": ["Character of Grandmother", "Themes of Old Age & Modernity", "Narrative Perspective", "Key Scenes"],
+    "stuart little": ["Story Overview", "Stuart as a Character", "Adventures & Themes", "Graphic Story Elements"],
+    "robots in everyday life": ["Types of Robots", "Applications of Robotics", "Impact on Society", "Future of Robots"],
+    "knowing your strengths": ["Self-Awareness", "Identifying Strengths", "Building Confidence", "Life Skills Application"],
+    "the children's hour": ["Poem Analysis", "Family & Childhood Themes", "Poetic Devices", "Longfellow's Style"],
+    "that little square box": ["Plot & Mystery Elements", "Sherlock Holmes Style", "Characters & Clues", "Resolution"],
+    "haunted": ["Ghost Story Elements", "Plot Analysis", "Atmosphere & Setting", "Character Reactions"],
+    "on the grasshopper and cricket": ["Poem Analysis", "Nature Themes", "Keats' Romantic Style", "Poetic Devices"],
+    "the canterville ghost": ["Play Summary", "Comedy & Gothic Elements", "Characters", "Oscar Wilde's Satire"],
+    "night of the scorpion": ["Poem Analysis", "Themes of Superstition & Faith", "Cultural Context", "Ezekiel's Style"],
 }
 
 def _get_subtopics(chapter: str) -> list[str]:
@@ -116,7 +155,22 @@ async def generate_quiz(body: QuizGenerateRequest, request: Request):
     # Credit gate: deduct 5 credits per quiz
     await deduct_credits(user["user_id"], "quiz_generate")
 
-    prompt = f"""Generate exactly {body.num_questions} multiple-choice questions for CBSE Class {body.class_level} {body.subject} on the topic: "{body.topic}".
+    # Build school context for BNPS students
+    school = user.get("school", "")
+    school_context = ""
+    if school and has_school_curriculum(school, body.class_level):
+        chapters = get_school_chapters(school, body.class_level, body.subject)
+        ch_names = [c["name"] for c in chapters]
+        school_context = (
+            f"\nSCHOOL CONTEXT: This student attends Brooklyn National Public School (BNPS). "
+            f"Generate questions strictly based on their syllabus for Grade {body.class_level} {body.subject}. "
+            f"Syllabus chapters: {', '.join(ch_names)}. "
+            f"Focus ONLY on the topic '{body.topic}' as it appears in the BNPS curriculum."
+        )
+
+    prompt = f"""Generate exactly {body.num_questions} multiple-choice questions for Grade {body.class_level} {body.subject} on the topic: "{body.topic}".{school_context}
+
+Difficulty level: {body.difficulty}
 
 Difficulty level: {body.difficulty}
 

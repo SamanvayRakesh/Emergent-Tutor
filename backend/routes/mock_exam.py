@@ -9,6 +9,7 @@ from core import db, openai_client, get_current_user
 from plan_gates import check_limit, increment_usage, has_feature
 from credits import deduct_credits
 from models import MockExamRequest, QuizSubmitRequest
+from school_curriculum import get_school_chapters, has_school_curriculum
 
 router = APIRouter()
 
@@ -39,7 +40,19 @@ async def generate_mock_exam(body: MockExamRequest, request: Request):
     sec_b = max(3, body.num_questions // 4)
     sec_c = body.num_questions - sec_a - sec_b
 
-    prompt = f"""Generate a CBSE Class {body.class_level} {body.subject} mock exam paper with {body.num_questions} questions total.
+    # Build school context for BNPS students
+    school = user.get("school", "")
+    school_context = ""
+    if school and has_school_curriculum(school, body.class_level):
+        chapters = get_school_chapters(school, body.class_level, body.subject)
+        ch_names = [c["name"] for c in chapters]
+        school_context = (
+            f"\nSCHOOL: Brooklyn National Public School (BNPS) — Grade {body.class_level}.\n"
+            f"Generate questions STRICTLY from these BNPS syllabus chapters: {', '.join(ch_names)}.\n"
+            f"Do NOT use NCERT default chapters or generic CBSE content."
+        )
+
+    prompt = f"""Generate a Grade {body.class_level} {body.subject} mock exam paper with {body.num_questions} questions total.{school_context}
 Structure: Section A ({sec_a} MCQs, 1 mark each), Section B ({sec_b} questions, 2 marks each), Section C ({sec_c} questions, 3 marks each).
 {"Focus on board exam patterns with HOTS questions." if is_board else "Cover fundamental concepts suitable for internal assessments."}
 
