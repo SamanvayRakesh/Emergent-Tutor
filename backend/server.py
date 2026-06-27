@@ -139,6 +139,29 @@ async def startup_event():
             {"$set": {"is_verified": True, "email_verified": True, "status": "active"}},
         )
 
+    # ── Seed BNPS test student (idempotent) ───────────────────────────────────
+    bnps_email = "bnps@student.edu"
+    if not await db.users.find_one({"email": bnps_email}):
+        import bcrypt as _bcrypt
+        import uuid as _uuid
+        bnps_hash = _bcrypt.hashpw(b"Test@12345", _bcrypt.gensalt()).decode()
+        await db.users.insert_one({
+            "user_id":      str(_uuid.uuid4()),
+            "email":        bnps_email,
+            "password_hash": bnps_hash,
+            "name":         "BNPS Student",
+            "class_level":  "8",
+            "school":       "brooklyn_national",
+            "status":       "active",
+            "is_verified":  True,
+            "email_verified": True,
+            "role":         "student",
+            "credits":      100,
+            "auth_type":    "jwt",
+            "created_at":   datetime.now(timezone.utc).isoformat(),
+        })
+        logger.info("BNPS test student seeded: bnps@student.edu")
+
     # ── Background cleanup task ────────────────────────────────────────────────
     asyncio.create_task(_cleanup_unverified_accounts())
 
@@ -152,6 +175,14 @@ async def startup_event():
 - Password: {admin_password}
 - Role: admin
 - Status: verified / active
+
+## BNPS Test Student (Brooklyn National Public School, Grade 8)
+- Email: bnps@student.edu
+- Password: Test@12345
+- School: brooklyn_national (Brooklyn National Public School)
+- Class: 8
+- Status: verified / active (auto-seeded on startup)
+- Note: Sees BNPS Grade 8 chapters (not NCERT)
 
 ## Student Test Account
 - Email: student@neuralearn.ai

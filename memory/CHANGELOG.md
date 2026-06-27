@@ -36,7 +36,16 @@
 - Milestones section: 8 milestones tracking sessions, quizzes, streak, XP
 - Weak topics section retained
 
-### Math + UI + QuizArena Fix (June 2026)
+### School Selection & BNPS Curriculum (June 2026)
+- **New file**: `backend/school_curriculum.py` — BNPS Grade 8 chapters (Science 13, Maths 16, Social Studies 7, English 13) + SCHOOL_LIST + helpers
+- **Signup**: School selector added to register tab — "Brooklyn National Public School" (active) + "National Public School" (Coming Soon, disabled) — amber warning on selection; form validates school before submit
+- **Backend auth**: `GET /api/auth/schools` public endpoint; `school` field stored in users collection on register
+- **Syllabus**: Subjects + chapters endpoints now school-aware — BNPS Grade 8 students see school-specific chapters instead of NCERT
+- **AI tutor**: English chapters get context hint (literary analysis for stories/poems)
+- **ProfilePage**: Shows school name + "To change school, contact admin" note
+- **server.py**: Idempotent BNPS test student seed (`bnps@student.edu / Test@12345`) on startup
+- **Duolingo mastery feature**: DECLINED — too complex for <100 Emergent credits as per user's own rule
+
 - **MathRenderer**: Added `preprocessMath()` to convert AI's `( \frac{0}{b} )` → `$\frac{0}{b}$` before parsing; added `isLaTeXContent()` check to prevent `$10…$4` currency strings being parsed as math
 - **System prompt**: Added explicit rule — NEVER write `( \formula )` pattern; NEVER use `$` for currency; always use `$...$` or Unicode
 - **Sidebar**: Changed "Upgrade to Pro ₹299" → "Upgrade to Starter ₹399"
