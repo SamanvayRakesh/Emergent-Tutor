@@ -24,6 +24,7 @@ from adaptive_engine import (
 )
 from ai_router import build_routing_decision
 from knowledge_base import find_kb_answer, get_kb_stats
+from school_curriculum import get_chapter_context_hint
 
 router = APIRouter()
 
@@ -303,6 +304,15 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
         chapter_context = _retrieve_chapter_context(
             session["class_level"], session["subject"], session["chapter"]
         )
+        # Append school-specific chapter hint for non-NCERT schools
+        school_id = user.get("school") or ""
+        if school_id:
+            hint = get_chapter_context_hint(
+                school_id, session["class_level"], session["subject"], session["chapter"]
+            )
+            if hint:
+                chapter_context = (hint + "\n\n" + chapter_context) if chapter_context else hint
+
         system_prompt = _build_system_prompt(session, memory, category, chapter_context, max_tokens)
         history = await db.messages.find(
             {"session_id": session_id}, {"_id": 0}

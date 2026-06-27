@@ -29,8 +29,14 @@ from core import (
 from models import UserRegister, UserLogin, GoogleSessionRequest, UpdateClassRequest
 from cbse_data import get_classes
 from email_service import send_verification_email, send_welcome_email, validate_email_quality
+from school_curriculum import SCHOOL_LIST, SCHOOLS
 
 router = APIRouter()
+
+@router.get("/auth/schools")
+async def list_schools():
+    """Public endpoint — returns all schools for the signup dropdown."""
+    return {"schools": SCHOOL_LIST}
 
 VERIFICATION_EXPIRY_HOURS = 24
 RESEND_COOLDOWN_SECONDS = 60
@@ -133,6 +139,7 @@ async def register(body: UserRegister, request: Request, response: Response):
         "xp": 0, "level": 1, "streak": 0, "longest_streak": 0,
         "last_active": now.isoformat(),
         "class_level": body.class_level or "9",
+        "school": body.school or None,  # set once at registration, locked after
         "achievements": [],
         "created_at": now.isoformat(),
         "auth_type": "jwt",

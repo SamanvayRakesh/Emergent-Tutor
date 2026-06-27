@@ -14,7 +14,8 @@ export default function AuthPage() {
   const [showPass, setShowPass]     = useState(false);
   const [loading, setLoading]       = useState(false);
   const [error, setError]           = useState('');
-  const [form, setForm]             = useState({ email: '', password: '', name: '' });
+  const [form, setForm]             = useState({ email: '', password: '', name: '', school: '' });
+  const [schools, setSchools]       = useState([]);
   const [registerSuccess, setRegisterSuccess] = useState(false);
   const [unverifiedEmail, setUnverifiedEmail] = useState('');
   const [resending, setResending]   = useState(false);
@@ -23,6 +24,15 @@ export default function AuthPage() {
   const cooldownRef = useRef(null);
   const { login } = useAuth();
   const nav = useNavigate();
+
+  // Fetch school list when switching to register tab
+  useEffect(() => {
+    if (tab === 'register' && schools.length === 0) {
+      axios.get(`${API}/auth/schools`)
+        .then(r => setSchools(r.data.schools || []))
+        .catch(() => {});
+    }
+  }, [tab]); // eslint-disable-line
 
   // Cooldown countdown timer
   useEffect(() => {
@@ -49,6 +59,12 @@ export default function AuthPage() {
     // Client-side email format check
     if (!validateEmailFormat(form.email)) {
       setError('Invalid email format. Use the format: name@domain.tld');
+      return;
+    }
+
+    // Registration requires school selection
+    if (tab === 'register' && !form.school) {
+      setError('Please select your school to continue.');
       return;
     }
 
@@ -249,6 +265,49 @@ export default function AuthPage() {
                 {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
+
+            {/* School selection — register only */}
+            <AnimatePresence>
+              {tab === 'register' && (
+                <motion.div key="school-select" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+                  <p className="text-zinc-400 text-xs font-body font-semibold mb-2 flex items-center gap-1.5">
+                    <BookOpen size={12} className="text-cyan-400" /> Select Your School
+                  </p>
+                  <div className="space-y-2">
+                    {schools.map(s => (
+                      <button key={s.id} type="button"
+                        data-testid={`school-card-${s.id}`}
+                        disabled={!s.available}
+                        onClick={() => s.available && setForm(p => ({ ...p, school: s.id }))}
+                        className={`w-full text-left px-4 py-3 rounded-xl border text-sm font-body transition-all relative ${
+                          !s.available
+                            ? 'border-white/5 bg-zinc-900/50 text-zinc-600 cursor-not-allowed'
+                            : form.school === s.id
+                              ? 'border-cyan-500/60 bg-cyan-500/10 text-white shadow-md shadow-cyan-500/10'
+                              : 'border-white/10 bg-zinc-900 text-zinc-300 hover:border-white/20 hover:text-white'
+                        }`}>
+                        <span className="font-medium">{s.name}</span>
+                        {!s.available && (
+                          <span className="ml-2 text-[10px] bg-zinc-800 text-zinc-500 px-2 py-0.5 rounded-full">Coming Soon</span>
+                        )}
+                        {form.school === s.id && (
+                          <CheckCircle2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-cyan-400" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Permanent warning shown once a school is selected */}
+                  {form.school && (
+                    <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
+                      className="mt-3 flex gap-2.5 p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-body">
+                      <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+                      <p>Your school selection is <strong>permanent</strong>. Changing it later requires submitting an admin request with a valid reason. Choose carefully.</p>
+                    </motion.div>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Error + resend actions */}
             {error && (

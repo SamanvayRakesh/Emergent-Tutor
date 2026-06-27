@@ -90,11 +90,18 @@ export default function ProfilePage() {
     setAppealSubmitting(false);
   };
 
+  // School display name helper
+  const SCHOOL_NAMES = {
+    'brooklyn_national': 'Brooklyn National Public School',
+    'national_public':   'National Public School',
+  };
+
   const infoItems = [
     { label: 'Email', value: user?.email, icon: Mail, color: '#22d3ee' },
     { label: 'Member Since', value: user?.created_at ? new Date(user.created_at).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' }) : 'Recently', icon: Clock, color: '#8b5cf6' },
     { label: 'Auth Type', value: user?.auth_type === 'google' ? 'Google' : 'Email & Password', icon: Shield, color: '#10b981' },
     { label: 'Role', value: user?.role === 'admin' ? 'Administrator' : 'Student', icon: Star, color: '#f59e0b' },
+    ...(user?.school ? [{ label: 'School', value: SCHOOL_NAMES[user.school] || user.school, icon: BookOpen, color: '#f472b6', note: 'To change school, contact admin' }] : []),
   ];
 
   return (
@@ -278,7 +285,7 @@ export default function ProfilePage() {
         className="glass-surface rounded-2xl p-5 border border-white/5">
         <h3 className="text-white font-heading font-bold mb-4">Account Information</h3>
         <div className="space-y-3">
-          {infoItems.map(({ label, value, icon: Icon, color }) => (
+          {infoItems.map(({ label, value, icon: Icon, color, note }) => (
             <div key={label} className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: color + '15' }}>
                 <Icon size={15} style={{ color }} />
@@ -286,6 +293,7 @@ export default function ProfilePage() {
               <div>
                 <p className="text-zinc-500 text-xs font-body">{label}</p>
                 <p className="text-white text-sm font-body">{value}</p>
+                {note && <p className="text-zinc-600 text-[10px] font-body mt-0.5">{note}</p>}
               </div>
             </div>
           ))}

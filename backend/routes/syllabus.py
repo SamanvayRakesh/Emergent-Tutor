@@ -10,6 +10,7 @@ from cbse_data import get_classes, get_subjects, get_chapters, get_subject_meta
 from curriculum_engine import (
     get_curriculum_meta, get_verified_chapters, get_verified_book_sources,
 )
+from school_curriculum import has_school_curriculum, get_school_subjects, get_school_chapters
 
 router = APIRouter()
 
@@ -36,7 +37,16 @@ SUBJ_META = {
 
 
 @router.get("/syllabus/{class_id}/subjects")
-async def get_class_subjects(class_id: str):
+async def get_class_subjects(class_id: str, request: Request):
+    # Check if the logged-in user has a school with a custom curriculum for this grade
+    try:
+        user = await get_current_user(request)
+        school_id = user.get("school")
+        if school_id and has_school_curriculum(school_id, class_id):
+            return get_school_subjects(school_id, class_id)
+    except Exception:
+        pass  # unauthenticated → fall through to NCERT
+
     meta = get_curriculum_meta()
     verified_subj_keys = set(meta.get("subjects_per_class", {}).get(class_id, []))
 
@@ -69,8 +79,19 @@ async def get_class_subjects(class_id: str):
 
 
 @router.get("/syllabus/{class_id}/{subject}/chapters")
-async def get_subject_chapters(class_id: str, subject: str):
+async def get_subject_chapters(class_id: str, subject: str, request: Request):
     subject = unquote(subject)
+
+    # School-specific chapters take priority over NCERT
+    try:
+        user = await get_current_user(request)
+        school_id = user.get("school")
+        if school_id and has_school_curriculum(school_id, class_id):
+            school_chapters = get_school_chapters(school_id, class_id, subject)
+            if school_chapters:
+                return school_chapters
+    except Exception:
+        pass  # unauthenticated → fall through
 
     verified = get_verified_chapters(class_id, subject)
     if verified:

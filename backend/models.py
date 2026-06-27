@@ -1,5 +1,5 @@
 """Pydantic request/response models."""
-from typing import List
+from typing import List, Optional
 from pydantic import BaseModel
 
 
@@ -9,6 +9,7 @@ class UserRegister(BaseModel):
     password: str
     name: str
     class_level: str = "9"
+    school: Optional[str] = None  # school_id e.g. "brooklyn_national"
 
 
 class UserLogin(BaseModel):
