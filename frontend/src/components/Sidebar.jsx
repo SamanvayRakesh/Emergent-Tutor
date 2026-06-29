@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { LayoutDashboard, MessageSquare, BookOpen, TrendingUp, Trophy, User, LogOut, Zap, X, Flame, ChevronRight, Crown, FileText, CalendarDays, Sparkles } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, BookOpen, TrendingUp, Trophy, User, LogOut, Zap, X, Flame, ChevronRight, Crown, FileText, CalendarDays, ShieldCheck, Sparkles } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useSubscription } from '../contexts/SubscriptionContext';
+
+const ADMIN_EMAILS = ['admin@neuralearn.ai', 'samanvayrakesh7@gmail.com', 'truecursemahito28@gmail.com'];
 
 const NAV = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard', exact: true },
@@ -120,6 +122,23 @@ export default function Sidebar({ onClose }) {
             )}
           </NavLink>
         ))}
+
+        {/* Admin link — only for admin emails */}
+        {user && ADMIN_EMAILS.includes(user.email?.toLowerCase()) && (
+          <NavLink to="/admin" data-testid="nav-admin"
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group ${
+                isActive ? 'bg-red-500/10 border border-red-500/20 text-red-400' : 'text-zinc-500 hover:text-red-400 hover:bg-red-500/5'
+              }`
+            }>
+            {({ isActive }) => (
+              <>
+                <ShieldCheck size={18} className={isActive ? 'text-red-400' : 'text-zinc-500 group-hover:text-red-400 transition-colors'} />
+                <span className="text-sm font-body font-medium flex-1">Admin</span>
+              </>
+            )}
+          </NavLink>
+        )}
       </nav>
 
       {/* Bottom */}

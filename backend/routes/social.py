@@ -56,10 +56,11 @@ async def get_leaderboard(request: Request, scope: str = Query("global", regex="
     except Exception:
         pass
 
-    # Base filter: exclude admin accounts and internal test accounts
+    # Base filter: exclude admin accounts, internal test accounts, and hidden users
     base_filter = {
         "role": {"$ne": "admin"},
         "email": {"$not": {"$regex": "^test_.*@neuralearn\\.ai"}},
+        "hide_from_leaderboard": {"$ne": True},
     }
 
     if scope == "class":

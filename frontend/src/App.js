@@ -27,6 +27,8 @@ import OnboardingModal from './components/OnboardingModal';
 import UpgradePromptModal from './components/UpgradePromptModal';
 import GradeAccessGuard from './components/GradeAccessGuard';
 
+import AdminDashboard from './components/AdminDashboard';
+
 function ProtectedRoute({ children }) {
   const { user, loading, refresh } = useAuth();
   if (loading) return (
@@ -81,6 +83,9 @@ function AppRouter() {
         <Route path="upgrade" element={<PricingPage />} />
         <Route path="profile" element={<ProfilePage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="/admin" element={
+          <ProtectedRoute><AdminDashboard /></ProtectedRoute>
+        } />
       </Route>
     </Routes>
   );
