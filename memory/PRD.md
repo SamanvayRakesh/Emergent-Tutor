@@ -79,7 +79,15 @@ Build "AceIt AI" (formerly NeuraLearn), a complete production-level full-stack A
 - Leaderboard (social)
 - Analytics endpoint
 
-### Phase 5: BNPS School Integration & Math Rendering (Complete — June 2026)
+### Phase 6: Admin, Auth & Curriculum Improvements (Complete — June 2026)
+- **No-verification Signup**: Users can register and log in immediately; welcome email sent via Resend
+- **Password Requirements**: Min 6 chars + at least 1 special character (enforced backend + frontend)
+- **Admin Accounts**: samanvayrakesh7@gmail.com and truecursemahito28@gmail.com get admin role automatically
+- **Admin Dashboard** (`/admin`): Earnings (total users, MRR, plan distribution, payments), Leaderboard management (hide/show users), Grade change requests (approve/deny)
+- **Admin Sidebar Link**: ShieldCheck icon appears in sidebar for admin emails only
+- **Leaderboard**: Filters out `hide_from_leaderboard: true` users
+- **BNPS PDF URLs**: All chapters in `school_curriculum.py` now include direct NCERT PDF URLs
+- **Grade Change Tracking**: PUT /users/class creates an audit record in grade_change_requests collection
 - **KaTeX Math Rendering**: Installed `remark-math` + `rehype-katex`; `ChatPage.jsx` ReactMarkdown now uses native math plugins. No more raw LaTeX strings.
 - **Global KaTeX CSS**: `import 'katex/dist/katex.min.css'` added to `App.js`
 - **Brooklyn National Public School (BNPS)**: Full Grade 8 curriculum integration
@@ -176,6 +184,14 @@ Build "AceIt AI" (formerly NeuraLearn), a complete production-level full-stack A
 - `POST /api/chat/quiz/submit`
 - `GET  /api/analytics`
 - `POST /api/admin/question-bank/build`
+
+## Admin Endpoints (Phase 6)
+- `GET  /api/admin/earnings`
+- `GET  /api/admin/leaderboard/users`
+- `POST /api/admin/leaderboard/hide/{user_id}`
+- `GET  /api/admin/grade-requests`
+- `POST /api/admin/grade-requests/{id}/resolve`
+- `GET  /api/admin/users`
 
 ## Prioritized Backlog
 

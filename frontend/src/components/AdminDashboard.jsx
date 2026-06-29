@@ -181,7 +181,7 @@ export default function AdminDashboard() {
                     <p className="text-white text-sm font-body font-semibold">{req.user_name}</p>
                     <p className="text-zinc-500 text-xs">{req.user_email}</p>
                     <p className="text-zinc-400 text-xs mt-0.5">
-                      Class {req.old_class} → Class {req.new_class}
+                      Class {req.old_class || '?'} → Class {req.new_class || '?'}
                       <span className={`ml-2 px-1.5 py-0.5 rounded text-[10px] font-semibold ${
                         req.status === 'approved' ? 'bg-green-500/20 text-green-400' :
                         req.status === 'denied' ? 'bg-red-500/20 text-red-400' :
