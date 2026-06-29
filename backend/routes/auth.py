@@ -355,3 +355,20 @@ async def update_class(body: UpdateClassRequest, request: Request):
     await db.users.update_one({"user_id": user["user_id"]}, {"$set": {"class_level": body.class_level}})
     return {"message": "Class updated", "class_level": body.class_level}
 
+
+@router.put("/users/school")
+async def update_school(request: Request, body: dict):
+    """Set or update the school for a user (used by the onboarding modal)."""
+    user = await get_current_user(request)
+    school_id = (body.get("school") or "").strip()
+    if not school_id:
+        raise HTTPException(status_code=400, detail="School is required")
+    from school_curriculum import SCHOOLS
+    if school_id not in SCHOOLS:
+        raise HTTPException(status_code=400, detail="Invalid school selection")
+    await db.users.update_one(
+        {"user_id": user["user_id"]},
+        {"$set": {"school": school_id}}
+    )
+    return {"message": "School updated", "school": school_id}
+
