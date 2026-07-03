@@ -6,7 +6,8 @@ import { useAuth } from '../contexts/AuthContext';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
-const CLASSES = ['6', '7', '8', '9', '10', '11', '12'];
+const CLASSES = ['7', '8', '9'];
+const COMING_SOON_GRADES = ['7', '9'];
 const EXAM_GOALS = ['Class 10 Boards', 'Class 12 Boards', 'JEE', 'NEET', 'Improve grades', 'Just exploring'];
 const SUBJECTS = ['Mathematics', 'Science', 'English', 'Social Science', 'Physics', 'Chemistry', 'Biology'];
 const STYLES = [
@@ -50,17 +51,30 @@ export default function OnboardingModal({ onComplete }) {
       subtitle: 'This locks your syllabus to your real class — no distractions.',
       key: 'class',
       content: (
-        <div className="grid grid-cols-4 gap-2">
-          {CLASSES.map(c => (
-            <button key={c} data-testid={`onb-class-${c}`}
-              onClick={() => setForm(f => ({ ...f, class_level: c }))}
-              className={`py-4 rounded-xl font-heading font-bold text-lg transition-all border-2 ${form.class_level === c ? 'bg-blue-500 text-white border-blue-300 scale-105' : 'bg-zinc-900/40 border-blue-400/20 hover:border-blue-400/50'}`}>
-              Class {c}
-            </button>
-          ))}
+        <div className="grid grid-cols-3 gap-2">
+          {CLASSES.map(c => {
+            const isComingSoon = COMING_SOON_GRADES.includes(c);
+            return (
+              <button key={c} data-testid={`onb-class-${c}`}
+                disabled={isComingSoon}
+                onClick={() => !isComingSoon && setForm(f => ({ ...f, class_level: c }))}
+                className={`py-4 rounded-xl font-heading font-bold text-lg transition-all border-2 relative ${
+                  isComingSoon
+                    ? 'bg-zinc-900/20 border-zinc-700 text-zinc-600 cursor-not-allowed opacity-50'
+                    : form.class_level === c
+                      ? 'bg-blue-500 text-white border-blue-300 scale-105'
+                      : 'bg-zinc-900/40 border-blue-400/20 hover:border-blue-400/50'
+                }`}>
+                Class {c}
+                {isComingSoon && (
+                  <span className="block text-[10px] font-body font-normal mt-0.5 text-zinc-500">Coming Soon</span>
+                )}
+              </button>
+            );
+          })}
         </div>
       ),
-      canProceed: () => CLASSES.includes(form.class_level),
+      canProceed: () => form.class_level === '8',
     },
     {
       icon: Target, color: '#dc2626',

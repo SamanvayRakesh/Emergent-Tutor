@@ -9,15 +9,15 @@ from core import db, get_current_user, logger
 router = APIRouter()
 
 ADMIN_EMAILS = {
-    "admin@neuralearn.ai",
-    "samanvayrakesh7@gmail.com",
+    "taniknpoojari@gmail.com",
     "truecursemahito28@gmail.com",
+    "samanvayrakesh7@gmail.com",
 }
 
 
 async def _require_admin(request: Request) -> dict:
     user = await get_current_user(request)
-    if user.get("email", "").lower() not in ADMIN_EMAILS and user.get("role") != "admin":
+    if user.get("email", "").lower() not in ADMIN_EMAILS:
         raise HTTPException(status_code=403, detail="Admin access required")
     return user
 
@@ -74,10 +74,13 @@ async def admin_resolve_grade_request(request_id: str, request: Request, body: d
         raise HTTPException(status_code=404, detail="Request not found")
 
     if action == "approve":
-        await db.users.update_one(
-            {"user_id": req["user_id"]},
-            {"$set": {"class_level": req["new_class"]}}
-        )
+        # Support both field name conventions
+        target_class = req.get("new_class") or req.get("desired_class")
+        if target_class:
+            await db.users.update_one(
+                {"user_id": req["user_id"]},
+                {"$set": {"class_level": target_class, "last_grade_change_at": datetime.now(timezone.utc).isoformat()}}
+            )
 
     await db.grade_change_requests.update_one(
         {"request_id": request_id},

@@ -9,7 +9,8 @@ import { useSubscription } from '../contexts/SubscriptionContext';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
-const CLASSES = ['6', '7', '8', '9', '10', '11', '12'];
+const CLASSES = ['7', '8', '9'];
+const COMING_SOON_GRADES = ['7', '9'];
 
 export default function ProfilePage() {
   const { user, setUser } = useAuth();
@@ -59,19 +60,15 @@ export default function ProfilePage() {
     if (selectedClass === user?.class_level) return;
     setSaving(true); setErrorMsg('');
     try {
-      const r = await axios.put(`${API}/users/grade`, { class_level: selectedClass }, { withCredentials: true });
-      setUser(p => ({ ...p, class_level: selectedClass }));
-      setGradeStatus({ class_level: selectedClass, last_grade_change_at: r.data.last_grade_change_at, can_change: false, days_remaining: 30 });
+      await axios.put(`${API}/users/grade`, { class_level: selectedClass }, { withCredentials: true });
       setSaved(true);
-      setTimeout(() => setSaved(false), 2500);
+      // Refresh appeal result to show the pending state
+      const r = await axios.get(`${API}/users/grade-appeal`, { withCredentials: true }).catch(() => null);
+      if (r?.data?.request) setAppealResult(r.data.request);
+      setTimeout(() => setSaved(false), 3000);
     } catch (e) {
       const detail = e?.response?.data?.detail;
-      if (detail?.code === 'GRADE_CHANGE_COOLDOWN') {
-        setGradeStatus({ class_level: detail.current_class_level, last_grade_change_at: detail.last_change_at, can_change: false, days_remaining: detail.days_remaining });
-        setErrorMsg(detail.message);
-      } else {
-        setErrorMsg(typeof detail === 'string' ? detail : 'Could not change grade. Try again.');
-      }
+      setErrorMsg(typeof detail === 'string' ? detail : 'Could not submit request. Try again.');
     }
     setSaving(false);
   };
@@ -173,43 +170,39 @@ export default function ProfilePage() {
         <div className="flex gap-2 flex-wrap mb-3">
           {CLASSES.map(cls => {
             const isCurrent = cls === user?.class_level;
+            const isComingSoon = COMING_SOON_GRADES.includes(cls);
             return (
-              <button key={cls} onClick={() => canChange && setSelectedClass(cls)}
-                disabled={!canChange}
+              <button key={cls} onClick={() => !isComingSoon && setSelectedClass(cls)}
+                disabled={isComingSoon}
                 data-testid={`class-select-${cls}`}
-                className={`w-10 h-10 rounded-xl text-sm font-heading font-bold transition-all ${selectedClass === cls
-                  ? 'bg-cyan-500 text-black shadow-lg shadow-cyan-500/25'
-                  : isCurrent
-                    ? 'bg-amber-500/20 text-amber-300 border border-amber-400/40'
-                    : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white'} ${!canChange ? 'opacity-40 cursor-not-allowed' : ''}`}>
+                title={isComingSoon ? 'Coming Soon' : `Select Grade ${cls}`}
+                className={`w-12 h-12 rounded-xl text-sm font-heading font-bold transition-all relative ${
+                  isComingSoon
+                    ? 'bg-zinc-800 text-zinc-600 cursor-not-allowed border border-zinc-700'
+                    : selectedClass === cls
+                      ? 'bg-cyan-500 text-black shadow-lg shadow-cyan-500/25'
+                      : isCurrent
+                        ? 'bg-amber-500/20 text-amber-300 border border-amber-400/40'
+                        : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white'
+                }`}>
                 {cls}
+                {isComingSoon && (
+                  <span className="absolute -top-1 -right-1 text-[8px] bg-zinc-700 text-zinc-400 px-1 rounded-full">Soon</span>
+                )}
               </button>
             );
           })}
         </div>
 
-        {!canChange ? (
-          <div className="flex flex-wrap items-center gap-3" data-testid="grade-cooldown">
-            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-zinc-800/60 border border-amber-400/20 text-amber-300 text-xs font-body">
-              <Lock size={12} />
-              You can change your grade in <span className="font-bold">{daysRemaining} day{daysRemaining !== 1 ? 's' : ''}</span>
-            </div>
-            {appealResult?.status === 'pending' ? (
-              <span className="px-3 py-2 rounded-xl bg-blue-500/15 border border-blue-400/30 text-blue-300 text-xs font-body font-semibold flex items-center gap-2">
-                <Clock size={12} /> Appeal pending review
-              </span>
-            ) : (
-              <button onClick={() => setAppealOpen(true)} data-testid="open-appeal-btn"
-                className="px-3 py-2 rounded-xl bg-rose-500/15 border border-rose-400/30 text-rose-300 hover:bg-rose-500/25 text-xs font-body font-semibold transition-all">
-                Request Early Grade Change
-              </button>
-            )}
-          </div>
+        {appealResult?.status === 'pending' ? (
+          <span className="px-3 py-2 rounded-xl bg-blue-500/15 border border-blue-400/30 text-blue-300 text-xs font-body font-semibold flex items-center gap-2">
+            <Clock size={12} /> Grade change request pending admin review
+          </span>
         ) : (
-          <button onClick={handleSaveClass} disabled={saving || saved || selectedClass === user?.class_level} data-testid="save-class-btn"
+          <button onClick={handleSaveClass} disabled={saving || saved || selectedClass === user?.class_level || COMING_SOON_GRADES.includes(selectedClass)} data-testid="save-class-btn"
             className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-heading font-bold transition-all ${saved ? 'bg-green-500/20 text-green-400 border border-green-500/30' : 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/30 hover:bg-cyan-500/25'} disabled:opacity-40`}>
             {saving ? <div className="w-4 h-4 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" /> : <Save size={15} />}
-            {saved ? 'Saved!' : saving ? 'Saving...' : 'Save Grade'}
+            {saved ? 'Request Submitted!' : saving ? 'Submitting...' : 'Request Grade Change'}
           </button>
         )}
 
@@ -237,7 +230,7 @@ export default function ProfilePage() {
 
               <label className="block text-zinc-500 text-xs font-body uppercase tracking-wider mb-1">Desired class</label>
               <div className="flex flex-wrap gap-2 mb-3">
-                {CLASSES.filter(c => c !== user?.class_level).map(c => (
+                {CLASSES.filter(c => c !== user?.class_level && !COMING_SOON_GRADES.includes(c)).map(c => (
                   <button key={c} data-testid={`appeal-class-${c}`}
                     onClick={() => setAppealForm(p => ({ ...p, desired_class: c }))}
                     className={`w-10 h-10 rounded-lg text-sm font-heading font-bold transition-all ${appealForm.desired_class === c ? 'bg-rose-500 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}>
@@ -273,7 +266,7 @@ export default function ProfilePage() {
             <div>
               <p className="text-blue-200 text-sm font-body font-semibold">Grade-change request submitted</p>
               <p className="text-blue-300/80 text-xs font-body mt-0.5">
-                Requested: Class {appealResult.desired_class} • Status: <span className="font-bold uppercase">{appealResult.status}</span>
+                Requested: Class {appealResult.new_class || appealResult.desired_class} • Status: <span className="font-bold uppercase">{appealResult.status}</span>
               </p>
             </div>
           </div>

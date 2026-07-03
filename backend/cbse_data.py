@@ -573,7 +573,7 @@ CBSE_SYLLABUS = {
 }
 
 def get_classes():
-    return list(CBSE_SYLLABUS.keys())
+    return ["7", "8", "9"]
 
 def get_subjects(class_id: str):
     return list(CBSE_SYLLABUS.get(class_id, {}).keys())

@@ -33,9 +33,9 @@ router = APIRouter()
 
 # ── Admin email list ───────────────────────────────────────────────────────────
 ADMIN_EMAILS = {
-    "admin@neuralearn.ai",
-    "samanvayrakesh7@gmail.com",
+    "taniknpoojari@gmail.com",
     "truecursemahito28@gmail.com",
+    "samanvayrakesh7@gmail.com",
 }
 
 @router.get("/auth/schools")

@@ -261,45 +261,44 @@ async def submit_onboarding(body: OnboardingSubmit, request: Request):
 
 @router.put("/users/grade")
 async def update_user_grade(body: dict, request: Request):
-    """Allow user to change their grade — once every 30 days. Otherwise must submit an appeal."""
+    """Submit a grade change request — goes to admin for approval."""
     user = await get_current_user(request)
     class_level = str(body.get("class_level", "")).strip()
-    if class_level not in [str(i) for i in range(6, 13)]:
-        raise HTTPException(status_code=400, detail="class_level must be between 6 and 12")
+    if class_level not in ["7", "8", "9"]:
+        raise HTTPException(status_code=400, detail="Only grades 7, 8 and 9 are supported.")
 
-    # Same grade — no-op
     if class_level == user.get("class_level"):
         return {"success": True, "class_level": class_level, "noop": True}
 
-    # 30-day cooldown
-    last_change = user.get("last_grade_change_at")
-    if last_change:
-        try:
-            last_dt = datetime.fromisoformat(last_change)
-            if last_dt.tzinfo is None:
-                last_dt = last_dt.replace(tzinfo=timezone.utc)
-            days_since = (datetime.now(timezone.utc) - last_dt).days
-            if days_since < 30:
-                days_remaining = 30 - days_since
-                raise HTTPException(
-                    status_code=429,
-                    detail={
-                        "code": "GRADE_CHANGE_COOLDOWN",
-                        "message": f"You can change your grade again in {days_remaining} day{'s' if days_remaining != 1 else ''}.",
-                        "days_remaining": days_remaining,
-                        "last_change_at": last_change,
-                        "current_class_level": user.get("class_level"),
-                    },
-                )
-        except ValueError:
-            pass
-
-    now = datetime.now(timezone.utc).isoformat()
-    await db.users.update_one(
-        {"user_id": user["user_id"]},
-        {"$set": {"class_level": class_level, "last_grade_change_at": now}},
+    # Reject duplicate pending requests
+    existing = await db.grade_change_requests.find_one(
+        {"user_id": user["user_id"], "status": "pending"}, {"_id": 0}
     )
-    return {"success": True, "class_level": class_level, "last_grade_change_at": now}
+    if existing:
+        raise HTTPException(
+            status_code=409,
+            detail="You already have a pending grade-change request. Please wait for admin review."
+        )
+
+    record = {
+        "request_id": f"gcr_{__import__('uuid').uuid4().hex[:10]}",
+        "user_id": user["user_id"],
+        "user_email": user.get("email"),
+        "user_name": user.get("name"),
+        "old_class": user.get("class_level"),
+        "new_class": class_level,
+        "reason": body.get("reason", ""),
+        "status": "pending",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    await db.grade_change_requests.insert_one(record)
+    record.pop("_id", None)
+    return {
+        "success": True,
+        "pending": True,
+        "message": "Grade change request submitted. An admin will review and approve it shortly.",
+        "request": record,
+    }
 
 
 @router.get("/users/grade-status")
@@ -334,8 +333,8 @@ async def grade_appeal(body: dict, request: Request):
     user = await get_current_user(request)
     desired_class = str(body.get("desired_class", "")).strip()
     reason = str(body.get("reason", "")).strip()
-    if desired_class not in [str(i) for i in range(6, 13)]:
-        raise HTTPException(status_code=400, detail="desired_class must be between 6 and 12")
+    if desired_class not in ["7", "8", "9"]:
+        raise HTTPException(status_code=400, detail="Only grades 7, 8, and 9 are supported.")
     if len(reason) < 10:
         raise HTTPException(status_code=400, detail="Please share a brief reason (at least 10 characters)")
 
@@ -366,6 +365,7 @@ async def get_my_grade_appeal(request: Request):
     """Returns the user's most recent grade-change request."""
     user = await get_current_user(request)
     req = await db.grade_change_requests.find_one(
-        {"user_id": user["user_id"]}, {"_id": 0}, sort=[("submitted_at", -1)],
+        {"user_id": user["user_id"]}, {"_id": 0},
+        sort=[("created_at", -1)],
     )
     return {"request": req}

@@ -5,7 +5,7 @@ import { LayoutDashboard, MessageSquare, BookOpen, TrendingUp, Trophy, User, Log
 import { useAuth } from '../contexts/AuthContext';
 import { useSubscription } from '../contexts/SubscriptionContext';
 
-const ADMIN_EMAILS = ['admin@neuralearn.ai', 'samanvayrakesh7@gmail.com', 'truecursemahito28@gmail.com'];
+const ADMIN_EMAILS = ['taniknpoojari@gmail.com', 'truecursemahito28@gmail.com', 'samanvayrakesh7@gmail.com'];
 
 const NAV = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard', exact: true },
