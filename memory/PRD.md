@@ -3,6 +3,8 @@
 ## Original Problem Statement
 Build "AceIt AI" (formerly NeuraLearn), a complete production-level full-stack AI-powered CBSE learning platform for Classes 6–12. Features include an interactive personalized AI tutor, gamification (XP/levels/streaks), advanced mock exams, visual learning with KaTeX math rendering, and an NCERT-verified syllabus. The platform must have production-grade security, email verification, and a credit-based AI usage system.
 
+Enforced BNPS curriculum, KaTeX math rendering, Admin dashboard (3 hardcoded emails), no email-verification blocker on signup, password strength rules, Grades 7/8/9 only (7 & 9 = Coming Soon), forced school selection for legacy users, browser password saving on auth forms.
+
 ## Target Users
 - CBSE students Classes 6–12
 - Students preparing for JEE, NEET, Board exams
@@ -221,4 +223,17 @@ Build "AceIt AI" (formerly NeuraLearn), a complete production-level full-stack A
 ### P3 — Future
 - Email domain verification at resend.com/domains
 - Redis-backed rate limiting for multi-instance
-- Admin dashboard
+- Phase 9: Friends & Social system (send/accept/remove friends, friend leaderboard, global/weekly/monthly rankings)
+- Duolingo-style Chat mastery progress (complete lessons to reach 100% mastery)
+- Daily Study Reminder Email (user-configurable time, email nudge with next task)
+
+## Completed (July 2026)
+- [x] Browser password saving — `autoComplete` + `name` attributes added to all AuthPage.jsx inputs (email, password, name)
+- [x] Admin Dashboard — 3 hardcoded emails: taniknpoojari@gmail.com, truecursemahito28@gmail.com, samanvayrakesh7@gmail.com
+- [x] Admin features: Earnings tab, Leaderboard hide/show, Grade request approve/deny
+- [x] Grade restrictions: 7, 8, 9 only — 7 & 9 "Coming Soon" in OnboardingModal + ProfilePage
+- [x] SchoolSelectModal for legacy users
+- [x] KaTeX math rendering in ChatPage
+- [x] BNPS curriculum + PDF scraping
+- [x] No email-verification blocker on signup (welcome email sent instead)
+- [x] Password strength rules (min 6 chars + 1 special char)
