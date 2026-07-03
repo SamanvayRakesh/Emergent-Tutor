@@ -144,6 +144,7 @@ export default function AuthPage() {
                 <div className="relative">
                   <User size={16} className="absolute left-3 top-3.5 text-zinc-500" />
                   <input data-testid="name-input" type="text" placeholder="Your name" required
+                    name="name" autoComplete="name"
                     value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
                     className="w-full bg-zinc-900 border border-white/10 rounded-xl pl-9 pr-4 py-3 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/30 transition-all font-body" />
                 </div>
@@ -153,6 +154,7 @@ export default function AuthPage() {
             <div className="relative">
               <Mail size={16} className="absolute left-3 top-3.5 text-zinc-500" />
               <input data-testid="email-input" type="email" placeholder="Email address" required
+                name="email" autoComplete="email"
                 value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))}
                 className="w-full bg-zinc-900 border border-white/10 rounded-xl pl-9 pr-4 py-3 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/30 transition-all font-body" />
             </div>
@@ -160,6 +162,7 @@ export default function AuthPage() {
             <div className="relative">
               <Lock size={16} className="absolute left-3 top-3.5 text-zinc-500" />
               <input data-testid="password-input" type={showPass ? 'text' : 'password'} placeholder="Password" required
+                name="password" autoComplete={tab === 'login' ? 'current-password' : 'new-password'}
                 value={form.password} onChange={e => setForm(p => ({ ...p, password: e.target.value }))}
                 className="w-full bg-zinc-900 border border-white/10 rounded-xl pl-9 pr-10 py-3 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/30 transition-all font-body" />
               <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-3.5 text-zinc-500 hover:text-zinc-300 transition-colors">
