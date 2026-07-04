@@ -338,13 +338,21 @@ export default function ChatPage() {
       const { data } = await axios.get(`${API}/chat/sessions/${sid}`, { withCredentials: true });
       setSession(data.session);
       setMessages(data.messages);
-    } catch { nav('/chat', { replace: true }); }
+      localStorage.setItem('aceit_last_chat_session', sid);
+    } catch {
+      localStorage.removeItem('aceit_last_chat_session');
+      nav('/chat', { replace: true });
+    }
   }, [nav]);
 
   useEffect(() => {
+    if (!paramId) {
+      const lastId = localStorage.getItem('aceit_last_chat_session');
+      if (lastId) { nav(`/chat/${lastId}`, { replace: true }); return; }
+    }
     if (paramId) loadSession(paramId);
     axios.get(`${API}/chat/sessions`, { withCredentials: true }).then(r => setSessions(r.data)).catch(() => {});
-  }, [paramId, loadSession]);
+  }, [paramId, loadSession, nav]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -354,6 +362,7 @@ export default function ChatPage() {
     setSessions(p => [newSession, ...p]);
     setSession(newSession);
     setMessages([]);
+    localStorage.setItem('aceit_last_chat_session', newSession.session_id);
     // Clear prefill state so back-nav doesn't re-trigger
     nav(`/chat/${newSession.session_id}`, { replace: true, state: null });
   };

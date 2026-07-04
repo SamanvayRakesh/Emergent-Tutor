@@ -7,8 +7,8 @@ import { MathText } from './MathRenderer';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
-function Timer({ durationMinutes, onTimeUp, running }) {
-  const [seconds, setSeconds] = useState(durationMinutes * 60);
+function Timer({ durationMinutes, initialSeconds, onTimeUp, running }) {
+  const [seconds, setSeconds] = useState(initialSeconds !== undefined ? initialSeconds : durationMinutes * 60);
   const ref = useRef(null);
 
   useEffect(() => {
@@ -40,19 +40,45 @@ function Timer({ durationMinutes, onTimeUp, running }) {
 export default function MockExamPage() {
   const { user } = useAuth();
   const userClass = user?.class_level || '9';
+
+  // Restore saved exam state from localStorage
+  const _saved = (() => {
+    try {
+      const s = JSON.parse(localStorage.getItem('aceit_exam_state') || 'null');
+      if (!s || s.phase !== 'exam') return null;
+      // Adjust timer for time elapsed while away
+      const elapsed = Math.floor((Date.now() - (s.savedAt || 0)) / 1000);
+      const remainingSeconds = Math.max(0, (s.examDurationSeconds || 0) - elapsed);
+      return { ...s, remainingSeconds };
+    } catch { return null; }
+  })();
+
   const [subjects, setSubjects] = useState([]);
   const [form, setForm] = useState({ class: userClass, subject: '', duration: 60, numQ: 15 });
-  const [exam, setExam] = useState(null);
-  const [answers, setAnswers] = useState({});
+  const [exam, setExam] = useState(() => _saved?.exam || null);
+  const [answers, setAnswers] = useState(() => _saved?.answers || {});
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [phase, setPhase] = useState('setup');
-  const [currentSection, setCurrentSection] = useState(0);
-  const [timerRunning, setTimerRunning] = useState(false);
+  const [phase, setPhase] = useState(() => _saved ? 'exam' : 'setup');
+  const [currentSection, setCurrentSection] = useState(() => _saved?.currentSection || 0);
+  const [timerRunning, setTimerRunning] = useState(() => !!_saved);
   const [history, setHistory]       = useState([]);
   const [weakAreas, setWeakAreas]   = useState(null);
   const [followUp, setFollowUp]     = useState(null);
   const [followUpLoading, setFollowUpLoading] = useState(false);
+  // Restored timer seconds (only used on first mount for a restored exam)
+  const restoredTimerSecondsRef = useRef(_saved?.remainingSeconds);
+
+  // Persist active exam state to localStorage
+  useEffect(() => {
+    if (phase === 'exam' && exam) {
+      localStorage.setItem('aceit_exam_state', JSON.stringify({
+        phase, exam, answers, currentSection,
+        savedAt: Date.now(),
+        examDurationSeconds: exam.duration_minutes * 60,
+      }));
+    }
+  }, [phase, exam, answers, currentSection]);
 
   useEffect(() => {
     // Grade-locked: only load subjects for user's active class
@@ -76,6 +102,7 @@ export default function MockExamPage() {
         class_level: form.class, subject: form.subject,
         duration_minutes: form.duration, num_questions: form.numQ
       }, { withCredentials: true });
+      restoredTimerSecondsRef.current = undefined; // clear restored seconds for fresh exam
       setExam(data);
       setAnswers({});
       setCurrentSection(0);
@@ -99,11 +126,16 @@ export default function MockExamPage() {
         { quiz_id: exam.exam_id, answers }, { withCredentials: true });
       setResult(data);
       setPhase('result');
+      localStorage.removeItem('aceit_exam_state');
     } catch (e) { console.error(e); }
     setLoading(false);
   };
 
-  const reset = () => { setPhase('setup'); setExam(null); setResult(null); setAnswers({}); setTimerRunning(false); setFollowUp(null); };
+  const reset = () => {
+    localStorage.removeItem('aceit_exam_state');
+    setPhase('setup'); setExam(null); setResult(null); setAnswers({});
+    setTimerRunning(false); setFollowUp(null);
+  };
 
   const startFollowUp = async () => {
     if (!exam) return;
@@ -240,7 +272,13 @@ export default function MockExamPage() {
                 <p className="text-white font-heading font-bold text-sm">{exam.title}</p>
                 <p className="text-zinc-500 text-xs font-body">{answeredCount}/{allQs.length} answered</p>
               </div>
-              <Timer durationMinutes={exam.duration_minutes} onTimeUp={handleTimeUp} running={timerRunning} />
+              <div className="flex items-center gap-2">
+                <Timer key={exam.exam_id} durationMinutes={exam.duration_minutes} initialSeconds={restoredTimerSecondsRef.current} onTimeUp={handleTimeUp} running={timerRunning} />
+                <button onClick={reset} title="Start new exam"
+                  className="p-1.5 rounded-lg text-zinc-600 hover:text-zinc-300 hover:bg-zinc-800 transition-all" data-testid="exit-exam-btn">
+                  <RotateCcw size={14} />
+                </button>
+              </div>
             </div>
 
             {/* Progress */}

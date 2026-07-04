@@ -18,19 +18,33 @@ export default function QuizArena() {
   const { user } = useAuth();
   const userClass = user?.class_level || '9';
 
+  // Restore saved quiz state from localStorage
+  const _saved = (() => { try { return JSON.parse(localStorage.getItem('aceit_quiz_state') || 'null'); } catch { return null; } })();
+
   const [subjects, setSubjects]     = useState([]);
   const [chapters, setChapters]     = useState([]);
   const [subtopics, setSubtopics]   = useState([]);
   const [mastery, setMastery]       = useState(null);
   const [form, setForm]             = useState({ subject: '', chapter: '', topic: '', difficulty: 'medium', num: 5 });
-  const [quiz, setQuiz]             = useState(null);
-  const [answers, setAnswers]       = useState({});
-  const [result, setResult]         = useState(null);
+  const [quiz, setQuiz]             = useState(() => (_saved?.phase === 'quiz' || _saved?.phase === 'result') ? _saved.quiz : null);
+  const [answers, setAnswers]       = useState(() => _saved?.phase === 'quiz' ? (_saved.answers || {}) : {});
+  const [result, setResult]         = useState(() => _saved?.phase === 'result' ? _saved.result : null);
   const [loading, setLoading]       = useState(false);
-  const [phase, setPhase]           = useState('setup');
+  const [phase, setPhase]           = useState(() => (_saved?.phase === 'quiz' || _saved?.phase === 'result') ? _saved.phase : 'setup');
   const [history, setHistory]       = useState([]);
-  const [current, setCurrent]       = useState(0);
+  const [current, setCurrent]       = useState(() => _saved?.phase === 'quiz' ? (_saved.current || 0) : 0);
   const [adaptiveUsed, setAdaptiveUsed] = useState(false);
+
+  // Persist active quiz state to localStorage
+  useEffect(() => {
+    if (phase === 'quiz' && quiz) {
+      localStorage.setItem('aceit_quiz_state', JSON.stringify({ phase, quiz, answers, current }));
+    } else if (phase === 'result' && result) {
+      localStorage.setItem('aceit_quiz_state', JSON.stringify({ phase, quiz, result }));
+    } else if (phase === 'setup') {
+      localStorage.removeItem('aceit_quiz_state');
+    }
+  }, [phase, quiz, answers, current, result]);
 
   useEffect(() => {
     axios.get(`${API}/syllabus/${userClass}/subjects`, { withCredentials: true })
@@ -254,6 +268,10 @@ export default function QuizArena() {
                     style={{ background: DIFF_COLORS[form.difficulty] + '20', color: DIFF_COLORS[form.difficulty] }}>
                     {form.difficulty}
                   </span>
+                  <button onClick={reset} title="Start new quiz"
+                    className="p-1.5 rounded-lg text-zinc-600 hover:text-zinc-300 hover:bg-zinc-800 transition-all" data-testid="exit-quiz-btn">
+                    <RotateCcw size={13} />
+                  </button>
                   <div className="flex gap-1">
                     {quiz.questions.map((_, i) => (
                       <button key={`qnav-${i}`} onClick={() => setCurrent(i)}
