@@ -228,12 +228,10 @@ Enforced BNPS curriculum, KaTeX math rendering, Admin dashboard (3 hardcoded ema
 - Daily Study Reminder Email (user-configurable time, email nudge with next task)
 
 ## Completed (July 2026)
-- [x] Browser password saving — `autoComplete` + `name` attributes added to all AuthPage.jsx inputs (email, password, name)
-- [x] Admin Dashboard — 3 hardcoded emails: taniknpoojari@gmail.com, truecursemahito28@gmail.com, samanvayrakesh7@gmail.com
-- [x] Admin features: Earnings tab, Leaderboard hide/show, Grade request approve/deny
-- [x] Grade restrictions: 7, 8, 9 only — 7 & 9 "Coming Soon" in OnboardingModal + ProfilePage
-- [x] SchoolSelectModal for legacy users
-- [x] KaTeX math rendering in ChatPage
-- [x] BNPS curriculum + PDF scraping
-- [x] No email-verification blocker on signup (welcome email sent instead)
-- [x] Password strength rules (min 6 chars + 1 special char)
+- [x] Replaced all "NeuralLearn/AceIt AI" branding with new Ace It logo image (`/aceit-logo.jpeg`) — sidebar, mobile header, auth page, intro screen
+- [x] Mobile sidebar now auto-closes when any nav item is tapped
+- [x] Quiz MCQ selected option now highlights cyan (not red) in InteractiveQuizModal
+- [x] Intro screen subjects reduced to: Mathematics, Science, English, Social Science
+- [x] Removed "Classes 6-12" / "CBSE Class 6-12" references; replaced with "BNPS Curriculum" / "exam prep tutor"
+- [x] Credit costs halved: chat 1-5cr (was 2-10), quiz 8cr (was 15), mock exam 15cr (was 30)
+- [x] State persistence: ChatPage, QuizArena, MockExamPage all save to localStorage and resume on navigation
