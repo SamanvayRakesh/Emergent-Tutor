@@ -146,10 +146,13 @@ async def build():
     with open(META_FILE, "r") as f:
         meta = json.load(f)
 
-    # Ensure indexes
-    await db.question_bank.create_index(
-        [("all_questions", "text"), ("keywords", "text")]
-    )
+    # Ensure indexes (skip text index if conflicts with existing)
+    try:
+        await db.question_bank.create_index(
+            [("all_questions", "text"), ("keywords", "text")]
+        )
+    except Exception as idx_e:
+        logger.warning(f"Text index skipped (conflict): {idx_e}") if False else print(f"  [INFO] Text index already exists, skipping: {str(idx_e)[:80]}")
     await db.question_bank.create_index(
         [("school", 1), ("class_level", 1), ("subject", 1), ("chapter_no", 1)]
     )

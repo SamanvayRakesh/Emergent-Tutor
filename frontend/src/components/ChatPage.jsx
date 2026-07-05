@@ -527,7 +527,7 @@ export default function ChatPage() {
 
       {/* Header */}
       <div className="px-4 py-3 border-b border-white/5 glass flex items-center gap-3">
-        <button onClick={() => nav('/chat')} data-testid="back-btn"
+        <button onClick={() => nav(-1)} data-testid="back-btn"
           className="p-1.5 rounded-lg hover:bg-white/5 text-zinc-500 hover:text-white transition-colors">
           <ArrowLeft size={18} />
         </button>
@@ -535,9 +535,9 @@ export default function ChatPage() {
           <h2 className="text-white font-heading font-bold text-sm truncate">{session?.subject}</h2>
           <p className="text-zinc-500 text-xs font-body truncate">{session?.chapter} • Class {session?.class_level}</p>
         </div>
-        <button onClick={() => nav('/chat')} data-testid="new-chat-btn"
+        <button onClick={() => { localStorage.removeItem('aceit_last_chat_session'); setSession(null); setMessages([]); nav('/chat', { replace: true }); }} data-testid="new-chat-btn"
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-sm font-body hover:bg-cyan-500/20 transition-all">
-          <Plus size={14} /> New
+          <Plus size={14} /> New Chat
         </button>
       </div>
 

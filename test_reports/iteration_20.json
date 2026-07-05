@@ -1,0 +1,45 @@
+{
+  "summary": "Tested 5 P1 features: BookOpen crash fix, BNPS login, 5-step tutorial, New Chat button, admin account persistence. All critical items PASS. New Chat button verified via code review (could not fully automate due to BNPS rate limit + admin having no Grade 10 syllabus data).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/syllabus/10/subjects", "issue": "Admin account (Class 10) gets empty subjects list - subjects dropdown doesn't appear in chat setup. Possibly no Grade 10 syllabus seeded."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {
+        "flow": "Chat - New Chat button (BNPS student)",
+        "issue": "BNPS student (not yet onboarded) hits OnboardingModal which stays blocking chat. Could not test New Chat button via UI due to: (a) BNPS rate-limited after repeated test logins, (b) admin has no Grade 10 syllabus so no session can be created. Code review confirms data-testid='new-chat-btn' exists at ChatPage.jsx:539 with correct logic.",
+        "affected_selectors": ["[data-testid='new-chat-btn']"]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_results": {
+    "signup_no_crash": "PASS - Sign Up tab clicked, no React error overlay, form renders correctly (BookOpen import fix working)",
+    "bnps_login": "PASS - bnps@student.edu / Test@12345 logs in successfully, redirects to / without crash",
+    "tutorial_step1": "PASS - After clearing localStorage 'aceit_tutorial_seen', admin login shows STEP 1 OF 5 Welcome to AceIt AI! with Brooklyn National Public School Grade 8 Curriculum badge",
+    "tutorial_navigation": "PASS - Next button navigates through steps 1→2→3→4→5, Get Started button appears on step 5, localStorage key set to 'true' on completion",
+    "tutorial_skip": "PASS - Skip tour button present on Step 1",
+    "tutorial_not_repeat": "PASS - localStorage 'aceit_tutorial_seen'=true prevents re-show",
+    "admin_account_persistence": "PASS - Admin account has 745 credits, active, Pro Active status visible - account NOT wiped",
+    "new_chat_btn_code_review": "PASS (code) - data-testid='new-chat-btn' at ChatPage.jsx:539, onClick clears localStorage + setSession(null) + nav to /chat. Back button uses nav(-1) at line 530.",
+    "back_btn_code_review": "PASS (code) - data-testid='back-btn' at line 530, uses ArrowLeft icon, calls nav(-1)"
+  },
+  "test_report_links": ["/app/test_reports/iteration_20.json"],
+  "action_items": [
+    "MINOR: Admin account (admin@neuralearn.ai) has class_level set to 10 but no Grade 10 syllabus exists - subject dropdown is empty in chat. Consider seeding Grade 10 data or making admin exempt from grade restrictions.",
+    "INFO: BNPS student gets rate-limited after multiple test logins - consider increasing rate limit for test accounts or noting this in test credentials"
+  ],
+  "critical_code_review_comments": [
+    "OnboardingModal (old) and NewUserTutorial (new 5-step) coexist: unboarded users see OLD OnboardingModal first; after completion, NEW tutorial may show. The BNPS student cannot access chat until old onboarding is complete. Ensure this sequential flow is intentional.",
+    "Admin (is_onboarded=true) shows NewUserTutorial correctly when localStorage flag cleared - works as designed."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "N/A (frontend only)", "frontend": "85%"},
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Key fixes verified this iteration: (1) BookOpen crash on SignUp - FIXED, (2) BNPS/admin login - working, (3) 5-step NewUserTutorial - working with localStorage flag, (4) admin credits=745 active, (5) New Chat btn exists in code at ChatPage:539. BNPS student cannot complete onboarding via automation (rate limited). Admin has no Grade 10 syllabus so chat session can't be created for admin. To test New Chat fully, use a fresh BNPS account that's already onboarded OR manually complete OnboardingModal."
+}

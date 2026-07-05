@@ -1,0 +1,54 @@
+{
+  "grade": "8",
+  "school": "brooklyn_national",
+  "subjects": {
+    "Science": {
+      "chapters": [
+        {"bnps_order": 1,  "bnps_name": "Exploring the Investigative World of Science",        "file": "chapter_01.pdf", "status": "ok"},
+        {"bnps_order": 2,  "bnps_name": "The Invisible Living World: Beyond Our Naked Eye",     "file": "chapter_02.pdf", "status": "ok"},
+        {"bnps_order": 3,  "bnps_name": "Health: The Ultimate Treasure",                        "file": "chapter_03.pdf", "status": "ok"},
+        {"bnps_order": 4,  "bnps_name": "Electricity: Magnetic and Heating Effects",            "file": "chapter_04.pdf", "status": "ok"},
+        {"bnps_order": 5,  "bnps_name": "Exploring Forces",                                     "file": "chapter_05.pdf", "status": "ok"},
+        {"bnps_order": 6,  "bnps_name": "Pressure, Winds, Storms, and Cyclones",                "file": "chapter_06.pdf", "status": "ok"},
+        {"bnps_order": 7,  "bnps_name": "Particulate Nature of Matter",                         "file": "chapter_07.pdf", "status": "ok"},
+        {"bnps_order": 8,  "bnps_name": "Nature of Matter: Elements, Compounds, and Mixtures", "file": "chapter_08.pdf", "status": "ok"},
+        {"bnps_order": 9,  "bnps_name": "The Amazing World of Solutes, Solvents and Solutions", "file": "chapter_09.pdf", "status": "ok"},
+        {"bnps_order": 10, "bnps_name": "Light: Mirrors and Lenses",                            "file": "chapter_10.pdf", "status": "ok"},
+        {"bnps_order": 11, "bnps_name": "Keeping Time with the Skies",                          "file": "chapter_11.pdf", "status": "ok"},
+        {"bnps_order": 12, "bnps_name": "How Nature Works in Harmony",                          "file": "chapter_12.pdf", "status": "ok"},
+        {"bnps_order": 13, "bnps_name": "Our Home: Earth, a Unique Life Sustaining Planet",     "file": "chapter_13.pdf", "status": "ok"}
+      ]
+    },
+    "Mathematics": {
+      "chapters": [
+        {"bnps_order": 1,  "bnps_name": "Rational Numbers",                          "file": "chapter_01.pdf", "status": "ok"},
+        {"bnps_order": 2,  "bnps_name": "Exponents and Powers",                      "file": "chapter_02.pdf", "status": "ok"},
+        {"bnps_order": 3,  "bnps_name": "Squares and Square Roots",                  "file": "chapter_03.pdf", "status": "ok"},
+        {"bnps_order": 4,  "bnps_name": "Cubes and Cube Roots",                      "file": "chapter_04.pdf", "status": "ok"},
+        {"bnps_order": 5,  "bnps_name": "Playing with Numbers",                      "file": "chapter_05.pdf", "status": "ok"},
+        {"bnps_order": 6,  "bnps_name": "Algebraic Expressions and Identities",      "file": "chapter_06.pdf", "status": "ok"},
+        {"bnps_order": 7,  "bnps_name": "Factorisation",                             "file": "chapter_07.pdf", "status": "ok"},
+        {"bnps_order": 8,  "bnps_name": "Linear Equations in One Variable",          "file": "chapter_08.pdf", "status": "ok"},
+        {"bnps_order": 9,  "bnps_name": "Comparing Quantities",                      "file": "chapter_09.pdf", "status": "ok"},
+        {"bnps_order": 10, "bnps_name": "Direct and Indirect Variations",            "file": "chapter_10.pdf", "status": "ok"},
+        {"bnps_order": 11, "bnps_name": "Understanding Quadrilaterals",              "file": "chapter_11.pdf", "status": "ok"},
+        {"bnps_order": 12, "bnps_name": "Visualising Solid Shapes",                  "file": "chapter_12.pdf", "status": "failed"},
+        {"bnps_order": 13, "bnps_name": "Practical Geometry",                        "file": "chapter_13.pdf", "status": "ok"},
+        {"bnps_order": 14, "bnps_name": "Mensuration",                               "file": "chapter_14.pdf", "status": "failed"},
+        {"bnps_order": 15, "bnps_name": "Introduction to Graphs",                    "file": "chapter_15.pdf", "status": "failed"},
+        {"bnps_order": 16, "bnps_name": "Data Handling",                             "file": "chapter_16.pdf", "status": "ok"}
+      ]
+    },
+    "Social Science": {
+      "chapters": [
+        {"bnps_order": 1, "bnps_name": "Natural Resources: Treasures of The Earth",                "file": "chapter_01.pdf", "status": "ok"},
+        {"bnps_order": 2, "bnps_name": "The Changing Political Landscape of India",                 "file": "chapter_02.pdf", "status": "ok"},
+        {"bnps_order": 3, "bnps_name": "The Rise of the Marathas",                                  "file": "chapter_03.pdf", "status": "ok"},
+        {"bnps_order": 4, "bnps_name": "The Colonial Transformation of India",                      "file": "chapter_04.pdf", "status": "ok"},
+        {"bnps_order": 5, "bnps_name": "From Ballot to Bharat: The Spirit of Universal Franchise",  "file": "chapter_05.pdf", "status": "ok"},
+        {"bnps_order": 6, "bnps_name": "The Parliamentary System: Legislature and Executive",       "file": "chapter_06.pdf", "status": "ok"},
+        {"bnps_order": 7, "bnps_name": "Resources at Work",                                         "file": "chapter_07.pdf", "status": "ok"}
+      ]
+    }
+  }
+}

@@ -164,8 +164,10 @@ async def startup_event():
         })
         logger.info("BNPS test student seeded: bnps@student.edu")
 
-    # ── Background cleanup task ────────────────────────────────────────────────
-    asyncio.create_task(_cleanup_unverified_accounts())
+    # ── Background cleanup task ─────────────────────────────────────────────
+    # NOTE: Cleanup intentionally disabled — email verification is not enforced,
+    # so all registered accounts should remain active regardless of is_verified flag.
+    # asyncio.create_task(_cleanup_unverified_accounts())
 
     # ── Write test credentials ─────────────────────────────────────────────────
     creds_path = Path("/app/memory/test_credentials.md")

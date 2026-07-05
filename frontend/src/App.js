@@ -26,11 +26,14 @@ import PricingPage from './components/PricingPage';
 import OnboardingModal from './components/OnboardingModal';
 import UpgradePromptModal from './components/UpgradePromptModal';
 import GradeAccessGuard from './components/GradeAccessGuard';
+import NewUserTutorial, { shouldShowTutorial } from './components/NewUserTutorial';
 
 import AdminDashboard from './components/AdminDashboard';
 
 function ProtectedRoute({ children }) {
   const { user, loading, refresh } = useAuth();
+  const [showTutorial, setShowTutorial] = useState(false);
+
   if (loading) return (
     <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
       <div className="flex flex-col items-center gap-4">
@@ -45,11 +48,20 @@ function ProtectedRoute({ children }) {
     return (
       <>
         {children}
-        <OnboardingModal onComplete={() => refresh?.()} />
+        <OnboardingModal onComplete={() => { refresh?.(); setShowTutorial(shouldShowTutorial()); }} />
       </>
     );
   }
-  return <>{children}<UpgradePromptModal /><GradeAccessGuard /></>;
+  return (
+    <>
+      {children}
+      <UpgradePromptModal />
+      <GradeAccessGuard />
+      {(showTutorial || shouldShowTutorial()) && (
+        <NewUserTutorial onClose={() => setShowTutorial(false)} />
+      )}
+    </>
+  );
 }
 
 function AppRouter() {
