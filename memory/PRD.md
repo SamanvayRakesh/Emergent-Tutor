@@ -228,7 +228,9 @@ Enforced BNPS curriculum, KaTeX math rendering, Admin dashboard (3 hardcoded ema
 - Daily Study Reminder Email (user-configurable time, email nudge with next task)
 
 ## Completed (July 2026)
-- [x] Replaced all "NeuralLearn/AceIt AI" branding with new Ace It logo image (`/aceit-logo.jpeg`) — sidebar, mobile header, auth page, intro screen
+- [x] Grade 8 curriculum final: Science (hecu1, 13 chs), Math (hegp1+hegp2, 16 chs, 13 PDFs), Social Science (hees1, 7 chs). English DELETED. Grade 7/9 removed from cbse_data.py.
+- [x] ncert_ai_metadata.json rebuilt with correct BNPS chapter names
+- [x] school_curriculum.py: "Social Studies" renamed to "Social Science", English removed
 - [x] Mobile sidebar now auto-closes when any nav item is tapped
 - [x] Quiz MCQ selected option now highlights cyan (not red) in InteractiveQuizModal
 - [x] Intro screen subjects reduced to: Mathematics, Science, English, Social Science

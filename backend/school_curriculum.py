@@ -4,11 +4,10 @@ Each school entry maps grade → subject → list of chapter dicts
 matching the standard chapter format used throughout the app.
 
 PDF URLs are from NCERT 2024-25 official textbooks:
-  Science      → Curiosity         (hecu1): all 13 chapters
-  Social Studies → Exploring Society (hees1): all 7 chapters
-  Mathematics  → Ganita Prakash Part 1 (hegp1): 7 chapters
-               → Ganita Prakash Part 2 (hegp2): 6 chapters (02-07)
-  English      → Poorvi            (hepr1): 5 chapters (01-05)
+  Science        → Curiosity           (hecu1): 13 chapters
+  Social Science → Exploring Society   (hees1): 7 chapters
+  Mathematics    → Ganita Prakash Pt 1 (hegp1): ch01-07
+                 → Ganita Prakash Pt 2 (hegp2): ch02-07
 """
 
 NCERT = "https://ncert.nic.in/textbook/pdf/"
@@ -61,22 +60,6 @@ _BNPS_8_SST = [
     {"id": "bnps-8-sst-7", "name": "Resources at Work",                                        "order": 7, "chapter_no": 7, "pdf_url": f"{NCERT}hees107.pdf"},
 ]
 
-_BNPS_8_ENG = [
-    {"id": "bnps-8-eng-1",  "name": "The Time Machine",                    "order": 1,  "chapter_no": 1,  "type": "Story",        "author": "H.G. Wells",                  "pdf_url": f"{NCERT}hepr101.pdf"},
-    {"id": "bnps-8-eng-2",  "name": "When the Mop Count Did Not Tally",    "order": 2,  "chapter_no": 2,  "type": "Story",        "author": "Sudha Murty",                 "pdf_url": f"{NCERT}hepr102.pdf"},
-    {"id": "bnps-8-eng-3",  "name": "Stopping by Woods on a Snowy Evening","order": 3,  "chapter_no": 3,  "type": "Poem",         "author": "Robert Frost",                "pdf_url": f"{NCERT}hepr103.pdf"},
-    {"id": "bnps-8-eng-4",  "name": "The Portrait of a Lady",              "order": 4,  "chapter_no": 4,  "type": "Story",        "author": "Khushwant Singh",             "pdf_url": f"{NCERT}hepr104.pdf"},
-    {"id": "bnps-8-eng-5",  "name": "Stuart Little",                       "order": 5,  "chapter_no": 5,  "type": "Graphic Story","author": "E.B. White",                  "pdf_url": f"{NCERT}hepr105.pdf"},
-    {"id": "bnps-8-eng-6",  "name": "Robots in Everyday Life",             "order": 6,  "chapter_no": 6,  "type": "Project",                                               "pdf_url": None},
-    {"id": "bnps-8-eng-7",  "name": "Knowing Your Strengths",              "order": 7,  "chapter_no": 7,  "type": "Life Skills",                                           "pdf_url": None},
-    {"id": "bnps-8-eng-8",  "name": "The Children's Hour",                 "order": 8,  "chapter_no": 8,  "type": "Poem",         "author": "Henry Wadsworth Longfellow",  "pdf_url": None},
-    {"id": "bnps-8-eng-9",  "name": "That Little Square Box",              "order": 9,  "chapter_no": 9,  "type": "Story",        "author": "Sir Arthur Conan Doyle",      "pdf_url": None},
-    {"id": "bnps-8-eng-10", "name": "Haunted",                             "order": 10, "chapter_no": 10, "type": "Story",        "author": "Harris Tobias",               "pdf_url": None},
-    {"id": "bnps-8-eng-11", "name": "On the Grasshopper and Cricket",      "order": 11, "chapter_no": 11, "type": "Poem",         "author": "John Keats",                  "pdf_url": None},
-    {"id": "bnps-8-eng-12", "name": "The Canterville Ghost",               "order": 12, "chapter_no": 12, "type": "Play",         "author": "Oscar Wilde",                 "pdf_url": None},
-    {"id": "bnps-8-eng-13", "name": "Night of the Scorpion",               "order": 13, "chapter_no": 13, "type": "Poem",         "author": "Nissim Ezekiel",              "pdf_url": None},
-]
-
 # ── School registry ───────────────────────────────────────────────────────────
 
 SCHOOLS: dict = {
@@ -87,10 +70,9 @@ SCHOOLS: dict = {
         "available_grades": ["8"],
         "curriculum": {
             "8": {
-                "Science":       _BNPS_8_SCIENCE,
-                "Mathematics":   _BNPS_8_MATHS,
-                "Social Studies": _BNPS_8_SST,
-                "English":       _BNPS_8_ENG,
+                "Science":        _BNPS_8_SCIENCE,
+                "Mathematics":    _BNPS_8_MATHS,
+                "Social Science": _BNPS_8_SST,
             }
         },
     }
@@ -119,8 +101,7 @@ def get_school_subjects(school_id: str, grade: str) -> list[dict]:
     _ICON_MAP = {
         "Mathematics":    ("Calculator", "#22d3ee"),
         "Science":        ("Atom",       "#8b5cf6"),
-        "English":        ("Book",       "#f59e0b"),
-        "Social Studies": ("Globe",      "#3b82f6"),
+        "Social Science": ("Globe",      "#3b82f6"),
     }
     result = []
     for subj, chapters in subjects.items():
@@ -148,18 +129,4 @@ def get_school_chapters(school_id: str, grade: str, subject: str) -> list[dict]:
 
 def get_chapter_context_hint(school_id: str, grade: str, subject: str, chapter: str) -> str:
     """Return a short context hint for the AI tutor about a school-specific chapter."""
-    if subject == "English":
-        # Find the chapter and include author/type info
-        chapters = get_school_chapters(school_id, grade, subject)
-        for c in chapters:
-            if c["name"].lower() == chapter.lower():
-                ctype = c.get("type", "literary piece")
-                author = c.get("author", "")
-                author_str = f" by {author}" if author else ""
-                return (
-                    f'This is a Grade {grade} English {ctype.lower()}{author_str} '
-                    f'titled "{chapter}". '
-                    f'Teach literary analysis, themes, characters, narrative structure, '
-                    f'vocabulary, and comprehension questions appropriate for Grade {grade} students.'
-                )
     return ""
