@@ -38,13 +38,7 @@ export default function Sidebar({ onClose }) {
       {/* Logo */}
       <div className="px-5 mb-6 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-400 to-violet-600 flex items-center justify-center flex-shrink-0">
-            <BookOpen size={16} className="text-white" />
-          </div>
-          <span className="font-heading font-black text-lg">
-            <span className="text-white">AceIt</span>
-            <span style={{ color: '#dc2626' }}> AI</span>
-          </span>
+          <img src="/aceit-logo.jpeg" alt="Ace It" className="h-9 w-auto rounded-lg object-contain" />
         </div>
         {onClose && (
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/5 text-zinc-500 hover:text-white transition-colors">
@@ -104,6 +98,7 @@ export default function Sidebar({ onClose }) {
             key={to}
             to={to}
             end={exact}
+            onClick={() => onClose?.()}
             data-testid={`nav-${label.toLowerCase().replace(' ', '-')}`}
             className={({ isActive }) =>
               `flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group ${
@@ -125,7 +120,7 @@ export default function Sidebar({ onClose }) {
 
         {/* Admin link — only for admin emails */}
         {user && ADMIN_EMAILS.includes(user.email?.toLowerCase()) && (
-          <NavLink to="/admin" data-testid="nav-admin"
+          <NavLink to="/admin" data-testid="nav-admin" onClick={() => onClose?.()}
             className={({ isActive }) =>
               `flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group ${
                 isActive ? 'bg-red-500/10 border border-red-500/20 text-red-400' : 'text-zinc-500 hover:text-red-400 hover:bg-red-500/5'

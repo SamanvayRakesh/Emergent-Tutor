@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { BookOpen, Mail, Lock, User, ArrowRight, Eye, EyeOff, CheckCircle2, AlertTriangle, Info } from 'lucide-react';
+import { Mail, Lock, User, ArrowRight, Eye, EyeOff, CheckCircle2, AlertTriangle, Info } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -98,14 +98,13 @@ export default function AuthPage() {
       >
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-400 to-violet-600 flex items-center justify-center">
-              <BookOpen size={20} className="text-white" />
+            <img src="/aceit-logo.jpeg" alt="Ace It" className="h-12 w-auto rounded-xl object-contain" />
+            <div className="text-left">
+              <span className="font-heading font-black text-2xl text-white block leading-none">Ace It</span>
+              <span className="text-zinc-500 text-xs font-body">Always Crush Exams</span>
             </div>
-            <span className="font-heading font-black text-2xl">
-              <span className="text-white">AceIt</span><span style={{ color: '#dc2626' }}> AI</span>
-            </span>
           </div>
-          <p className="text-zinc-500 text-sm font-body">Your AI-powered CBSE tutor</p>
+          <p className="text-zinc-500 text-sm font-body">Your AI-powered exam prep tutor</p>
         </div>
 
         <div className="glass rounded-2xl p-7 shadow-2xl">
@@ -257,7 +256,7 @@ export default function AuthPage() {
         </div>
 
         <div className="mt-6 grid grid-cols-3 gap-3">
-          {[['Adaptive AI', 'Personalized teaching'], ['CBSE Class 6-12', 'Full curriculum'], ['Gamified', 'XP & achievements']].map(([t, d]) => (
+          {[['Adaptive AI', 'Personalized teaching'], ['BNPS Curriculum', 'NCERT-verified'], ['Gamified', 'XP & achievements']].map(([t, d]) => (
             <div key={t} className="text-center p-3 rounded-xl glass border border-white/5">
               <p className="text-cyan-400 text-xs font-body font-semibold">{t}</p>
               <p className="text-zinc-600 text-xs font-body mt-0.5">{d}</p>

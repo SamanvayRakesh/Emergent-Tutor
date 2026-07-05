@@ -3,13 +3,13 @@ import { motion } from 'framer-motion';
 import { gsap } from 'gsap';
 import * as THREE from 'three';
 
-const SUBJECTS = ['Mathematics', 'Physics', 'Chemistry', 'Biology', 'English', 'CS', 'History', 'Geography'];
-const SUBJECT_COLORS = ['#22d3ee', '#8b5cf6', '#d946ef', '#10b981', '#f59e0b', '#ef4444', '#3b82f6', '#ec4899'];
+const SUBJECTS = ['Mathematics', 'Science', 'English', 'Social Science'];
+const SUBJECT_COLORS = ['#22d3ee', '#10b981', '#f59e0b', '#8b5cf6'];
 
 export default function IntroScreen({ onComplete }) {
   const canvasRef = useRef(null);
   const completedRef = useRef(false);
-  const [imgError, setImgError] = useState(false);
+  const [currentSubject, setCurrentSubject] = useState(0);
 
   const handleComplete = useCallback(() => {
     if (completedRef.current) return;
@@ -102,32 +102,27 @@ export default function IntroScreen({ onComplete }) {
       <div className="absolute inset-0 flex flex-col items-center justify-center z-10 px-4">
         {/* Orb */}
         <div className="i-orb opacity-0 scale-50 mb-8 relative">
-          <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full bg-gradient-to-br from-cyan-400 via-violet-500 to-fuchsia-600 p-0.5 pulse-glow">
-            <div className="w-full h-full rounded-full overflow-hidden bg-zinc-950 flex items-center justify-center">
-              {imgError
-                ? <div className="text-4xl text-white font-heading font-black">N</div>
-                : <img
-                    src="https://static.prod-images.emergentagent.com/jobs/67404889-8268-4733-8667-87fc9a4ec0ca/images/bf4cba685d50c58744b9ad1fdf41aa422bd3e7f97bf21e955c63589fc698d2a9.png"
-                    alt="AI"
-                    className="w-full h-full object-cover"
-                    onError={() => setImgError(true)}
-                  />
-              }
-            </div>
+          <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-2xl overflow-hidden pulse-glow">
+            <img
+              src="/aceit-logo.jpeg"
+              alt="Ace It"
+              className="w-full h-full object-cover"
+            />
           </div>
-          <div className="absolute -inset-3 rounded-full bg-cyan-400/15 blur-xl animate-pulse" />
+          <div className="absolute -inset-3 rounded-2xl bg-violet-500/15 blur-xl animate-pulse" />
         </div>
 
         {/* Logo */}
         <div className="i-logo opacity-0 translate-y-8 text-center mb-2">
           <h1 className="font-heading font-black tracking-tight" style={{ fontSize: 'clamp(3rem, 10vw, 6rem)' }}>
-            <span className="text-white">AceIt</span>
-            <span style={{ color: '#dc2626' }}> AI</span>
+            <span className="text-white">Ace</span>
+            <span style={{ background: 'linear-gradient(135deg, #f472b6, #8b5cf6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}> It</span>
           </h1>
+          <p className="text-zinc-400 text-sm font-body tracking-widest uppercase">Always Crush Exams</p>
         </div>
 
         <p className="i-tag opacity-0 translate-y-4 text-zinc-400 text-base sm:text-lg font-body mb-8 text-center max-w-sm">
-          AI-powered CBSE tutoring for Classes 6–12
+          Your AI-powered exam prep tutor
           <br /><span className="text-cyan-400 font-semibold">Learn. Think. Master.</span>
         </p>
 

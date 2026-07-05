@@ -1,16 +1,16 @@
-"""Credit system — dynamic 2-10 credits based on response length.
+"""Credit system — dynamic 1-5 credits based on response length.
 
 Chat credit tiers (words generated):
-  0–250    → 2 credits
-  251–500  → 4 credits
-  501–800  → 6 credits
-  801–1200 → 8 credits
-  1201+    → 10 credits
+  0–250    → 1 credit
+  251–500  → 2 credits
+  501–800  → 3 credits
+  801–1200 → 4 credits
+  1201+    → 5 credits
 
 Fixed costs:
-  quiz_generate       15 cr
-  mock_exam_generate  30 cr
-  mock_exam_cached     3 cr
+  quiz_generate       8 cr
+  mock_exam_generate  15 cr
+  mock_exam_cached     2 cr
 """
 
 from datetime import datetime, timezone
@@ -19,10 +19,10 @@ from pymongo import ReturnDocument
 from core import db
 
 CREDIT_COSTS = {
-    "ai_message":          2,    # minimum — actual deduction calculated per word count
-    "quiz_generate":       15,
-    "mock_exam_generate":  30,
-    "mock_exam_cached":    3,
+    "ai_message":          1,    # minimum — actual deduction calculated per word count
+    "quiz_generate":       8,
+    "mock_exam_generate":  15,
+    "mock_exam_cached":    2,
 }
 
 CHAT_WORD_LIMIT = 1500   # soft cap — warning injected if exceeded
@@ -46,17 +46,17 @@ STARTER_CREDITS = 100
 
 
 def calculate_chat_credits(word_count: int) -> int:
-    """Dynamic tier: 2-10 credits based on words generated."""
+    """Dynamic tier: 1-5 credits based on words generated."""
     if word_count <= 250:
-        return 2
+        return 1
     elif word_count <= 500:
-        return 4
+        return 2
     elif word_count <= 800:
-        return 6
+        return 3
     elif word_count <= 1200:
-        return 8
+        return 4
     else:
-        return 10
+        return 5
 
 
 async def get_credits(user_id: str) -> int:

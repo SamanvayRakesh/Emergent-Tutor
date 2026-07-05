@@ -49,9 +49,9 @@ export default function Layout() {
             className="p-2 rounded-lg hover:bg-white/5 text-zinc-400 hover:text-white transition-colors">
             <Menu size={20} />
           </button>
-          <span className="font-heading font-bold text-white flex-1">
-            <span className="gradient-text">Neura</span>Learn
-          </span>
+          <div className="flex-1 flex items-center">
+            <img src="/aceit-logo.jpeg" alt="Ace It" className="h-8 w-auto rounded-lg object-contain" />
+          </div>
           <CreditBadge />
         </div>
 

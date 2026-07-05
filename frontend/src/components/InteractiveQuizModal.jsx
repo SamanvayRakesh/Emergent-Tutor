@@ -195,9 +195,9 @@ export default function InteractiveQuizModal({ quizData, onClose, onComplete }) 
                               data-testid={`option-${i}`}
                               className="w-full text-left px-4 py-3 rounded-xl text-sm transition-all duration-150 border"
                               style={{
-                                background: isSelected ? 'rgba(220,38,38,0.15)' : 'rgba(255,255,255,0.03)',
-                                borderColor: isSelected ? '#dc2626' : 'rgba(255,255,255,0.08)',
-                                color: isSelected ? '#f87171' : '#d4d4d8',
+                                background: isSelected ? 'rgba(34,211,238,0.12)' : 'rgba(255,255,255,0.03)',
+                                borderColor: isSelected ? '#22d3ee' : 'rgba(255,255,255,0.08)',
+                                color: isSelected ? '#ffffff' : '#d4d4d8',
                               }}
                             >
                               <span className="font-semibold mr-3 text-zinc-500">
