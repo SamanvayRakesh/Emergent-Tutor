@@ -227,6 +227,14 @@ Enforced BNPS curriculum, KaTeX math rendering, Admin dashboard (3 hardcoded ema
 - Duolingo-style Chat mastery progress (complete lessons to reach 100% mastery)
 - Daily Study Reminder Email (user-configurable time, email nudge with next task)
 
+## Completed (July 2026 — Session 2)
+- [x] Fixed uncaught runtime error: `BookOpen` icon missing from `AuthPage.jsx` imports (crashed Sign Up form)
+- [x] Fixed P0 account wipe bug: Disabled `_cleanup_unverified_accounts()` background task in `server.py`
+- [x] Rebuilt BNPS Question Bank: 1,385 Q&A pairs (Math: 619, Science: 518, Social Science: 248). Created `metadata.json`, cleaned up English/Social Studies entries, ran full rebuild.
+- [x] 5-step New User Tutorial: Created `NewUserTutorial.jsx` — shown on first login via localStorage flag (`aceit_tutorial_seen`). Steps: Welcome → Credits → AI Tutor → Quiz Arena → Mock Exams.
+- [x] AI Tutor "New Chat" button: Now clears localStorage session + resets state to show session setup. "Go Back" uses `nav(-1)`.
+- [x] Explicit content filter + curriculum constraint: System prompt updated in `chat.py` to reject off-topic/explicit questions and restrict AI to selected chapter scope.
+
 ## Completed (July 2026)
 - [x] Grade 8 curriculum final: Science (hecu1, 13 chs), Math (hegp1+hegp2, 16 chs, 13 PDFs), Social Science (hees1, 7 chs). English DELETED. Grade 7/9 removed from cbse_data.py.
 - [x] ncert_ai_metadata.json rebuilt with correct BNPS chapter names
