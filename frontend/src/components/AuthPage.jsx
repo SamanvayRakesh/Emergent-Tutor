@@ -98,11 +98,7 @@ export default function AuthPage() {
       >
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-3 mb-4">
-            <img src="/aceit-logo.jpeg" alt="Ace It" className="h-12 w-auto rounded-xl object-contain" />
-            <div className="text-left">
-              <span className="font-heading font-black text-2xl text-white block leading-none">Ace It</span>
-              <span className="text-zinc-500 text-xs font-body">Always Crush Exams</span>
-            </div>
+            <img src="/aceit-logo.png" alt="Ace It" className="h-16 w-auto object-contain" />
           </div>
           <p className="text-zinc-500 text-sm font-body">Your AI-powered exam prep tutor</p>
         </div>

@@ -101,23 +101,16 @@ export default function IntroScreen({ onComplete }) {
 
       <div className="absolute inset-0 flex flex-col items-center justify-center z-10 px-4">
         {/* Orb */}
-        <div className="i-orb opacity-0 scale-50 mb-8 relative">
-          <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-2xl overflow-hidden pulse-glow">
-            <img
-              src="/aceit-logo.jpeg"
-              alt="Ace It"
-              className="w-full h-full object-cover"
-            />
-          </div>
-          <div className="absolute -inset-3 rounded-2xl bg-violet-500/15 blur-xl animate-pulse" />
+        <div className="i-orb opacity-0 scale-50 mb-4 relative">
+          <img
+            src="/aceit-logo.png"
+            alt="Ace It"
+            className="w-72 h-auto object-contain"
+          />
         </div>
 
-        {/* Logo */}
+        {/* Logo title */}
         <div className="i-logo opacity-0 translate-y-8 text-center mb-2">
-          <h1 className="font-heading font-black tracking-tight" style={{ fontSize: 'clamp(3rem, 10vw, 6rem)' }}>
-            <span className="text-white">Ace</span>
-            <span style={{ background: 'linear-gradient(135deg, #f472b6, #8b5cf6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}> It</span>
-          </h1>
           <p className="text-zinc-400 text-sm font-body tracking-widest uppercase">Always Crush Exams</p>
         </div>
 

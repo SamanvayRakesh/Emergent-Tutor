@@ -50,7 +50,7 @@ export default function Layout() {
             <Menu size={20} />
           </button>
           <div className="flex-1 flex items-center">
-            <img src="/aceit-logo.jpeg" alt="Ace It" className="h-8 w-auto rounded-lg object-contain" />
+            <img src="/aceit-logo.png" alt="Ace It" className="h-12 w-auto object-contain" />
           </div>
           <CreditBadge />
         </div>
