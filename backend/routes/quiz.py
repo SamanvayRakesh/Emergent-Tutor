@@ -152,8 +152,10 @@ async def generate_quiz(body: QuizGenerateRequest, request: Request):
             },
         )
 
-    # Credit gate: deduct 5 credits per quiz
-    await deduct_credits(user["user_id"], "quiz_generate")
+    # Credit gate: first quiz is FREE; subsequent quizzes cost credits
+    past_quiz_count = await db.quizzes.count_documents({"user_id": user["user_id"]})
+    if past_quiz_count > 0:
+        await deduct_credits(user["user_id"], "quiz_generate")
 
     # Build school context for BNPS students
     school = user.get("school", "")
@@ -289,6 +291,10 @@ async def submit_quiz(quiz_id: str, body: QuizSubmitRequest, request: Request):
                   "total_questions": total, "completed_at": datetime.now(timezone.utc).isoformat()}},
     )
     await db.users.update_one({"user_id": user["user_id"]}, {"$inc": {"xp": xp_earned}})
+
+    # Bonus credits for completing a quiz (reward participation)
+    bonus_credits = min(5, max(1, correct_count))  # 1–5 bonus credits based on correct answers
+    await db.users.update_one({"user_id": user["user_id"]}, {"$inc": {"credits": bonus_credits}})
 
     # Feed quiz result into adaptive engine (per-question tracking)
     await record_quiz_result(user["user_id"], quiz.get("topic", "General"), score_pct, correct_count, total)

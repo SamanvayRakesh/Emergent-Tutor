@@ -32,7 +32,7 @@ import AdminDashboard from './components/AdminDashboard';
 
 function ProtectedRoute({ children }) {
   const { user, loading, refresh } = useAuth();
-  const [showTutorial, setShowTutorial] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(() => shouldShowTutorial());
 
   if (loading) return (
     <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
@@ -57,7 +57,7 @@ function ProtectedRoute({ children }) {
       {children}
       <UpgradePromptModal />
       <GradeAccessGuard />
-      {(showTutorial || shouldShowTutorial()) && (
+      {showTutorial && (
         <NewUserTutorial onClose={() => setShowTutorial(false)} />
       )}
     </>

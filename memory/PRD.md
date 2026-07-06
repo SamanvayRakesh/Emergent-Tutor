@@ -228,7 +228,12 @@ Enforced BNPS curriculum, KaTeX math rendering, Admin dashboard (3 hardcoded ema
 - Daily Study Reminder Email (user-configurable time, email nudge with next task)
 
 ## Completed (July 2026 — Session 2)
-- [x] Fixed uncaught runtime error: `BookOpen` icon missing from `AuthPage.jsx` imports (crashed Sign Up form)
+- [x] Fixed tutorial "Get Started" button not closing — state initialized as `shouldShowTutorial()` so close triggers re-render
+- [x] First quiz FREE — checks `past_quiz_count` before deducting 15 credits; new users pay nothing for first quiz
+- [x] Bonus credits on quiz completion — +1 to +5 credits awarded based on correct answers (so completing quizzes earns credits back)
+- [x] Tutorial text updated to accurately reflect actual credit costs and the bonus credits system
+
+
 - [x] Fixed P0 account wipe bug: Disabled `_cleanup_unverified_accounts()` background task in `server.py`
 - [x] Rebuilt BNPS Question Bank: 1,385 Q&A pairs (Math: 619, Science: 518, Social Science: 248). Created `metadata.json`, cleaned up English/Social Studies entries, ran full rebuild.
 - [x] 5-step New User Tutorial: Created `NewUserTutorial.jsx` — shown on first login via localStorage flag (`aceit_tutorial_seen`). Steps: Welcome → Credits → AI Tutor → Quiz Arena → Mock Exams.
