@@ -228,6 +228,13 @@ Enforced BNPS curriculum, KaTeX math rendering, Admin dashboard (3 hardcoded ema
 - Daily Study Reminder Email (user-configurable time, email nudge with next task)
 
 ## Completed (July 2026 — Session 2)
+- [x] Feedback system: POST /api/feedback (user submit), GET /api/admin/feedback + Resolve. Floating button on all pages. Admin dashboard "Feedback" tab.
+- [x] Removed "BNPS Curriculum" badge from login page → replaced with "Smart Curriculum"
+- [x] Tutorial now DB-backed (is_tutorial_seen field): migration marks all existing accounts as seen, new registrations start as false. `PATCH /api/auth/tutorial/seen` marks when dismissed.
+- [x] Out-of-syllabus AI: answers the question but redirects back to chapter scope; only refuses for explicitly harmful/illegal content
+- [x] Removed English subject from 3D intro screen — now shows only Mathematics, Science, Social Science
+- [x] Fixed `_require_admin` to accept `role=='admin'` users (not just hardcoded email list)
+
 - [x] Fixed tutorial "Get Started" button not closing — state initialized as `shouldShowTutorial()` so close triggers re-render
 - [x] First quiz FREE — checks `past_quiz_count` before deducting 15 credits; new users pay nothing for first quiz
 - [x] Bonus credits on quiz completion — +1 to +5 credits awarded based on correct answers (so completing quizzes earns credits back)
