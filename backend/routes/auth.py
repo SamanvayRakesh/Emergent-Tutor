@@ -179,8 +179,8 @@ async def login(body: UserLogin, request: Request, response: Response):
 
     if not user:
         raise HTTPException(status_code=401, detail="Invalid email or password")
-    # Google OAuth users have no password hash — give them a clear message
-    if user.get("auth_type") == "google" and not user.get("password_hash"):
+    # Google-only accounts (no password set) — guide them to use Google Sign-In
+    if not user.get("password_hash") and user.get("auth_type") == "google":
         raise HTTPException(
             status_code=401,
             detail="This account was created with Google Sign-In. Please use the 'Continue with Google' button to log in.",
