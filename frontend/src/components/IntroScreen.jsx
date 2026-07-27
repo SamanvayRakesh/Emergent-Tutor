@@ -3,8 +3,8 @@ import { motion } from 'framer-motion';
 import { gsap } from 'gsap';
 import * as THREE from 'three';
 
-const SUBJECTS = ['Mathematics', 'Science', 'English', 'Social Science'];
-const SUBJECT_COLORS = ['#22d3ee', '#10b981', '#f59e0b', '#8b5cf6'];
+const SUBJECTS = ['Mathematics', 'Science', 'Social Science'];
+const SUBJECT_COLORS = ['#22d3ee', '#10b981', '#8b5cf6'];
 
 export default function IntroScreen({ onComplete }) {
   const canvasRef = useRef(null);

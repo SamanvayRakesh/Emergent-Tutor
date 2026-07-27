@@ -252,7 +252,7 @@ export default function AuthPage() {
         </div>
 
         <div className="mt-6 grid grid-cols-3 gap-3">
-          {[['Adaptive AI', 'Personalized teaching'], ['BNPS Curriculum', 'NCERT-verified'], ['Gamified', 'XP & achievements']].map(([t, d]) => (
+          {[['Adaptive AI', 'Personalized teaching'], ['Smart Curriculum', 'AI-powered'], ['Gamified', 'XP & achievements']].map(([t, d]) => (
             <div key={t} className="text-center p-3 rounded-xl glass border border-white/5">
               <p className="text-cyan-400 text-xs font-body font-semibold">{t}</p>
               <p className="text-zinc-600 text-xs font-body mt-0.5">{d}</p>

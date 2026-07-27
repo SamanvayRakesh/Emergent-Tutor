@@ -26,13 +26,20 @@ import PricingPage from './components/PricingPage';
 import OnboardingModal from './components/OnboardingModal';
 import UpgradePromptModal from './components/UpgradePromptModal';
 import GradeAccessGuard from './components/GradeAccessGuard';
-import NewUserTutorial, { shouldShowTutorial } from './components/NewUserTutorial';
+import NewUserTutorial from './components/NewUserTutorial';
 
 import AdminDashboard from './components/AdminDashboard';
 
 function ProtectedRoute({ children }) {
   const { user, loading, refresh } = useAuth();
-  const [showTutorial, setShowTutorial] = useState(() => shouldShowTutorial());
+  const [showTutorial, setShowTutorial] = useState(false);
+
+  useEffect(() => {
+    // Show tutorial only if DB flag says not seen yet (new accounts only)
+    if (user && user.is_tutorial_seen === false) {
+      setShowTutorial(true);
+    }
+  }, [user]);
 
   if (loading) return (
     <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
@@ -43,12 +50,11 @@ function ProtectedRoute({ children }) {
     </div>
   );
   if (!user) return <Navigate to="/login" replace />;
-  // Show onboarding modal if user hasn't completed it yet
   if (!user.is_onboarded) {
     return (
       <>
         {children}
-        <OnboardingModal onComplete={() => { refresh?.(); setShowTutorial(shouldShowTutorial()); }} />
+        <OnboardingModal onComplete={() => refresh?.()} />
       </>
     );
   }

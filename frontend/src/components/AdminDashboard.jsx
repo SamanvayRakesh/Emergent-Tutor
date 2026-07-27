@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import { ShieldCheck, Users, TrendingUp, GraduationCap, Eye, EyeOff, CheckCircle, XCircle, RefreshCw, IndianRupee } from 'lucide-react';
+import { ShieldCheck, Users, TrendingUp, GraduationCap, Eye, EyeOff, CheckCircle, XCircle, RefreshCw, IndianRupee, MessageSquarePlus, Bug, Lightbulb, MessageCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -20,6 +20,7 @@ export default function AdminDashboard() {
         'earnings':       `${API}/admin/earnings`,
         'leaderboard':    `${API}/admin/leaderboard/users`,
         'grade-requests': `${API}/admin/grade-requests`,
+        'feedback':       `${API}/admin/feedback`,
       };
       const { data: res } = await axios.get(urlMap[t], { withCredentials: true });
       setData(prev => ({ ...prev, [t]: res }));
@@ -48,6 +49,14 @@ export default function AdminDashboard() {
     } catch { toast.error('Failed to resolve'); }
   };
 
+  const resolveFeedback = async (fbId) => {
+    try {
+      await axios.patch(`${API}/admin/feedback/${fbId}/resolve`, {}, { withCredentials: true });
+      toast.success('Marked as resolved');
+      fetchTab('feedback');
+    } catch { toast.error('Failed to resolve'); }
+  };
+
   const fmt = (n) => `₹${(n || 0).toLocaleString('en-IN')}`;
 
   return (
@@ -65,11 +74,12 @@ export default function AdminDashboard() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-2 mb-6 border-b border-white/10 pb-4">
+        <div className="flex gap-2 mb-6 border-b border-white/10 pb-4 flex-wrap">
           {[
             { id: 'earnings', label: 'Earnings', icon: IndianRupee },
             { id: 'leaderboard', label: 'Leaderboard', icon: Users },
             { id: 'grade-requests', label: 'Grade Requests', icon: GraduationCap },
+            { id: 'feedback', label: 'Feedback', icon: MessageSquarePlus },
           ].map(({ id, label, icon: Icon }) => (
             <button key={id} data-testid={`admin-tab-${id}`}
               onClick={() => setTab(id)}
@@ -207,6 +217,45 @@ export default function AdminDashboard() {
               ))}
               {(!data['grade-requests']?.requests?.length) && (
                 <div className="text-center text-zinc-500 py-8 font-body text-sm">No grade change requests yet</div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Feedback Tab */}
+        {tab === 'feedback' && (
+          <div data-testid="admin-feedback-panel">
+            <div className="glass rounded-xl border border-white/5 overflow-hidden divide-y divide-white/5">
+              {data.feedback?.feedback?.map((fb) => (
+                <div key={fb.feedback_id} className="px-5 py-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full font-body ${
+                          fb.type === 'bug' ? 'bg-rose-500/20 text-rose-400' :
+                          fb.type === 'suggestion' ? 'bg-amber-500/20 text-amber-400' :
+                          'bg-cyan-500/20 text-cyan-400'
+                        }`}>
+                          {fb.type === 'bug' ? 'Bug' : fb.type === 'suggestion' ? 'Suggestion' : 'General'}
+                        </span>
+                        <span className="text-zinc-500 text-xs font-body">{fb.user_name} · {fb.user_email}</span>
+                      </div>
+                      <p className="text-white text-sm font-body">{fb.message}</p>
+                      <p className="text-zinc-600 text-xs font-body mt-1">{new Date(fb.created_at).toLocaleString()}</p>
+                    </div>
+                    {fb.status === 'open' ? (
+                      <button onClick={() => resolveFeedback(fb.feedback_id)}
+                        className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 text-xs font-semibold hover:bg-emerald-500/20 transition-all">
+                        <CheckCircle size={12} /> Resolve
+                      </button>
+                    ) : (
+                      <span className="flex-shrink-0 text-xs font-body text-emerald-500 font-semibold">Resolved</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+              {(!data.feedback?.feedback?.length) && (
+                <div className="text-center text-zinc-500 py-10 font-body text-sm">No feedback yet</div>
               )}
             </div>
           </div>

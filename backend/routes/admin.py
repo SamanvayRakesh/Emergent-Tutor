@@ -17,7 +17,11 @@ ADMIN_EMAILS = {
 
 async def _require_admin(request: Request) -> dict:
     user = await get_current_user(request)
-    if user.get("email", "").lower() not in ADMIN_EMAILS:
+    is_admin = (
+        user.get("email", "").lower() in ADMIN_EMAILS
+        or user.get("role") == "admin"
+    )
+    if not is_admin:
         raise HTTPException(status_code=403, detail="Admin access required")
     return user
 

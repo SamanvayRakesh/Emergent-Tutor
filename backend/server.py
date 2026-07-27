@@ -21,6 +21,7 @@ from routes import subscription as subscription_routes
 from routes import question_bank as question_bank_routes
 from routes import analytics as analytics_routes
 from routes import admin as admin_routes
+from routes import feedback as feedback_routes
 from curriculum_engine import load_curriculum_from_json
 
 
@@ -40,6 +41,7 @@ api_router.include_router(subscription_routes.router)
 api_router.include_router(question_bank_routes.router)
 api_router.include_router(analytics_routes.router)
 api_router.include_router(admin_routes.router)
+api_router.include_router(feedback_routes.router)
 
 app.add_middleware(
     CORSMiddleware,
@@ -95,6 +97,12 @@ async def startup_event():
     await db.users.update_many(
         {"credits": {"$exists": False}},
         {"$set": {"credits": 100}},
+    )
+    # Tutorial backfill: mark all pre-existing accounts as having seen tutorial (one-time migration)
+    # New accounts always get is_tutorial_seen=False set explicitly in registration
+    await db.users.update_many(
+        {"is_tutorial_seen": {"$exists": False}},
+        {"$set": {"is_tutorial_seen": True}},
     )
 
     # ── Curriculum ─────────────────────────────────────────────────────────────

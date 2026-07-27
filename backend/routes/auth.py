@@ -149,6 +149,7 @@ async def register(body: UserRegister, request: Request, response: Response):
         "email_verified": True,
         "status": "active",
         "verified_at": now.isoformat(),
+        "is_tutorial_seen": False,
     }
     await db.users.insert_one(user_doc)
 
@@ -372,3 +373,12 @@ async def update_school(request: Request, body: dict):
     )
     return {"message": "School updated", "school": school_id}
 
+
+
+
+@router.patch("/auth/tutorial/seen")
+async def mark_tutorial_seen(request: Request):
+    """Mark tutorial as seen in DB — call when user dismisses or completes tutorial."""
+    user = await get_current_user(request)
+    await db.users.update_one({"user_id": user["user_id"]}, {"$set": {"is_tutorial_seen": True}})
+    return {"success": True}

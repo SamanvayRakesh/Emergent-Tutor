@@ -1,10 +1,9 @@
 import { useState } from 'react';
+import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, Zap, MessageSquare, Trophy, FileText, X, ArrowRight, Check } from 'lucide-react';
 
-const TUTORIAL_KEY = 'aceit_tutorial_seen';
-
-const STEPS = [
+const API = `${process.env.REACT_APP_BACKEND_URL}/api`;const STEPS = [
   {
     icon: Sparkles,
     color: '#22d3ee',
@@ -86,11 +85,17 @@ const STEPS = [
 ];
 
 export function shouldShowTutorial() {
-  return !localStorage.getItem(TUTORIAL_KEY);
+  return !localStorage.getItem('aceit_tutorial_seen');
 }
 
 export function markTutorialSeen() {
-  localStorage.setItem(TUTORIAL_KEY, 'true');
+  localStorage.setItem('aceit_tutorial_seen', 'true');
+}
+
+async function markSeenInDB() {
+  try {
+    await axios.patch(`${API}/auth/tutorial/seen`, {}, { withCredentials: true });
+  } catch (e) { /* non-critical */ }
 }
 
 export default function NewUserTutorial({ onClose }) {
@@ -102,6 +107,7 @@ export default function NewUserTutorial({ onClose }) {
   const handleNext = () => {
     if (isLast) {
       markTutorialSeen();
+      markSeenInDB();
       onClose?.();
     } else {
       setStep(s => s + 1);
@@ -110,6 +116,7 @@ export default function NewUserTutorial({ onClose }) {
 
   const handleSkip = () => {
     markTutorialSeen();
+    markSeenInDB();
     onClose?.();
   };
 
