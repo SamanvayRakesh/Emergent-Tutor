@@ -177,7 +177,15 @@ async def login(body: UserLogin, request: Request, response: Response):
     email = body.email.lower().strip()
     user  = await db.users.find_one({"email": email}, {"_id": 0})
 
-    if not user or not user.get("password_hash") or not verify_password(body.password, user["password_hash"]):
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    # Google OAuth users have no password hash — give them a clear message
+    if user.get("auth_type") == "google" and not user.get("password_hash"):
+        raise HTTPException(
+            status_code=401,
+            detail="This account was created with Google Sign-In. Please use the 'Continue with Google' button to log in.",
+        )
+    if not user.get("password_hash") or not verify_password(body.password, user["password_hash"]):
         raise HTTPException(status_code=401, detail="Invalid email or password")
 
     # Ensure admin status is up-to-date

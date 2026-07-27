@@ -105,7 +105,7 @@ export default function IntroScreen({ onComplete }) {
           <img
             src="/aceit-logo.png"
             alt="Ace It"
-            className="w-72 h-auto object-contain"
+            className="w-96 h-auto object-contain"
           />
         </div>
 

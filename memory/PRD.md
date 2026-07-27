@@ -229,7 +229,9 @@ Enforced BNPS curriculum, KaTeX math rendering, Admin dashboard (3 hardcoded ema
 
 ## Completed (July 2026 — Session 2)
 - [x] Feedback system: POST /api/feedback (user submit), GET /api/admin/feedback + Resolve. Floating button on all pages. Admin dashboard "Feedback" tab.
-- [x] Removed "BNPS Curriculum" badge from login page → replaced with "Smart Curriculum"
+- [x] Enlarged logos: IntroScreen w-72→w-96, Sidebar h-11→h-16, AuthPage h-16→h-24
+- [x] Google OAuth login fix: Accounts created via Google Sign-In now show a clear helpful error instead of "Invalid credentials" when email/password login is attempted
+
 - [x] Tutorial now DB-backed (is_tutorial_seen field): migration marks all existing accounts as seen, new registrations start as false. `PATCH /api/auth/tutorial/seen` marks when dismissed.
 - [x] Out-of-syllabus AI: answers the question but redirects back to chapter scope; only refuses for explicitly harmful/illegal content
 - [x] Removed English subject from 3D intro screen — now shows only Mathematics, Science, Social Science

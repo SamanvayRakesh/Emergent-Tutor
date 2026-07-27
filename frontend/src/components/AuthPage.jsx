@@ -98,7 +98,7 @@ export default function AuthPage() {
       >
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-3 mb-4">
-            <img src="/aceit-logo.png" alt="Ace It" className="h-16 w-auto object-contain" />
+            <img src="/aceit-logo.png" alt="Ace It" className="h-24 w-auto object-contain" />
           </div>
           <p className="text-zinc-500 text-sm font-body">Your AI-powered exam prep tutor</p>
         </div>

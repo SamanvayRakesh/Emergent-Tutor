@@ -38,7 +38,7 @@ export default function Sidebar({ onClose }) {
       {/* Logo */}
       <div className="px-5 mb-6 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <img src="/aceit-logo.png" alt="Ace It" className="h-11 w-auto object-contain" />
+          <img src="/aceit-logo.png" alt="Ace It" className="h-16 w-auto object-contain" />
         </div>
         {onClose && (
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/5 text-zinc-500 hover:text-white transition-colors">
