@@ -194,7 +194,7 @@ Make questions test conceptual understanding, not just memorization. Include a b
 
     try:
         response = await openai_client.chat.completions.create(
-            model="gpt-4o",
+            model="deepseek/deepseek-v4-flash",
             messages=[
                 {"role": "system", "content": "You are an expert CBSE question paper setter. Generate clear, educational MCQ questions."},
                 {"role": "user", "content": prompt},

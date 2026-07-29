@@ -81,11 +81,11 @@ def build_routing_decision(
 
     # Model selection
     if critical or near_budget:
-        model = "gpt-4o-mini"
+        model = "deepseek/deepseek-v4-flash"
     elif category == "C" and plan_id == "elite":
-        model = "gpt-4o"
+        model = "deepseek/deepseek-v4-flash"
     else:
-        model = "gpt-4o-mini"
+        model = "deepseek/deepseek-v4-flash"
 
     # Token budget
     tier = 2 if critical else (1 if near_budget else 0)

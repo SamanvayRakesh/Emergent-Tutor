@@ -79,7 +79,7 @@ Generate EXACTLY {sec_a} questions in Section A, {sec_b} in Section B, {sec_c} i
 
     try:
         response = await openai_client.chat.completions.create(
-            model="gpt-4o",
+            model="deepseek/deepseek-v4-flash",
             messages=[
                 {"role": "system", "content": "Expert CBSE question paper setter."},
                 {"role": "user", "content": prompt},
@@ -217,7 +217,7 @@ Vary difficulty: 2 medium, 2 hard, 1 application-based."""
 
     try:
         response = await openai_client.chat.completions.create(
-            model="gpt-4o",
+            model="deepseek/deepseek-v4-flash",
             messages=[
                 {"role": "system", "content": "Expert CBSE adaptive quiz generator. Laser-focused on specific weak topics."},
                 {"role": "user", "content": prompt},

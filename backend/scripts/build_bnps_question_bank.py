@@ -36,7 +36,7 @@ MAX_CHARS      = 6000
 
 mongo_client = AsyncIOMotorClient(MONGO_URL)
 db = mongo_client[DB_NAME]
-openai_client = AsyncOpenAI(api_key=OPENAI_KEY)
+openai_client = AsyncOpenAI(api_key=OPENAI_KEY, base_url="https://openrouter.ai/api/v1")
 
 
 def extract_pdf_text(pdf_path: str) -> str:
@@ -96,7 +96,7 @@ Respond ONLY with valid JSON:
 }}"""
     try:
         resp = await openai_client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="deepseek/deepseek-v4-flash",
             messages=[{"role": "user", "content": prompt}],
             max_tokens=4000,
             temperature=0.7,

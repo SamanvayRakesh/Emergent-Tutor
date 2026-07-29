@@ -223,7 +223,7 @@ async def get_streak_reminder(request: Request):
         )
         try:
             resp = await openai_client.chat.completions.create(
-                model="gpt-4o", messages=[{"role": "user", "content": prompt}],
+                model="deepseek/deepseek-v4-flash", messages=[{"role": "user", "content": prompt}],
                 response_format={"type": "json_object"}, temperature=0.9, max_tokens=120,
             )
             data = json.loads(resp.choices[0].message.content)

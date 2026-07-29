@@ -299,7 +299,7 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
             },
             {"role": "user", "content": body.content},
         ]
-        ai_model   = "gpt-4o-mini"
+        ai_model   = "deepseek/deepseek-v4-flash"
         max_tokens = 180
     else:
         # KB MISS — full generation, token-capped by budget tier

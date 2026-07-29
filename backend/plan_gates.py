@@ -17,7 +17,7 @@ PLANS = {
             "leaderboard_full": False,
             "deep_analytics": False,
             "ai_memory": False,
-            "ai_model": "gpt-4o-mini",
+            "ai_model": "deepseek/deepseek-v4-flash",
         },
         "highlights": [
             "10 AI messages / day",
@@ -41,7 +41,7 @@ PLANS = {
             "leaderboard_full": True,
             "deep_analytics": True,
             "ai_memory": True,
-            "ai_model": "gpt-4o-mini",
+            "ai_model": "deepseek/deepseek-v4-flash",
         },
         "highlights": [
             "500 AI credits / month",
@@ -71,7 +71,7 @@ PLANS = {
             "exam_countdown": True,
             "advanced_adaptive": True,
             "performance_prediction": True,
-            "ai_model": "gpt-4o-mini",
+            "ai_model": "deepseek/deepseek-v4-flash",
         },
         "highlights": [
             "1,000 AI credits / month",
@@ -100,7 +100,7 @@ PLANS = {
             "exam_countdown": True,
             "priority_responses": True,
             "performance_prediction": True,
-            "ai_model": "gpt-4o",
+            "ai_model": "deepseek/deepseek-v4-flash",
         },
         "highlights": [
             "5,000 AI credits / month",
@@ -221,7 +221,7 @@ async def has_feature(user_id: str, feature_key: str) -> bool:
 def get_ai_model_for_complexity(user_plan_id: str, complexity: str) -> str:
     """Legacy compat helper."""
     if complexity == "simple":
-        return "gpt-4o-mini"
+        return "deepseek/deepseek-v4-flash"
     if complexity == "complex" and user_plan_id == "elite":
-        return "gpt-4o"
-    return "gpt-4o-mini"
+        return "deepseek/deepseek-v4-flash"
+    return "deepseek/deepseek-v4-flash"

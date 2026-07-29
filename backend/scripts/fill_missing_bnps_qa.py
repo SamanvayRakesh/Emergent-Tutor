@@ -93,7 +93,7 @@ async def generate_qa(subject: str, chapter: str, ch_no: int, client: AsyncOpenA
     )
     try:
         resp = await client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="deepseek/deepseek-v4-flash",
             messages=[{"role": "user", "content": prompt}],
             max_tokens=4000, temperature=0.7,
         )

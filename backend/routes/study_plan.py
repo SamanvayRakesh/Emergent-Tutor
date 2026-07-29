@@ -172,7 +172,7 @@ Return ONLY valid JSON (no markdown, no backticks):
 
     try:
         response = await openai_client.chat.completions.create(
-            model="gpt-4o",
+            model="deepseek/deepseek-v4-flash",
             messages=[{"role": "user", "content": prompt}],
             response_format={"type": "json_object"},
             temperature=0.7,

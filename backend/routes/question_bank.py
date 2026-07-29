@@ -219,7 +219,7 @@ async def _run_bnps_build():
                     _bnps_build_status["phase"] = "building"
                     try:
                         resp = await openai_client.chat.completions.create(
-                            model="gpt-4o-mini",
+                            model="deepseek/deepseek-v4-flash",
                             messages=[{"role": "user", "content": (
                                 f"Build a Q&A knowledge base for Grade 8 {subject} at Brooklyn National Public School.\n"
                                 f"Chapter: \"{bnps_name}\"\n\nTEXT:\n{text[:4000]}\n\n"
@@ -351,7 +351,7 @@ async def _run_kb_build():
             # Generate Q&A pairs
             try:
                 resp = await openai_client.chat.completions.create(
-                    model="gpt-4o-mini",
+                    model="deepseek/deepseek-v4-flash",
                     messages=[
                         {
                             "role": "system",
