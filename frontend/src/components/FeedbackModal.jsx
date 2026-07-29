@@ -43,7 +43,7 @@ export default function FeedbackModal() {
         onClick={() => setOpen(true)}
         data-testid="feedback-btn"
         title="Send Feedback"
-        className="fixed bottom-6 right-6 z-50 w-12 h-12 rounded-full bg-zinc-800 border border-white/10 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-700 hover:border-white/20 shadow-xl transition-all hover:scale-110"
+        className="fixed bottom-6 left-6 z-50 w-12 h-12 rounded-full bg-zinc-800 border border-white/10 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-700 hover:border-white/20 shadow-xl transition-all hover:scale-110"
       >
         <MessageSquarePlus size={20} />
       </button>
