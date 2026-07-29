@@ -146,7 +146,7 @@ async def _run_bnps_build():
 
     try:
         os.makedirs(PDF_DIR, exist_ok=True)
-        openai_client = AsyncOpenAI(api_key=OPENAI_KEY)
+        openai_client = AsyncOpenAI(api_key=OPENAI_KEY, base_url="https://openrouter.ai/api/v1")
 
         # Ensure DB indexes (handle conflict with existing text index)
         try:
@@ -285,7 +285,7 @@ async def _run_kb_build():
     QA_PER_CHAPTER = 20
 
     try:
-        openai_client = AsyncOpenAI(api_key=OPENAI_API_KEY)
+        openai_client = AsyncOpenAI(api_key=OPENAI_API_KEY, base_url="https://openrouter.ai/api/v1")
         with open(METADATA_JSON) as f:
             meta = json.load(f)
 
