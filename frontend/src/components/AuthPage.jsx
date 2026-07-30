@@ -20,6 +20,7 @@ export default function AuthPage() {
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState('');
   const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [googleHint, setGoogleHint] = useState(false);
   const [form, setForm]         = useState({ email: '', password: '', name: '', school: '' });
   const [schools, setSchools]   = useState(FALLBACK_SCHOOLS);
   const { login } = useAuth();
@@ -79,8 +80,21 @@ export default function AuthPage() {
       nav('/', { replace: true });
     } catch (err) {
       const detail = err.response?.data?.detail;
-      if (err.response?.status === 429) { setError(formatError(detail)); return; }
-      setError(formatError(detail) || err.message);
+      const msg = formatError(detail) || err.message;
+      setGoogleHint(false);
+      if (err.response?.status === 429) { setError(msg); return; }
+      // Google sign-in conflict — show special prompt
+      if (typeof detail === 'string' && detail.toLowerCase().includes('google sign-in')) {
+        setGoogleHint(true);
+        setError('');
+        return;
+      }
+      // Duplicate email on sign-up — suggest switching to login
+      if (tab === 'register' && typeof detail === 'string' && detail.toLowerCase().includes('already exists')) {
+        setError('An account with this email already exists. Try signing in instead.');
+        return;
+      }
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -115,7 +129,7 @@ export default function AuthPage() {
           <div className="flex rounded-xl bg-zinc-900 p-1 mb-6 gap-1">
             {['login', 'register'].map(t => (
               <button key={t} data-testid={`auth-tab-${t}`}
-                onClick={() => { setTab(t); setError(''); }}
+                onClick={() => { setTab(t); setError(''); setGoogleHint(false); }}
                 className={`flex-1 py-2 rounded-lg text-sm font-body font-semibold transition-all ${tab === t ? 'bg-cyan-500 text-black shadow-lg' : 'text-zinc-400 hover:text-white'}`}>
                 {t === 'login' ? 'Sign In' : 'Sign Up'}
               </button>
@@ -249,12 +263,40 @@ export default function AuthPage() {
               </label>
             )}
 
+            {/* Google account hint */}
+            {googleHint && (
+              <div data-testid="google-hint-banner"
+                className="p-3 bg-blue-500/10 rounded-lg border border-blue-500/25 flex flex-col gap-2">
+                <div className="flex gap-2">
+                  <svg width="14" height="14" viewBox="0 0 18 18" className="shrink-0 mt-0.5">
+                    <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" />
+                    <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" />
+                    <path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z" />
+                    <path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 7.29C4.672 5.163 6.656 3.58 9 3.58z" />
+                  </svg>
+                  <p className="text-blue-300 text-xs font-body">This account was created with Google. Please use Google to sign in.</p>
+                </div>
+                <button type="button" onClick={handleGoogle}
+                  className="w-full py-2 rounded-lg bg-white text-zinc-900 font-heading font-bold text-xs flex items-center justify-center gap-2 hover:bg-zinc-100 transition-all">
+                  Continue with Google
+                </button>
+              </div>
+            )}
+
             {/* Error */}
             {error && (
               <div data-testid="auth-error"
-                className="text-red-400 text-xs font-body p-3 bg-red-500/10 rounded-lg border border-red-500/20 flex gap-2">
-                <AlertTriangle size={14} className="shrink-0 mt-0.5" />
-                <p>{error}</p>
+                className="text-red-400 text-xs font-body p-3 bg-red-500/10 rounded-lg border border-red-500/20 flex flex-col gap-2">
+                <div className="flex gap-2">
+                  <AlertTriangle size={14} className="shrink-0 mt-0.5" />
+                  <p>{error}</p>
+                </div>
+                {tab === 'register' && error.includes('already exists') && (
+                  <button type="button" onClick={() => { setTab('login'); setError(''); }}
+                    className="text-cyan-400 text-xs font-body hover:underline text-left">
+                    Switch to Sign In →
+                  </button>
+                )}
               </div>
             )}
 

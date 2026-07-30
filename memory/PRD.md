@@ -229,11 +229,10 @@ Enforced BNPS curriculum, KaTeX math rendering, Admin dashboard (3 hardcoded ema
 
 ## Completed (July 2026 — Session 3)
 - [x] Fixed sidebar overflow: Added `overflow-y-auto min-h-0` to nav element so all items remain scrollable and bottom buttons (Sign Out, Send Feedback) are always visible
-- [x] Moved FeedbackModal to Layout.jsx: showFeedback state lifted to Layout, FeedbackModal rendered at top level (outside sidebar tree), Sidebar receives onFeedbackOpen callback — modal now opens as a true full-screen overlay in the main page area
-- [x] Fixed FeedbackModal X close button: Changed onClick from `setOpen(false)` to `handleClose()` — now correctly notifies parent to set showFeedback=false, stopping the immediate re-open loop
-- [x] Added data-testid="feedback-close-btn" to the X button for testability
-- [x] Switched AI from OpenAI GPT-4o to DeepSeek V4 Flash via OpenRouter (base_url in core.py, model in ai_router.py)
-- [x] Send button in ChatPage fixed
+- [x] Moved FeedbackModal to Layout.jsx: showFeedback state lifted to Layout, FeedbackModal rendered at top level (outside sidebar tree), Sidebar receives onFeedbackOpen callback
+- [x] Fixed FeedbackModal X close button: Changed onClick from `setOpen(false)` to `handleClose()` — stops the immediate re-open loop
+- [x] CORS fix: Hardcoded `https://ace-it.in` into ALLOWED_ORIGINS in server.py so production auth requests are never CORS-blocked regardless of FRONTEND_URL value
+- [x] Auth UX improvements: Google-auth conflict now shows a blue inline "Continue with Google" banner instead of generic "Something went wrong". Duplicate email on sign-up shows "Try signing in instead" with a one-click "Switch to Sign In" link.
 
 ## Completed (July 2026 — Session 2)
 - [x] Feedback system: POST /api/feedback (user submit), GET /api/admin/feedback + Resolve. Floating button on all pages. Admin dashboard "Feedback" tab.
