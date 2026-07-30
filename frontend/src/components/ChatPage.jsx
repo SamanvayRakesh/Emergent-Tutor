@@ -601,7 +601,7 @@ export default function ChatPage() {
               style={{ minHeight: '44px', maxHeight: '120px' }}
             />
           </div>
-          <button onClick={sendMessage} disabled={!input.trim() || streaming} data-testid="send-message-btn"
+          <button onClick={() => sendMessage()} disabled={!input.trim() || streaming} data-testid="send-message-btn"
             className="w-11 h-11 rounded-xl bg-cyan-500 hover:bg-cyan-400 disabled:opacity-40 flex items-center justify-center transition-all flex-shrink-0">
             <Send size={18} className="text-black" />
           </button>

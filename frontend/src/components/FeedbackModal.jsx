@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquarePlus, X, Bug, Lightbulb, MessageCircle, Send, CheckCircle } from 'lucide-react';
+import { X, Bug, Lightbulb, MessageCircle, Send, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
@@ -12,12 +12,23 @@ const TYPES = [
   { id: 'general',    label: 'General',     icon: MessageCircle, color: '#22d3ee', bg: 'bg-cyan-500/10 border-cyan-500/30' },
 ];
 
-export default function FeedbackModal() {
-  const [open, setOpen] = useState(false);
+export default function FeedbackModal({ externalOpen, onExternalClose }) {
+  const [open, setOpen] = useState(externalOpen || false);
   const [type, setType] = useState('general');
   const [message, setMessage] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
+
+  // Sync with external control
+  if (externalOpen && !open) setOpen(true);
+
+  const handleClose = () => {
+    setOpen(false);
+    setDone(false);
+    setMessage('');
+    setType('general');
+    onExternalClose?.();
+  };
 
   const submit = async () => {
     if (!message.trim() || message.trim().length < 5) {
@@ -28,7 +39,7 @@ export default function FeedbackModal() {
     try {
       await axios.post(`${API}/feedback`, { type, message }, { withCredentials: true });
       setDone(true);
-      setTimeout(() => { setOpen(false); setDone(false); setMessage(''); setType('general'); }, 2000);
+      setTimeout(() => handleClose(), 2000);
     } catch (e) {
       toast.error('Could not send feedback. Please try again.');
     } finally {
@@ -37,20 +48,8 @@ export default function FeedbackModal() {
   };
 
   return (
-    <>
-      {/* Floating trigger button */}
-      <button
-        onClick={() => setOpen(true)}
-        data-testid="feedback-btn"
-        title="Send Feedback"
-        className="fixed bottom-6 left-6 z-50 w-12 h-12 rounded-full bg-zinc-800 border border-white/10 flex items-center justify-center text-zinc-400 hover:text-white hover:bg-zinc-700 hover:border-white/20 shadow-xl transition-all hover:scale-110"
-      >
-        <MessageSquarePlus size={20} />
-      </button>
-
-      {/* Modal */}
-      <AnimatePresence>
-        {open && (
+    <AnimatePresence>
+      {open && (
           <div className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
             <motion.div
               initial={{ opacity: 0, y: 40, scale: 0.97 }}
@@ -127,6 +126,5 @@ export default function FeedbackModal() {
           </div>
         )}
       </AnimatePresence>
-    </>
   );
 }

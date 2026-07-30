@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import SchoolSelectModal from './SchoolSelectModal';
-import FeedbackModal from './FeedbackModal';
 import { motion, AnimatePresence } from 'framer-motion';
 import Sidebar from './Sidebar';
 import CreditBadge from './CreditBadge';
@@ -75,8 +74,6 @@ export default function Layout() {
 
       {/* School selection onboarding modal — shown to users without a school */}
       <SchoolSelectModal />
-      {/* Global feedback button */}
-      <FeedbackModal />
     </div>
   );
 }

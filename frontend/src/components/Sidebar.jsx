@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { LayoutDashboard, MessageSquare, BookOpen, TrendingUp, Trophy, User, LogOut, Zap, X, Flame, ChevronRight, Crown, FileText, CalendarDays, ShieldCheck, Sparkles } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, BookOpen, TrendingUp, Trophy, User, LogOut, Zap, X, Flame, ChevronRight, Crown, FileText, CalendarDays, ShieldCheck, Sparkles, MessageSquarePlus } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useSubscription } from '../contexts/SubscriptionContext';
+import FeedbackModal from './FeedbackModal';
 
 const ADMIN_EMAILS = ['taniknpoojari@gmail.com', 'truecursemahito28@gmail.com', 'samanvayrakesh7@gmail.com'];
 
@@ -23,6 +24,7 @@ export default function Sidebar({ onClose }) {
   const { user, logout } = useAuth();
   const { plan, isPaid } = useSubscription();
   const nav = useNavigate();
+  const [showFeedback, setShowFeedback] = useState(false);
 
   const handleLogout = async () => {
     await logout();
@@ -161,7 +163,16 @@ export default function Sidebar({ onClose }) {
           <LogOut size={18} />
           <span>Sign Out</span>
         </button>
+
+        {/* Feedback button */}
+        <button onClick={() => { setShowFeedback(true); onClose?.(); }} data-testid="sidebar-feedback-btn"
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-zinc-500 hover:text-cyan-400 hover:bg-cyan-500/5 transition-all text-sm font-body">
+          <MessageSquarePlus size={18} />
+          <span>Send Feedback</span>
+        </button>
       </div>
+
+      {showFeedback && <FeedbackModal externalOpen onExternalClose={() => setShowFeedback(false)} />}
     </div>
   );
 }
