@@ -65,7 +65,7 @@ export default function FeedbackModal({ externalOpen, onExternalClose }) {
                   <MessageSquarePlus size={18} className="text-cyan-400" />
                   <h3 className="text-white font-heading font-bold text-sm">Send Feedback</h3>
                 </div>
-                <button onClick={() => setOpen(false)} className="p-1 rounded-lg text-zinc-500 hover:text-white hover:bg-white/5 transition-all">
+                <button onClick={handleClose} data-testid="feedback-close-btn" className="p-1 rounded-lg text-zinc-500 hover:text-white hover:bg-white/5 transition-all">
                   <X size={16} />
                 </button>
               </div>

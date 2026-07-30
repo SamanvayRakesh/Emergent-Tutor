@@ -4,16 +4,18 @@ import SchoolSelectModal from './SchoolSelectModal';
 import { motion, AnimatePresence } from 'framer-motion';
 import Sidebar from './Sidebar';
 import CreditBadge from './CreditBadge';
+import FeedbackModal from './FeedbackModal';
 import { Menu, X } from 'lucide-react';
 
 export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
 
   return (
     <div className="flex h-screen bg-zinc-950 overflow-hidden">
       {/* Desktop Sidebar */}
       <div className="hidden lg:block w-64 flex-shrink-0">
-        <Sidebar />
+        <Sidebar onFeedbackOpen={() => setShowFeedback(true)} />
       </div>
 
       {/* Mobile Sidebar Overlay */}
@@ -30,7 +32,7 @@ export default function Layout() {
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
               className="fixed left-0 top-0 bottom-0 w-64 z-50 lg:hidden"
             >
-              <Sidebar onClose={() => setSidebarOpen(false)} />
+              <Sidebar onClose={() => setSidebarOpen(false)} onFeedbackOpen={() => setShowFeedback(true)} />
             </motion.div>
           </>
         )}
@@ -74,6 +76,11 @@ export default function Layout() {
 
       {/* School selection onboarding modal — shown to users without a school */}
       <SchoolSelectModal />
+
+      {/* Feedback Modal — rendered at top level to avoid sidebar clipping */}
+      {showFeedback && (
+        <FeedbackModal externalOpen onExternalClose={() => setShowFeedback(false)} />
+      )}
     </div>
   );
 }
