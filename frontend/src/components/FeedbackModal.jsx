@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Bug, Lightbulb, MessageCircle, Send, CheckCircle } from 'lucide-react';
+import { MessageSquarePlus, X, Bug, Lightbulb, MessageCircle, Send, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;

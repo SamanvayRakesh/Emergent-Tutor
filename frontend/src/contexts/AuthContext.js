@@ -12,7 +12,8 @@ export function AuthProvider({ children }) {
   const checkAuth = useCallback(async () => {
     // CRITICAL: If returning from OAuth callback, skip the /me check.
     // AuthCallback will exchange the session_id and establish the session first.
-    if (window.location.hash?.includes('session_id=')) {
+    const hasOAuth = window.location.hash?.includes('session_id=') || window.location.search?.includes('session_id=');
+    if (hasOAuth) {
       setLoading(false);
       return;
     }

@@ -14,8 +14,12 @@ export default function AuthCallback() {
     if (hasProcessed.current) return;
     hasProcessed.current = true;
 
+    // Check hash (#session_id=xxx) and query string (?session_id=xxx)
     const hash = window.location.hash;
-    const match = hash.match(/session_id=([^&]+)/);
+    const search = window.location.search;
+    const hashMatch = hash.match(/session_id=([^&]+)/);
+    const queryMatch = search.match(/[?&]session_id=([^&]+)/);
+    const match = hashMatch || queryMatch;
     if (!match) {
       nav('/login', { replace: true });
       return;

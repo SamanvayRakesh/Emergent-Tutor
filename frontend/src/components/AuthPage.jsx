@@ -9,21 +9,27 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
 const SPECIAL_CHAR_REGEX = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>/?`~]/;
 
+const FALLBACK_SCHOOLS = [
+  { id: 'brooklyn_national', name: 'Brooklyn National Public School', available: true },
+  { id: 'national_public',   name: 'National Public School', available: false, note: 'Coming Soon' },
+];
+
 export default function AuthPage() {
   const [tab, setTab]           = useState('login');
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState('');
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [form, setForm]         = useState({ email: '', password: '', name: '', school: '' });
-  const [schools, setSchools]   = useState([]);
+  const [schools, setSchools]   = useState(FALLBACK_SCHOOLS);
   const { login } = useAuth();
   const nav = useNavigate();
 
   useEffect(() => {
-    if (tab === 'register' && schools.length === 0) {
+    if (tab === 'register') {
       axios.get(`${API}/auth/schools`)
-        .then(r => setSchools(r.data.schools || []))
-        .catch(() => {});
+        .then(r => { if (r.data.schools?.length) setSchools(r.data.schools); })
+        .catch(() => setSchools(FALLBACK_SCHOOLS));
     }
   }, [tab]); // eslint-disable-line
 
@@ -59,6 +65,7 @@ export default function AuthPage() {
       if (!form.school) { setError('Please select your school to continue.'); return; }
       if (form.password.length < 6) { setError('Password must be at least 6 characters.'); return; }
       if (!SPECIAL_CHAR_REGEX.test(form.password)) { setError('Password must contain at least one special character (e.g. @, #, !, $).'); return; }
+      if (!agreedToTerms) { setError('Please accept the Terms & Conditions and Privacy Policy to continue.'); return; }
     }
 
     setLoading(true);
@@ -226,6 +233,22 @@ export default function AuthPage() {
               </div>
             )}
 
+            {/* T&C checkbox — register only */}
+            {tab === 'register' && (
+              <label className="flex items-start gap-2.5 cursor-pointer group" data-testid="terms-checkbox-label">
+                <input type="checkbox" checked={agreedToTerms} onChange={e => setAgreedToTerms(e.target.checked)}
+                  data-testid="terms-checkbox"
+                  className="mt-0.5 w-4 h-4 accent-cyan-500 cursor-pointer flex-shrink-0" />
+                <span className="text-zinc-400 text-xs font-body leading-relaxed">
+                  I agree to the{' '}
+                  <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline">Terms & Conditions</a>
+                  {' '}and{' '}
+                  <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline">Privacy Policy</a>
+                  , including the use of AI, data collection, and payment terms.
+                </span>
+              </label>
+            )}
+
             {/* Error */}
             {error && (
               <div data-testid="auth-error"
@@ -235,7 +258,7 @@ export default function AuthPage() {
               </div>
             )}
 
-            <button type="submit" data-testid="auth-submit-btn" disabled={loading}
+            <button type="submit" data-testid="auth-submit-btn" disabled={loading || (tab === 'register' && !agreedToTerms)}
               className="w-full py-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-heading font-bold text-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50 mt-2">
               {loading
                 ? <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
@@ -246,7 +269,7 @@ export default function AuthPage() {
 
           {tab === 'register' && (
             <p className="text-zinc-600 text-xs text-center mt-4 font-body">
-              By signing up, you agree to learn and grow with AceIt AI
+              Already have an account? <button onClick={() => setTab('login')} className="text-cyan-400 hover:underline">Sign in</button>
             </p>
           )}
         </div>

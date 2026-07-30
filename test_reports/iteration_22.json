@@ -1,0 +1,32 @@
+{
+  "summary": "Frontend testing of sign-up school selector, T&C checkbox, Terms/Privacy pages, FeedbackModal fix, and Google OAuth code fix. Found and fixed a critical bug where /terms and /privacy routes showed IntroScreen instead of actual content.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "App.js - IntroScreen routing",
+        "issue": "FIXED: /terms and /privacy routes showed IntroScreen (intro animation) instead of the actual page content when visited directly for the first time (sessionStorage empty). Fix applied: skip intro when path is /terms or /privacy.",
+        "selector": "N/A",
+        "priority": "HIGH - was blocking T&C and Privacy page access"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/frontend/src/App.js"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "The showIntro check in App() didn't account for /terms and /privacy routes — these are public pages that should never be blocked by the intro animation. Fixed by adding path check in useState initializer."
+  ],
+  "updated_files": ["/app/frontend/src/App.js"],
+  "success_rate": {"backend": "N/A", "frontend": "100%"},
+  "test_credentials": "admin@neuralearn.ai / Admin@123456",
+  "seed_data_creation": "",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "All 6 features tested and passing: (1) School selector shows Brooklyn National Public School + National Public School. (2) T&C checkbox gates Create Account button. (3) T&C/Privacy links open in _blank. (4) /terms page loads with full content. (5) /privacy page loads with full content. (6) FeedbackModal opens without MessageSquarePlus error. The critical fix was adding path check in App.js showIntro state initializer to skip intro for /terms and /privacy routes.",
+  "rca_of_bug": "Root cause: App.js App() function initializes showIntro=true for all first-time visitors regardless of route. When user navigates directly to /terms or /privacy (new tab), sessionStorage is empty so showIntro=true, rendering IntroScreen INSTEAD of AppRouter. Routes /terms and /privacy are never matched. Fix: Added `if (path === '/terms' || path === '/privacy') return false;` in the useState initializer."
+}

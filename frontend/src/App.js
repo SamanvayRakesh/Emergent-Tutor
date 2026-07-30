@@ -11,6 +11,8 @@ import { Toaster } from 'sonner';
 import IntroScreen from './components/IntroScreen';
 import AuthPage from './components/AuthPage';
 import AuthCallback from './components/AuthCallback';
+import TermsPage from './components/TermsPage';
+import PrivacyPage from './components/PrivacyPage';
 import EmailVerificationPage from './components/EmailVerificationPage';
 import Layout from './components/Layout';
 import Dashboard from './components/Dashboard';
@@ -73,14 +75,17 @@ function ProtectedRoute({ children }) {
 function AppRouter() {
   const location = useLocation();
 
-  // Handle OAuth callback synchronously during render (prevents race conditions)
-  if (location.hash?.includes('session_id=')) {
+  // Handle OAuth callback — check both hash (#session_id=) and query string (?session_id=)
+  const hasOAuth = location.hash?.includes('session_id=') || location.search?.includes('session_id=');
+  if (hasOAuth) {
     return <AuthCallback />;
   }
 
   return (
     <Routes>
-      <Route path="/login" element={<AuthPage />} />
+      <Route path="/login"   element={<AuthPage />} />
+        <Route path="/terms"   element={<TermsPage />} />
+        <Route path="/privacy" element={<PrivacyPage />} />
       <Route path="/verify-email" element={<EmailVerificationPage />} />
       <Route path="/resend-verification" element={<EmailVerificationPage />} />
       <Route path="/" element={
@@ -111,8 +116,12 @@ function AppRouter() {
 
 function App() {
   const [showIntro, setShowIntro] = useState(() => {
-    // Skip intro for OAuth callback
-    if (window.location.hash?.includes('session_id=')) return false;
+    // Skip intro for OAuth callback (both hash and query string)
+    const hasOAuth = window.location.hash?.includes('session_id=') || window.location.search?.includes('session_id=');
+    if (hasOAuth) return false;
+    // Skip intro for public pages
+    const path = window.location.pathname;
+    if (path === '/terms' || path === '/privacy') return false;
     return !sessionStorage.getItem('aceit_intro_seen');
   });
 
