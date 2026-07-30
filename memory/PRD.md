@@ -229,7 +229,14 @@ Enforced BNPS curriculum, KaTeX math rendering, Admin dashboard (3 hardcoded ema
 
 ## Completed (July 2026 — Session 2)
 - [x] Feedback system: POST /api/feedback (user submit), GET /api/admin/feedback + Resolve. Floating button on all pages. Admin dashboard "Feedback" tab.
-- [x] Enlarged logos: IntroScreen w-72→w-96, Sidebar h-11→h-16, AuthPage h-16→h-24
+- [x] Google OAuth: Now handles session_id from both URL hash (#session_id=) AND query string (?session_id=)
+- [x] School selector: Hardcoded fallback prevents blank list if API fails on production
+- [x] T&C checkbox: Required in sign-up form, gates Create Account button, links to /terms and /privacy
+- [x] Terms & Conditions page (/terms): Full legal content covering AI, credits, payments, conduct, liability
+- [x] Privacy Policy page (/privacy): Covers data collection, OpenRouter/DeepSeek, Razorpay, children's privacy
+- [x] FeedbackModal MessageSquarePlus crash fixed (re-added to imports)
+- [x] /terms and /privacy bypass intro animation (routing fix)
+
 - [x] Google OAuth login fix: Accounts created via Google Sign-In now show a clear helpful error instead of "Invalid credentials" when email/password login is attempted
 
 - [x] Tutorial now DB-backed (is_tutorial_seen field): migration marks all existing accounts as seen, new registrations start as false. `PATCH /api/auth/tutorial/seen` marks when dismissed.
