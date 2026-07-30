@@ -9,6 +9,16 @@ from fastapi import FastAPI, APIRouter
 from starlette.middleware.cors import CORSMiddleware
 
 from core import db, mongo_client, logger, FRONTEND_URL, hash_password
+
+# Build CORS allowed origins: always include known production domain + FRONTEND_URL + localhost
+_extra = os.environ.get('CORS_ORIGINS', '')
+ALLOWED_ORIGINS = list({
+    FRONTEND_URL,
+    "http://localhost:3000",
+    "https://ace-it.in",
+    *[o.strip() for o in _extra.split(',') if o.strip() and o.strip() != '*'],
+})
+
 from routes import auth as auth_routes
 from routes import chat as chat_routes
 from routes import syllabus as syllabus_routes
@@ -45,7 +55,7 @@ api_router.include_router(feedback_routes.router)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[FRONTEND_URL, "http://localhost:3000"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
