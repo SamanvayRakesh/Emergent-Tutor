@@ -227,6 +227,14 @@ Enforced BNPS curriculum, KaTeX math rendering, Admin dashboard (3 hardcoded ema
 - Duolingo-style Chat mastery progress (complete lessons to reach 100% mastery)
 - Daily Study Reminder Email (user-configurable time, email nudge with next task)
 
+## Completed (July 2026 — Session 3)
+- [x] Fixed sidebar overflow: Added `overflow-y-auto min-h-0` to nav element so all items remain scrollable and bottom buttons (Sign Out, Send Feedback) are always visible
+- [x] Moved FeedbackModal to Layout.jsx: showFeedback state lifted to Layout, FeedbackModal rendered at top level (outside sidebar tree), Sidebar receives onFeedbackOpen callback — modal now opens as a true full-screen overlay in the main page area
+- [x] Fixed FeedbackModal X close button: Changed onClick from `setOpen(false)` to `handleClose()` — now correctly notifies parent to set showFeedback=false, stopping the immediate re-open loop
+- [x] Added data-testid="feedback-close-btn" to the X button for testability
+- [x] Switched AI from OpenAI GPT-4o to DeepSeek V4 Flash via OpenRouter (base_url in core.py, model in ai_router.py)
+- [x] Send button in ChatPage fixed
+
 ## Completed (July 2026 — Session 2)
 - [x] Feedback system: POST /api/feedback (user submit), GET /api/admin/feedback + Resolve. Floating button on all pages. Admin dashboard "Feedback" tab.
 - [x] Google OAuth: Now handles session_id from both URL hash (#session_id=) AND query string (?session_id=)
