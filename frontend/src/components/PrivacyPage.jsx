@@ -23,7 +23,7 @@ export default function PrivacyPage() {
               <li><strong className="text-zinc-200">Usage data:</strong> Chat messages, quiz answers, scores, session duration, and feature interactions.</li>
               <li><strong className="text-zinc-200">Progress data:</strong> XP, credits, streaks, quiz history, and adaptive learning profile.</li>
               <li><strong className="text-zinc-200">Device data:</strong> IP address, browser type, and operating system (for security and analytics).</li>
-              <li><strong className="text-zinc-200">Payment data:</strong> Transaction IDs and subscription status (payment card details are handled exclusively by Razorpay).</li>
+              <li><strong className="text-zinc-200">Payment data:</strong> Transaction IDs and subscription status (payment card details are handled exclusively by our payment processor).</li>
             </ul>
           </section>
 
@@ -46,7 +46,7 @@ export default function PrivacyPage() {
             <ul className="list-disc pl-6 space-y-1 text-zinc-400">
               <li><strong className="text-zinc-200">OpenRouter:</strong> An AI API proxy. Your messages may be processed by models from DeepSeek, OpenAI, or other providers via OpenRouter's infrastructure. See <a href="https://openrouter.ai/privacy" target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline">OpenRouter Privacy Policy</a>.</li>
               <li><strong className="text-zinc-200">Google (Sign-In):</strong> If you sign in with Google, your Google profile information (name, email, profile photo) is shared with us. See <a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline">Google Privacy Policy</a>.</li>
-              <li><strong className="text-zinc-200">Razorpay (Payments):</strong> Payment processing. See <a href="https://razorpay.com/privacy/" target="_blank" rel="noopener noreferrer" className="text-cyan-400 hover:underline">Razorpay Privacy Policy</a>.</li>
+              <li><strong className="text-zinc-200">Payment Processor:</strong> Payment processing is handled by a third-party payment gateway. Your payment card details are never stored on our servers and are processed exclusively by our payment provider under their own privacy policy.</li>
             </ul>
             <p className="mt-3 text-amber-400">⚠️ Do not share sensitive personal information (passwords, Aadhaar numbers, financial details) in AI chat messages.</p>
           </section>

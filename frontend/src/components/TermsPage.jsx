@@ -59,14 +59,14 @@ export default function TermsPage() {
 
           <section>
             <h2 className="text-white text-lg font-heading font-bold mb-3">6. Payments and Subscriptions</h2>
-            <p className="mb-2">Premium features are available through paid subscriptions processed by <strong>Razorpay</strong> (a payment gateway registered in India). By making a purchase, you agree that:</p>
+            <p className="mb-2">Premium features are available through paid subscriptions processed by a third-party payment gateway. By making a purchase, you agree that:</p>
             <ul className="list-disc pl-6 space-y-1 text-zinc-400">
               <li>All payments are final. Refunds are issued at our sole discretion and only in cases of technical errors on our end.</li>
               <li>Subscription charges are recurring unless cancelled before the renewal date.</li>
               <li>You are responsible for all applicable taxes in your jurisdiction.</li>
-              <li>We are not liable for payment failures caused by your bank, card issuer, or Razorpay.</li>
+              <li>We are not liable for payment failures caused by your bank, card issuer, or payment gateway.</li>
               <li>Free trial periods (if offered) automatically convert to paid subscriptions unless cancelled.</li>
-              <li>Payment data is securely handled by Razorpay and is never stored on our servers.</li>
+              <li>Payment data is securely handled by our payment processor and is never stored on our servers.</li>
             </ul>
           </section>
 
