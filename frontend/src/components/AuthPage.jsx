@@ -7,7 +7,7 @@ import { useAuth } from '../contexts/AuthContext';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 const EMAIL_REGEX = /^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$/;
-const SPECIAL_CHAR_REGEX = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>/?`~]/;
+const SPECIAL_CHAR_REGEX = /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?`~]/;
 
 const FALLBACK_SCHOOLS = [
   { id: 'brooklyn_national', name: 'Brooklyn National Public School', available: true },
@@ -105,7 +105,7 @@ export default function AuthPage() {
     window.location.href = `https://auth.emergentagent.com/?redirect=${encodeURIComponent(redirectUrl)}`;
   };
 
-  // ── Main auth form ─────────────────────────────────────────────────────────
+  // ── Main auth form ────────────────────────────────────────────────────────[...] 
   return (
     <div className="min-h-screen bg-zinc-950 flex items-center justify-center relative overflow-hidden px-4">
       <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-violet-600/8 rounded-full blur-3xl pointer-events-none" />
@@ -138,7 +138,7 @@ export default function AuthPage() {
 
           {/* Google */}
           <button onClick={handleGoogle} data-testid="google-login-btn"
-            className="w-full flex items-center justify-center gap-3 py-3 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-white text-sm font-body font-medium transition-all mb-4">
+            className="w-full flex items-center justify-center gap-3 py-3 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-white text-sm font-body font-medium transition-all mb[...]
             <svg width="18" height="18" viewBox="0 0 18 18">
               <path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.875 2.684-6.615z" />
               <path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z" />
@@ -162,7 +162,8 @@ export default function AuthPage() {
                   <input data-testid="name-input" type="text" placeholder="Your name" required
                     name="name" autoComplete="name"
                     value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
-                    className="w-full bg-zinc-900 border border-white/10 rounded-xl pl-9 pr-4 py-3 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/30 transition-all font-body" />
+                    className="w-full bg-zinc-900 border border-white/10 rounded-xl pl-9 pr-4 py-3 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-cyan-500/50 focus:ring-1[...]"
+                  />
                 </div>
               </div>
             )}
@@ -172,7 +173,8 @@ export default function AuthPage() {
               <input data-testid="email-input" type="email" placeholder="Email address" required
                 name="email" autoComplete="email"
                 value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))}
-                className="w-full bg-zinc-900 border border-white/10 rounded-xl pl-9 pr-4 py-3 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/30 transition-all font-body" />
+                className="w-full bg-zinc-900 border border-white/10 rounded-xl pl-9 pr-4 py-3 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-cyan-500/50 focus:ring-1 foc[...]"
+              />
             </div>
 
             <div className="relative">
@@ -180,7 +182,8 @@ export default function AuthPage() {
               <input data-testid="password-input" type={showPass ? 'text' : 'password'} placeholder="Password" required
                 name="password" autoComplete={tab === 'login' ? 'current-password' : 'new-password'}
                 value={form.password} onChange={e => setForm(p => ({ ...p, password: e.target.value }))}
-                className="w-full bg-zinc-900 border border-white/10 rounded-xl pl-9 pr-10 py-3 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/30 transition-all font-body" />
+                className="w-full bg-zinc-900 border border-white/10 rounded-xl pl-9 pr-10 py-3 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-cyan-500/50 focus:ring-1 fo[...]"
+              />
               <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3 top-3.5 text-zinc-500 hover:text-zinc-300 transition-colors">
                 {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
@@ -301,7 +304,8 @@ export default function AuthPage() {
             )}
 
             <button type="submit" data-testid="auth-submit-btn" disabled={loading || (tab === 'register' && !agreedToTerms)}
-              className="w-full py-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-heading font-bold text-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50 mt-2">
+              className="w-full py-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-heading font-bold text-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50 m[...]"
+              >
               {loading
                 ? <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" />
                 : <>{tab === 'login' ? 'Sign In' : 'Create Account'}<ArrowRight size={16} /></>
@@ -324,6 +328,9 @@ export default function AuthPage() {
             </div>
           ))}
         </div>
+
+        {/* Ownership notice added as requested */}
+        <p className="text-zinc-500 text-[11px] text-center mt-4">This property belongs to Codegeeko Academy Private Limited</p>
       </motion.div>
     </div>
   );
