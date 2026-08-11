@@ -37,22 +37,18 @@ def _make_payment_hash(
     txnid: str, amount: str, productinfo: str,
     firstname: str, email: str,
     udf1: str = "", udf2: str = "", udf3: str = "", udf4: str = "", udf5: str = "",
-    si_details: str | None = None,
 ) -> str:
     """
-    Standard PayU hash:
+    PayU hash formula (same for regular AND SI mandate transactions):
       SHA512(key|txnid|amount|productinfo|firstname|email|udf1|udf2|udf3|udf4|udf5||||||SALT)
-    For SI mandate, si_details is appended before the salt:
-      SHA512(key|...|||||||||si_details|SALT)
+    si_details is a SEPARATE form field and is NOT included in the hash.
     """
     parts = [
         PAYU_KEY, txnid, amount, productinfo, firstname, email,
         udf1, udf2, udf3, udf4, udf5,
-        "", "", "", "", "",          # empty additional UDF slots
+        "", "", "", "", "",   # 5 empty slots (||||||SALT in PayU docs)
+        PAYU_SALT,
     ]
-    if si_details is not None:
-        parts.append(si_details)
-    parts.append(PAYU_SALT)
     return _sha512("|".join(parts))
 
 
@@ -113,7 +109,6 @@ async def payu_initiate(body: PayUInitiateRequest, request: Request):
     payment_hash = _make_payment_hash(
         txnid, amount, productinfo, firstname, email,
         udf1=body.plan,
-        si_details=si_details,
     )
 
     # Persist pending transaction (idempotent upsert)
