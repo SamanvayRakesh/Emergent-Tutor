@@ -1,8 +1,10 @@
 """Admin routes: leaderboard management, grade change requests, earnings."""
 import uuid
 from datetime import datetime, timezone
+from typing import List
 
 from fastapi import APIRouter, HTTPException, Request
+from pydantic import BaseModel
 
 from core import db, get_current_user, logger
 
@@ -156,3 +158,62 @@ async def admin_get_users(request: Request):
         {}, {"_id": 0, "password_hash": 0, "verification_token": 0}
     ).sort("created_at", -1).limit(500).to_list(500)
     return {"users": users, "total": len(users)}
+
+
+# ── Bulk credit reset ──────────────────────────────────────────────────────────
+
+class ResetCreditsRequest(BaseModel):
+    amount: int = 100
+    exclude_names: List[str] = []   # case-insensitive name fragments to preserve
+    exclude_emails: List[str] = []  # exact emails to preserve
+    exclude_user_ids: List[str] = []
+
+@router.post("/admin/reset-credits")
+async def admin_reset_credits(body: ResetCreditsRequest, request: Request):
+    """
+    Reset every non-admin user's credits to `amount` (default 100).
+    Accounts matching any exclude_names / exclude_emails / exclude_user_ids are left untouched.
+    """
+    await _require_admin(request)
+
+    # Always exclude admins
+    exclude_emails_lower = {e.lower() for e in body.exclude_emails}
+    exclude_uids         = set(body.exclude_user_ids)
+    exclude_name_frags   = [n.lower() for n in body.exclude_names]
+
+    # Fetch all non-admin users
+    all_users = await db.users.find(
+        {"role": {"$ne": "admin"}},
+        {"user_id": 1, "email": 1, "name": 1, "credits": 1, "_id": 0}
+    ).to_list(10000)
+
+    reset_ids, skipped = [], []
+    for u in all_users:
+        uid   = u.get("user_id", "")
+        email = (u.get("email") or "").lower()
+        name  = (u.get("name")  or "").lower()
+
+        # Check exclusions
+        if uid in exclude_uids:
+            skipped.append(uid); continue
+        if email in exclude_emails_lower:
+            skipped.append(uid); continue
+        if any(frag in name for frag in exclude_name_frags):
+            skipped.append(uid); continue
+
+        reset_ids.append(uid)
+
+    if reset_ids:
+        await db.users.update_many(
+            {"user_id": {"$in": reset_ids}},
+            {"$set": {"credits": body.amount}},
+        )
+
+    logger.info(f"Admin credit reset: {len(reset_ids)} users → {body.amount} credits, {len(skipped)} skipped")
+    return {
+        "success":      True,
+        "reset_count":  len(reset_ids),
+        "skipped_count": len(skipped),
+        "skipped_ids":  skipped,
+        "new_amount":   body.amount,
+    }

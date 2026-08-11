@@ -390,3 +390,45 @@ async def mark_tutorial_seen(request: Request):
     user = await get_current_user(request)
     await db.users.update_one({"user_id": user["user_id"]}, {"$set": {"is_tutorial_seen": True}})
     return {"success": True}
+
+
+
+@router.put("/auth/update-name")
+async def update_display_name(request: Request):
+    """Change display name — enforces a 7-day cooldown between changes."""
+    user = await get_current_user(request)
+    body = await request.json()
+    new_name = (body.get("name") or "").strip()
+
+    if not new_name or len(new_name) < 2:
+        raise HTTPException(status_code=400, detail="Name must be at least 2 characters.")
+    if len(new_name) > 40:
+        raise HTTPException(status_code=400, detail="Name must be 40 characters or fewer.")
+
+    # 7-day cooldown check
+    doc = await db.users.find_one({"user_id": user["user_id"]}, {"name_changed_at": 1, "_id": 0})
+    if doc and doc.get("name_changed_at"):
+        try:
+            last = datetime.fromisoformat(doc["name_changed_at"])
+            if last.tzinfo is None:
+                last = last.replace(tzinfo=timezone.utc)
+            delta = datetime.now(timezone.utc) - last
+            if delta.days < 7:
+                days_left = 7 - delta.days
+                raise HTTPException(
+                    status_code=429,
+                    detail=f"You can change your name again in {days_left} day{'s' if days_left != 1 else ''}."
+                )
+        except HTTPException:
+            raise
+        except Exception:
+            pass
+
+    await db.users.update_one(
+        {"user_id": user["user_id"]},
+        {"$set": {
+            "name": new_name,
+            "name_changed_at": datetime.now(timezone.utc).isoformat(),
+        }},
+    )
+    return {"success": True, "name": new_name}

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User, Mail, BookOpen, Zap, Flame, Trophy, Save, Shield, Star, Clock, Lock, Send, X, CheckCircle, AlertTriangle, Crown, ArrowRight, CreditCard, Package, Calendar, TrendingUp, LogOut } from 'lucide-react';
+import { User, Mail, BookOpen, Zap, Flame, Trophy, Save, Shield, Star, Clock, Lock, Send, X, CheckCircle, AlertTriangle, Crown, ArrowRight, CreditCard, Package, Calendar, TrendingUp, LogOut, Pencil, Check } from 'lucide-react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -28,6 +28,12 @@ export default function ProfilePage() {
   const [cancelLoading, setCancelLoading] = useState(false);
   const [credits, setCredits]             = useState(user?.credits || 0);
 
+  // Name editing
+  const [editingName, setEditingName]     = useState(false);
+  const [nameInput, setNameInput]         = useState(user?.name || '');
+  const [nameSaving, setNameSaving]       = useState(false);
+  const [nameCooldown, setNameCooldown]   = useState(null); // days remaining
+
   useEffect(() => {
     axios.get(`${API}/users/grade-status`, { withCredentials: true })
       .then(r => setGradeStatus(r.data)).catch((e) => { console.warn('Grade status fetch failed:', e); });
@@ -36,6 +42,27 @@ export default function ProfilePage() {
     axios.get(`${API}/credits`, { withCredentials: true })
       .then(r => setCredits(r.data?.credits ?? user?.credits ?? 0)).catch((e) => { console.warn('Credits fetch failed:', e); });
   }, []);
+
+  const handleSaveName = async () => {
+    if (!nameInput.trim() || nameInput.trim() === user?.name) { setEditingName(false); return; }
+    setNameSaving(true);
+    try {
+      const { data } = await axios.put(`${API}/auth/update-name`, { name: nameInput.trim() }, { withCredentials: true });
+      setUser(prev => ({ ...prev, name: data.name }));
+      toast.success('Name updated!');
+      setEditingName(false);
+    } catch (e) {
+      const detail = e?.response?.data?.detail || '';
+      if (e?.response?.status === 429) {
+        setNameCooldown(detail);
+        setEditingName(false);
+        toast.error(detail);
+      } else {
+        toast.error(detail || 'Could not update name.');
+      }
+    }
+    setNameSaving(false);
+  };
 
   const handleCancelPlan = async () => {
     if (!window.confirm('Cancel your subscription? You will revert to the free plan at the end of the billing period.')) return;
@@ -115,9 +142,45 @@ export default function ProfilePage() {
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
         className="glass rounded-2xl p-6 border border-white/10 text-center">
         <div className="w-20 h-20 rounded-full bg-gradient-to-br from-cyan-400 to-violet-600 flex items-center justify-center text-black font-heading font-black text-3xl mx-auto mb-3">
-          {user?.name?.[0]?.toUpperCase() || 'S'}
+          {(editingName ? nameInput : user?.name)?.[0]?.toUpperCase() || 'S'}
         </div>
-        <h2 className="text-white font-heading font-black text-xl">{user?.name}</h2>
+
+        {/* Editable name */}
+        {editingName ? (
+          <div className="flex items-center justify-center gap-2 mt-1">
+            <input
+              data-testid="name-edit-input"
+              value={nameInput}
+              onChange={e => setNameInput(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') handleSaveName(); if (e.key === 'Escape') setEditingName(false); }}
+              maxLength={40}
+              autoFocus
+              className="bg-zinc-800 border border-cyan-500/40 text-white text-center rounded-lg px-3 py-1.5 text-sm font-heading font-bold focus:outline-none focus:border-cyan-400 w-44"
+            />
+            <button onClick={handleSaveName} disabled={nameSaving} data-testid="name-save-btn"
+              className="p-1.5 rounded-lg bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30 transition-all disabled:opacity-50">
+              {nameSaving ? <div className="w-3.5 h-3.5 border-2 border-cyan-400/30 border-t-cyan-400 rounded-full animate-spin" /> : <Check size={14} />}
+            </button>
+            <button onClick={() => { setEditingName(false); setNameInput(user?.name || ''); }} data-testid="name-cancel-btn"
+              className="p-1.5 rounded-lg text-zinc-500 hover:text-white hover:bg-white/5 transition-all">
+              <X size={14} />
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center justify-center gap-2 mt-1">
+            <h2 className="text-white font-heading font-black text-xl">{user?.name}</h2>
+            {nameCooldown ? (
+              <span className="text-zinc-600 text-[10px] font-body">{nameCooldown}</span>
+            ) : (
+              <button onClick={() => { setNameInput(user?.name || ''); setEditingName(true); }}
+                data-testid="name-edit-btn"
+                title="Change name (once every 7 days)"
+                className="p-1 rounded-md text-zinc-600 hover:text-cyan-400 hover:bg-cyan-400/10 transition-all">
+                <Pencil size={13} />
+              </button>
+            )}
+          </div>
+        )}
         <p className="text-zinc-500 text-sm font-body mt-0.5">Class {user?.class_level} Student</p>
 
         {/* Level Badge */}
