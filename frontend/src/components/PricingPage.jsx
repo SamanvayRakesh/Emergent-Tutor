@@ -1,11 +1,16 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, Sparkles, Crown, Zap, ArrowRight, X, ShieldCheck, Star } from 'lucide-react';
+import { Check, Sparkles, Crown, Zap, ArrowRight, X, ShieldCheck, Star, AlertTriangle } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { useCredits } from '../contexts/CreditsContext';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel,
+  AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
+  AlertDialogHeader, AlertDialogTitle,
+} from './ui/alert-dialog';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -25,6 +30,26 @@ export default function PricingPage() {
   const [billing, setBilling] = useState('monthly');
   const [subscribing, setSubscribing] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [cancelTarget, setCancelTarget] = useState(null);   // plan being cancelled
+  const [cancelling, setCancelling] = useState(false);
+
+  const formatDate = (iso) => iso
+    ? new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })
+    : '';
+
+  const handleCancelConfirm = async () => {
+    setCancelling(true);
+    try {
+      const { data } = await axios.post(`${API}/subscription/cancel`, {}, { withCredentials: true });
+      toast.success(`Plan cancelled. You have full access until ${formatDate(data.access_until)}.`);
+      refresh?.();
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || 'Could not cancel. Please try again.');
+    } finally {
+      setCancelling(false);
+      setCancelTarget(null);
+    }
+  };
 
   useEffect(() => {
     axios.get(`${API}/subscription/plans`)
@@ -178,24 +203,56 @@ export default function PricingPage() {
                   ))}
                 </ul>
 
-                <button onClick={() => handleSubscribe(p.id)}
-                  disabled={isCurrent || subscribing === p.id || p.id === 'free'}
-                  data-testid={`subscribe-${p.id}`}
-                  className="w-full py-3 rounded-xl font-heading font-bold text-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                  style={{
-                    background: p.id === 'free' ? 'rgba(255,255,255,0.08)' : v.accent,
-                    color: p.id === 'free' ? '#94a3b8' : 'white',
-                  }}>
-                  {subscribing === p.id ? (
-                    <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
-                  ) : isCurrent ? (
-                    <><ShieldCheck size={14} /> Your Current Plan</>
-                  ) : p.id === 'free' ? (
-                    <>Always Free</>
-                  ) : (
-                    <>Upgrade to {p.name} <ArrowRight size={14} /></>
-                  )}
-                </button>
+                {/* Computed state for this card */}
+                {(() => {
+                  const sub = myPlan?.subscription;
+                  const isCancelledPlan = isCurrent && sub?.cancel_at_period_end;
+                  const accessUntil = isCurrent ? sub?.expires_at : null;
+                  return (
+                    <>
+                      {/* Access-until badge for cancelled plans */}
+                      {isCancelledPlan && accessUntil && (
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 mb-3">
+                          <AlertTriangle size={12} className="text-amber-400 shrink-0" />
+                          <span className="text-amber-300 text-xs font-body">
+                            Access ends {formatDate(accessUntil)}
+                          </span>
+                        </div>
+                      )}
+
+                      <button onClick={() => !isCurrent && handleSubscribe(p.id)}
+                        disabled={isCurrent || subscribing === p.id || p.id === 'free'}
+                        data-testid={`subscribe-${p.id}`}
+                        className="w-full py-3 rounded-xl font-heading font-bold text-sm transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        style={{
+                          background: p.id === 'free' ? 'rgba(255,255,255,0.08)' : v.accent,
+                          color: p.id === 'free' ? '#94a3b8' : 'white',
+                        }}>
+                        {subscribing === p.id ? (
+                          <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                        ) : isCancelledPlan ? (
+                          <><ShieldCheck size={14} /> Active until {formatDate(accessUntil)}</>
+                        ) : isCurrent ? (
+                          <><ShieldCheck size={14} /> Your Current Plan</>
+                        ) : p.id === 'free' ? (
+                          <>Always Free</>
+                        ) : (
+                          <>Upgrade to {p.name} <ArrowRight size={14} /></>
+                        )}
+                      </button>
+
+                      {/* Cancel link — only for active (non-cancelled) paid plan */}
+                      {isCurrent && !isCancelledPlan && p.id !== 'free' && (
+                        <button
+                          data-testid={`cancel-plan-${p.id}`}
+                          onClick={() => setCancelTarget({ planId: p.id, planName: p.name, accessUntil })}
+                          className="w-full mt-2 text-xs text-zinc-500 hover:text-red-400 font-body transition-colors py-1">
+                          Cancel subscription
+                        </button>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
             </motion.div>
           );
@@ -206,9 +263,42 @@ export default function PricingPage() {
       <div className="text-center mt-8 mb-4 text-zinc-500 text-xs font-body">
         <div className="inline-flex items-center gap-2">
           <Star size={12} className="text-amber-400" />
-          Cancel anytime · 7-day money-back guarantee · Mocked payment in this demo
+          Cancel anytime · Access continues until billing period ends · Secured by PayU
         </div>
       </div>
+
+      {/* Cancel confirmation dialog */}
+      <AlertDialog open={!!cancelTarget} onOpenChange={(o) => !o && setCancelTarget(null)}>
+        <AlertDialogContent className="bg-zinc-900 border border-zinc-800 text-white">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white font-heading">
+              Cancel {cancelTarget?.planName} plan?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-zinc-400 font-body">
+              {cancelTarget?.accessUntil
+                ? <>You&apos;ll keep <strong className="text-white">full access</strong> to all {cancelTarget.planName} features until <strong className="text-white">{formatDate(cancelTarget.accessUntil)}</strong>. After that your account reverts to Free.</>
+                : <>Your subscription will be cancelled at the end of your current billing period.</>
+              }
+              <br /><br />
+              No further charges will be made after your current period ends.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              data-testid="cancel-dialog-keep"
+              className="bg-zinc-800 text-white border-zinc-700 hover:bg-zinc-700 font-body">
+              Keep my plan
+            </AlertDialogCancel>
+            <AlertDialogAction
+              data-testid="cancel-dialog-confirm"
+              disabled={cancelling}
+              onClick={handleCancelConfirm}
+              className="bg-red-600 hover:bg-red-700 text-white font-body">
+              {cancelling ? 'Cancelling…' : 'Yes, cancel'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Success overlay */}
       <AnimatePresence>

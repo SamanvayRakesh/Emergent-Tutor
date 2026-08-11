@@ -1,11 +1,13 @@
-"""PayU payment routes — hash generation, success/failure callbacks, S2S webhook."""
+"""PayU payment routes — hash generation, success/failure callbacks, S2S webhook, monthly renewal."""
 import os
 import hashlib
 import hmac
 import json
 import uuid
+import asyncio
 from datetime import date, datetime, timezone, timedelta
 
+import httpx
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
@@ -15,10 +17,11 @@ from core import db, get_current_user, logger
 router = APIRouter()
 
 # ── Config ────────────────────────────────────────────────────────────────────
-PAYU_KEY  = os.environ.get("PAYU_MERCHANT_KEY", "").strip()
-PAYU_SALT = os.environ.get("PAYU_MERCHANT_SALT", "").strip()
-PAYU_URL  = os.environ.get("PAYU_PAYMENT_URL", "https://secure.payu.in/_payment")
-BASE_URL  = os.environ.get("FRONTEND_BASE_URL", "http://localhost:3000")
+PAYU_KEY         = os.environ.get("PAYU_MERCHANT_KEY", "").strip()
+PAYU_SALT        = os.environ.get("PAYU_MERCHANT_SALT", "").strip()
+PAYU_URL         = os.environ.get("PAYU_PAYMENT_URL", "https://secure.payu.in/_payment")
+PAYU_COMMAND_URL = os.environ.get("PAYU_COMMAND_URL", "https://secure.payu.in/merchant/postservice.php?form=2")
+BASE_URL         = os.environ.get("FRONTEND_BASE_URL", "http://localhost:3000")
 
 PLAN_AMOUNTS       = {"starter": "399.00", "pro": "699.00"}
 PLAN_NAMES         = {"starter": "Starter", "pro": "Pro"}
@@ -187,22 +190,32 @@ async def _process_payu_callback(data: dict) -> dict:
         bonus = PLAN_BONUS_CREDITS.get(plan_id, 0)
         now   = datetime.now(timezone.utc)
         expires = now + timedelta(days=30)
+        is_mandate = str(data.get("payment_source", "")).upper() == "SIST"
+
+        sub_update = {
+            "user_id":          order["user_id"],
+            "plan":             plan_id,
+            "billing_cycle":    "monthly",
+            "status":           "active",
+            "amount_inr":       float(order["amount"]),
+            "started_at":       now.isoformat(),
+            "expires_at":       expires.isoformat(),
+            "payment_provider": "payu",
+            "payment_order_id": txnid,
+            "payment_id":       data.get("mihpayid"),
+            "updated_at":       now.isoformat(),
+        }
+        # Store mandate details for monthly renewal
+        if is_mandate:
+            sub_update["mandate_active"]     = True
+            sub_update["mandate_authpayuid"] = data.get("mihpayid")
+            sub_update["mandate_seq_no"]     = 1
+            sub_update["mandate_email"]      = data.get("email", "")
+            sub_update["mandate_phone"]      = data.get("phone", "9999999999")
 
         await db.subscriptions.update_one(
             {"user_id": order["user_id"]},
-            {"$set": {
-                "user_id":          order["user_id"],
-                "plan":             plan_id,
-                "billing_cycle":    "monthly",
-                "status":           "active",
-                "amount_inr":       float(order["amount"]),
-                "started_at":       now.isoformat(),
-                "expires_at":       expires.isoformat(),
-                "payment_provider": "payu",
-                "payment_order_id": txnid,
-                "payment_id":       data.get("mihpayid"),
-                "updated_at":       now.isoformat(),
-            }},
+            {"$set": sub_update},
             upsert=True,
         )
 
@@ -212,7 +225,7 @@ async def _process_payu_callback(data: dict) -> dict:
                 {"$inc": {"credits": bonus}},
             )
 
-        logger.info(f"PayU: activated {plan_id} for user {order['user_id']} txn={txnid}")
+        logger.info(f"PayU: activated {plan_id} for user {order['user_id']} txn={txnid} mandate={is_mandate}")
 
     return {"status": status, "plan": plan_id, "txnid": txnid}
 
@@ -261,3 +274,126 @@ async def payu_webhook(request: Request):
         logger.error(f"PayU S2S webhook error: {e}")
     # Always acknowledge to stop PayU retrying
     return {"ok": True}
+
+
+
+# ── Monthly renewal job ───────────────────────────────────────────────────────
+
+async def _call_si_transaction(authpayuid: str, amount: str, txnid: str,
+                                email: str, phone: str, seq_no: int) -> dict:
+    """Call PayU's si_transaction API to charge a recurring mandate."""
+    var1 = json.dumps({
+        "authpayuid":           authpayuid,
+        "amount":               amount,
+        "txnid":                txnid,
+        "phone":                phone or "9999999999",
+        "email":                email,
+        "invoiceDisplayNumber": f"INV-{txnid}",
+        "mandateSeqNo":         seq_no,
+    }, separators=(",", ":"))
+
+    hash_str = _sha512("|".join([PAYU_KEY, "si_transaction", var1, PAYU_SALT]))
+
+    async with httpx.AsyncClient(timeout=30) as client:
+        r = await client.post(PAYU_COMMAND_URL, data={
+            "form": "2", "key": PAYU_KEY,
+            "command": "si_transaction", "var1": var1, "hash": hash_str,
+        })
+        r.raise_for_status()
+        return r.json()
+
+
+async def _charge_renewal(sub: dict):
+    """Attempt one monthly renewal charge for a single subscription."""
+    user_id = sub["user_id"]
+    plan_id = sub.get("plan", "")
+    amount  = PLAN_AMOUNTS.get(plan_id)
+    if not amount or not sub.get("mandate_authpayuid"):
+        return
+
+    user = await db.users.find_one({"user_id": user_id}, {"_id": 0})
+    if not user:
+        return
+
+    seq_no     = sub.get("mandate_seq_no", 1) + 1
+    base_txnid = sub.get("payment_order_id", user_id)
+    new_txnid  = f"{base_txnid}-R{seq_no}"
+
+    # Guard against double-processing
+    await db.subscriptions.update_one(
+        {"user_id": user_id},
+        {"$set": {"renewal_processing": True}},
+    )
+    try:
+        result = await _call_si_transaction(
+            authpayuid=sub["mandate_authpayuid"],
+            amount=amount,
+            txnid=new_txnid,
+            email=sub.get("mandate_email") or user.get("email", ""),
+            phone=sub.get("mandate_phone") or user.get("phone") or "9999999999",
+            seq_no=seq_no,
+        )
+
+        if result.get("status", "").lower() == "success":
+            old_exp = datetime.fromisoformat(sub["expires_at"])
+            if old_exp.tzinfo is None:
+                old_exp = old_exp.replace(tzinfo=timezone.utc)
+            new_exp = old_exp + timedelta(days=30)
+
+            await db.subscriptions.update_one(
+                {"user_id": user_id},
+                {"$set": {
+                    "status":             "active",
+                    "expires_at":         new_exp.isoformat(),
+                    "mandate_seq_no":     seq_no,
+                    "last_renewed_at":    datetime.now(timezone.utc).isoformat(),
+                    "renewal_processing": False,
+                }},
+            )
+            logger.info(f"Renewal OK: user={user_id} plan={plan_id} seq={seq_no} expires={new_exp.date()}")
+        else:
+            await db.subscriptions.update_one(
+                {"user_id": user_id},
+                {"$set": {
+                    "renewal_processing":   False,
+                    "last_renewal_attempt": datetime.now(timezone.utc).isoformat(),
+                    "last_renewal_status":  result.get("status", "unknown"),
+                }},
+            )
+            logger.warning(f"Renewal failed: user={user_id} result={result}")
+    except Exception as e:
+        await db.subscriptions.update_one(
+            {"user_id": user_id},
+            {"$set": {"renewal_processing": False}},
+        )
+        logger.error(f"Renewal error: user={user_id} error={e}")
+
+
+async def _run_renewals():
+    """Find subscriptions expiring within 24 h (still active, not cancelled) and renew them."""
+    if not PAYU_KEY or not PAYU_SALT:
+        return
+    now    = datetime.now(timezone.utc)
+    window = now + timedelta(hours=24)
+
+    cursor = db.subscriptions.find({
+        "status":             "active",
+        "mandate_active":     True,
+        "mandate_authpayuid": {"$exists": True},
+        "expires_at":         {"$lte": window.isoformat()},
+        "renewal_processing": {"$ne": True},
+    })
+    async for sub in cursor:
+        await _charge_renewal(sub)
+
+
+async def renewal_scheduler():
+    """Background asyncio loop: runs the renewal job once every 24 hours."""
+    await asyncio.sleep(60)   # let the app finish starting up first
+    while True:
+        try:
+            logger.info("PayU renewal job: checking due subscriptions...")
+            await _run_renewals()
+        except Exception as e:
+            logger.error(f"Renewal scheduler error: {e}")
+        await asyncio.sleep(86400)   # 24 hours

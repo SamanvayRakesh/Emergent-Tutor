@@ -123,7 +123,8 @@ def get_plan(plan_id: str) -> dict:
 async def get_user_plan(user_id: str) -> dict:
     sub = await db.subscriptions.find_one({"user_id": user_id}, {"_id": 0})
     now = datetime.now(timezone.utc)
-    if sub and sub.get("status") == "active":
+    # Both "active" AND "cancelled" grant access until expires_at passes
+    if sub and sub.get("status") in ("active", "cancelled"):
         try:
             expires = datetime.fromisoformat(sub["expires_at"])
             if expires.tzinfo is None:
@@ -133,16 +134,17 @@ async def get_user_plan(user_id: str) -> dict:
                 return {
                     **plan,
                     "subscription": {
-                        "plan": sub["plan"],
-                        "billing_cycle": sub.get("billing_cycle", "monthly"),
-                        "status": "active",
-                        "expires_at": sub["expires_at"],
-                        "started_at": sub.get("started_at"),
+                        "plan":                sub["plan"],
+                        "billing_cycle":       sub.get("billing_cycle", "monthly"),
+                        "status":              sub.get("status"),
+                        "expires_at":          sub["expires_at"],
+                        "started_at":          sub.get("started_at"),
+                        "cancel_at_period_end": sub.get("status") == "cancelled",
                     },
                 }
         except Exception:
             pass
-    return {**get_plan("free"), "subscription": {"plan": "free", "status": "free", "expires_at": None}}
+    return {**get_plan("free"), "subscription": {"plan": "free", "status": "free", "expires_at": None, "cancel_at_period_end": False}}
 
 
 def _today_key() -> str:

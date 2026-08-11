@@ -206,11 +206,24 @@ async def subscribe(body: SubscribeRequest, request: Request):
 @router.post("/subscription/cancel")
 async def cancel_subscription(request: Request):
     user = await get_current_user(request)
+    sub = await db.subscriptions.find_one({"user_id": user["user_id"]}, {"_id": 0})
+    if not sub or sub.get("status") not in ("active",):
+        raise HTTPException(status_code=400, detail="No active subscription to cancel.")
+
+    expires_at = sub.get("expires_at")
     await db.subscriptions.update_one(
         {"user_id": user["user_id"]},
-        {"$set": {"status": "cancelled", "cancelled_at": datetime.now(timezone.utc).isoformat()}},
+        {"$set": {
+            "status": "cancelled",
+            "cancel_requested_at": datetime.now(timezone.utc).isoformat(),
+            # expires_at is intentionally NOT changed — access continues until end of period
+        }},
     )
-    return {"success": True, "message": "Subscription cancelled. You'll keep Pro access until the end of your billing period."}
+    return {
+        "success": True,
+        "message": "Subscription cancelled. You keep full access until your billing period ends.",
+        "access_until": expires_at,
+    }
 
 
 # ----- Onboarding -----

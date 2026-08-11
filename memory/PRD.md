@@ -227,7 +227,11 @@ Enforced BNPS curriculum, KaTeX math rendering, Admin dashboard (3 hardcoded ema
 - Duolingo-style Chat mastery progress (complete lessons to reach 100% mastery)
 - Daily Study Reminder Email (user-configurable time, email nudge with next task)
 
-## Completed (Aug 2026 — Session 4)
+## Completed (Aug 2026 — Session 5)
+- [x] Monthly renewal: `renewal_scheduler()` background asyncio task starts on app boot, runs `_run_renewals()` daily — finds active subscriptions with mandate expiring within 24 h, calls PayU `si_transaction` API, extends `expires_at` by 30 days on success, increments `mandate_seq_no`
+- [x] Cancel with access until period end: `cancel_subscription` sets status=cancelled, keeps `expires_at` unchanged, returns `access_until` date. `get_user_plan` now returns paid plan for both "active" AND "cancelled" as long as `expires_at` hasn't passed
+- [x] Cancel confirmation dialog: AlertDialog in PricingPage shows exact access-end date, "Keep my plan" / "Yes, cancel" buttons. Cancelled plan shows amber "Access ends [date]" banner and "Active until [date]" button label
+- [x] Mandate info stored in subscriptions on first PayU payment (mandate_authpayuid, mandate_seq_no=1, mandate_email, mandate_phone) so renewal job can use it
 - [x] PayU payment integration: new `/app/backend/routes/payments.py` with `payu-initiate` (SHA-512 hash + SI mandate), `payu-success`, `payu-failure`, `payu-webhook` endpoints
 - [x] PricingPage buttons connected to PayU — Starter (₹399) and Pro (₹699) submit hidden form to `https://secure.payu.in/_payment`; monthly UPI mandate (SI) configured
 - [x] Webhook activates correct plan in `db.subscriptions`, awards bonus credits (+500 Starter / +1000 Pro), fully idempotent

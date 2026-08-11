@@ -117,6 +117,11 @@ async def startup_event():
         {"$set": {"is_tutorial_seen": True}},
     )
 
+    # ── PayU monthly renewal scheduler ────────────────────────────────────────
+    from routes.payments import renewal_scheduler
+    asyncio.create_task(renewal_scheduler())
+    logger.info("PayU renewal scheduler started")
+
     # ── Curriculum ─────────────────────────────────────────────────────────────
     try:
         await load_curriculum_from_json()
