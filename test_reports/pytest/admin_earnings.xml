@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="8" skipped="0" tests="8" time="1.044" timestamp="2026-08-11T09:51:29.606892+00:00" hostname="agent-env-e00d3f97-b169-4f3c-83c9-dc4128636116"><testcase classname="backend.tests.test_admin_earnings.TestAdminEarnings" name="test_earnings_status_200" time="0.628"><failure message="AssertionError: Expected 200, got 401: {&quot;detail&quot;:&quot;Not authenticated&quot;}&#10;assert 401 == 200&#10; +  where 401 = &lt;Response [401]&gt;.status_code">backend/tests/test_admin_earnings.py:36: in test_earnings_status_200
+    assert r.status_code == 200, f"Expected 200, got {r.status_code}: {r.text[:200]}"
+E   AssertionError: Expected 200, got 401: {"detail":"Not authenticated"}
+E   assert 401 == 200
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_admin_earnings.TestAdminEarnings" name="test_earnings_top_level_keys" time="0.042"><failure message="AssertionError: Missing key: total_users&#10;assert 'total_users' in {'detail': 'Not authenticated'}">backend/tests/test_admin_earnings.py:44: in test_earnings_top_level_keys
+    assert key in data, f"Missing key: {key}"
+E   AssertionError: Missing key: total_users
+E   assert 'total_users' in {'detail': 'Not authenticated'}</failure></testcase><testcase classname="backend.tests.test_admin_earnings.TestAdminEarnings" name="test_earnings_mrr_calculation" time="0.043"><failure message="KeyError: 'active_subscriptions'">backend/tests/test_admin_earnings.py:50: in test_earnings_mrr_calculation
+    active_subs = data["active_subscriptions"]
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   KeyError: 'active_subscriptions'</failure></testcase><testcase classname="backend.tests.test_admin_earnings.TestAdminEarnings" name="test_earnings_plan_distribution_keys" time="0.042"><failure message="KeyError: 'plan_distribution'">backend/tests/test_admin_earnings.py:58: in test_earnings_plan_distribution_keys
+    dist = data["plan_distribution"]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^
+E   KeyError: 'plan_distribution'</failure></testcase><testcase classname="backend.tests.test_admin_earnings.TestAdminEarnings" name="test_earnings_paid_users_fields" time="0.044"><failure message="KeyError: 'paid_users'">backend/tests/test_admin_earnings.py:64: in test_earnings_paid_users_fields
+    paid = data["paid_users"]
+           ^^^^^^^^^^^^^^^^^^
+E   KeyError: 'paid_users'</failure></testcase><testcase classname="backend.tests.test_admin_earnings.TestAdminEarnings" name="test_earnings_recent_payments_fields" time="0.044"><failure message="KeyError: 'recent_payments'">backend/tests/test_admin_earnings.py:76: in test_earnings_recent_payments_fields
+    payments = data["recent_payments"]
+               ^^^^^^^^^^^^^^^^^^^^^^^
+E   KeyError: 'recent_payments'</failure></testcase><testcase classname="backend.tests.test_admin_earnings.TestAdminLeaderboard" name="test_leaderboard_users_status" time="0.045"><failure message="assert 401 == 200&#10; +  where 401 = &lt;Response [401]&gt;.status_code">backend/tests/test_admin_earnings.py:89: in test_leaderboard_users_status
+    assert r.status_code == 200
+E   assert 401 == 200
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase><testcase classname="backend.tests.test_admin_earnings.TestAdminGradeRequests" name="test_grade_requests_status" time="0.044"><failure message="assert 401 == 200&#10; +  where 401 = &lt;Response [401]&gt;.status_code">backend/tests/test_admin_earnings.py:100: in test_grade_requests_status
+    assert r.status_code == 200
+E   assert 401 == 200
+E    +  where 401 = &lt;Response [401]&gt;.status_code</failure></testcase></testsuite></testsuites>

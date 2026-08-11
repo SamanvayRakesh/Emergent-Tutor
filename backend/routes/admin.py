@@ -97,54 +97,127 @@ async def admin_resolve_grade_request(request_id: str, request: Request, body: d
 
 # ── Earnings dashboard ────────────────────────────────────────────────────────
 
+PLAN_PRICES = {"starter": 399, "pro": 699}
+
 @router.get("/admin/earnings")
 async def admin_get_earnings(request: Request):
-    """Total earnings overview from subscription data."""
+    """Real earnings data from PayU orders + subscriptions."""
     await _require_admin(request)
 
-    total_users = await db.users.count_documents({"role": {"$ne": "admin"}})
-    
-    # Count by plan
-    plan_pipeline = [
-        {"$match": {"role": {"$ne": "admin"}}},
-        {"$group": {"_id": "$plan", "count": {"$sum": 1}}}
-    ]
-    plan_counts = {r["_id"]: r["count"] async for r in db.users.aggregate(plan_pipeline)}
-    
-    # Subscription payments
-    payments = await db.subscription_payments.find(
-        {}, {"_id": 0}
-    ).sort("created_at", -1).limit(50).to_list(50)
-    
-    # Revenue totals (in INR)
-    PLAN_PRICES = {"starter": 199, "pro": 499}
-    total_revenue = sum(p.get("amount", 0) for p in payments)
-    
-    # Monthly breakdown from payments
-    monthly = {}
-    for p in payments:
+    now     = datetime.now(timezone.utc)
+    now_iso = now.isoformat()
+
+    # ── Subscription state ───────────────────────────────────────────────────
+    # All subscriptions still within their paid period (active OR cancelled-but-not-expired)
+    all_paid_subs = await db.subscriptions.find(
+        {"expires_at": {"$gt": now_iso}},
+        {"_id": 0}
+    ).to_list(10000)
+
+    active_subs    = [s for s in all_paid_subs if s.get("status") == "active"]
+    cancelled_subs = [s for s in all_paid_subs if s.get("status") == "cancelled"]
+
+    active_starter    = sum(1 for s in active_subs if s.get("plan") == "starter")
+    active_pro        = sum(1 for s in active_subs if s.get("plan") == "pro")
+    cancelled_starter = sum(1 for s in cancelled_subs if s.get("plan") == "starter")
+    cancelled_pro     = sum(1 for s in cancelled_subs if s.get("plan") == "pro")
+    total_paid_users  = len(all_paid_subs)
+
+    # MRR = only truly active (will auto-renew) subscriptions
+    mrr = active_starter * PLAN_PRICES["starter"] + active_pro * PLAN_PRICES["pro"]
+
+    # ── PayU payment history ─────────────────────────────────────────────────
+    payu_payments = await db.payu_orders.find(
+        {"status": "paid"},
+        {"_id": 0}
+    ).sort("created_at", -1).limit(100).to_list(100)
+
+    # Enrich payments with user info
+    uid_set  = list({p["user_id"] for p in payu_payments if p.get("user_id")})
+    users_raw = await db.users.find(
+        {"user_id": {"$in": uid_set}},
+        {"_id": 0, "user_id": 1, "name": 1, "email": 1}
+    ).to_list(len(uid_set) + 1)
+    user_map = {u["user_id"]: u for u in users_raw}
+
+    enriched = []
+    for p in payu_payments:
+        u = user_map.get(p.get("user_id", ""), {})
         try:
-            month = p.get("created_at", "")[:7]  # YYYY-MM
-            monthly[month] = monthly.get(month, 0) + p.get("amount", 0)
-        except Exception:
-            pass
-    
-    # Estimated MRR (mock calculation based on active subscriptions)
-    starter_count = plan_counts.get("starter", 0)
-    pro_count = plan_counts.get("pro", 0)
-    mrr = starter_count * 199 + pro_count * 499
+            amt = float(p.get("amount", 0))
+        except (ValueError, TypeError):
+            amt = 0.0
+        enriched.append({
+            "txnid":       p.get("txnid", ""),
+            "user_name":   u.get("name", "Unknown"),
+            "user_email":  u.get("email", ""),
+            "plan":        p.get("plan", ""),
+            "amount":      amt,
+            "status":      p.get("status", ""),
+            "created_at":  p.get("created_at", ""),
+            "mihpayid":    p.get("mihpayid", ""),
+        })
+
+    # Monthly revenue breakdown
+    monthly: dict = {}
+    for p in enriched:
+        month = (p.get("created_at") or "")[:7]
+        if month:
+            monthly[month] = round(monthly.get(month, 0.0) + p["amount"], 2)
+
+    total_revenue = round(sum(p["amount"] for p in enriched), 2)
+
+    # Fallback: if no PayU orders exist yet, sum amount_inr from subscriptions so revenue isn't 0
+    if total_revenue == 0 and all_paid_subs:
+        total_revenue = round(sum(float(s.get("amount_inr") or 0) for s in all_paid_subs), 2)
+
+    # ── All-time total users ─────────────────────────────────────────────────
+    total_users = await db.users.count_documents({"role": {"$ne": "admin"}})
+
+    # ── Paid users list (with subscription details) ──────────────────────────
+    paid_user_ids = [s.get("user_id") for s in all_paid_subs]
+    paid_users_raw = await db.users.find(
+        {"user_id": {"$in": paid_user_ids}},
+        {"_id": 0, "user_id": 1, "name": 1, "email": 1, "created_at": 1}
+    ).to_list(len(paid_user_ids) + 1)
+    paid_user_detail_map = {u["user_id"]: u for u in paid_users_raw}
+
+    paid_users_list = []
+    for s in all_paid_subs:
+        u = paid_user_detail_map.get(s.get("user_id", ""), {})
+        paid_users_list.append({
+            "user_id":    s.get("user_id"),
+            "name":       u.get("name", "Unknown"),
+            "email":      u.get("email", ""),
+            "plan":       s.get("plan", ""),
+            "status":     s.get("status", ""),
+            "expires_at": s.get("expires_at", ""),
+            "started_at": s.get("started_at", ""),
+            "amount_inr": s.get("amount_inr", 0),
+        })
+    paid_users_list.sort(key=lambda x: x.get("started_at", ""), reverse=True)
 
     return {
-        "total_users": total_users,
+        "total_users":          total_users,
+        "total_paid_users":     total_paid_users,
+        "total_revenue_inr":    total_revenue,
+        "mrr_inr":              mrr,
         "plan_distribution": {
-            "free": plan_counts.get(None, 0) + plan_counts.get("free", 0),
-            "starter": starter_count,
-            "pro": pro_count,
+            "free":     total_users - total_paid_users,
+            "starter":  active_starter + cancelled_starter,
+            "pro":      active_pro + cancelled_pro,
         },
-        "total_revenue_inr": total_revenue,
-        "estimated_mrr_inr": mrr,
-        "recent_payments": payments[:20],
-        "monthly_revenue": monthly,
+        "active_subscriptions": {
+            "starter":  active_starter,
+            "pro":      active_pro,
+        },
+        "cancelled_subscriptions": {
+            "starter":  cancelled_starter,
+            "pro":      cancelled_pro,
+        },
+        "recent_payments":  enriched[:20],
+        "monthly_revenue":  monthly,
+        "paid_users":       paid_users_list,
     }
 
 

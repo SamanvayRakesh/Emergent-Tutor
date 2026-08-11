@@ -227,7 +227,11 @@ Enforced BNPS curriculum, KaTeX math rendering, Admin dashboard (3 hardcoded ema
 - Duolingo-style Chat mastery progress (complete lessons to reach 100% mastery)
 - Daily Study Reminder Email (user-configurable time, email nudge with next task)
 
-## Completed (Aug 2026 — Session 5)
+## Completed (Aug 2026 — Session 6)
+- [x] Admin dashboard fully rebuilt: Earnings tab shows Paid Users, MRR (₹399 starter/₹699 pro), Total Collected, plan breakdown (active/cancelled counts), paid users list with plan/status/expiry, recent PayU transactions, monthly revenue. Leaderboard, Grade Requests, Feedback tabs all functional
+- [x] Total revenue fallback: if no PayU orders yet, sums subscription.amount_inr so revenue is never ₹0 for paid plans
+- [x] Credits reset: POST /api/admin/reset-credits endpoint (excludes admins + named users), applied to preview DB (85 users → 100 credits)
+- [x] Profile name change (7-day cooldown): PUT /api/auth/update-name, inline pencil edit in ProfilePage with cooldown message
 - [x] Monthly renewal: `renewal_scheduler()` background asyncio task starts on app boot, runs `_run_renewals()` daily — finds active subscriptions with mandate expiring within 24 h, calls PayU `si_transaction` API, extends `expires_at` by 30 days on success, increments `mandate_seq_no`
 - [x] Cancel with access until period end: `cancel_subscription` sets status=cancelled, keeps `expires_at` unchanged, returns `access_until` date. `get_user_plan` now returns paid plan for both "active" AND "cancelled" as long as `expires_at` hasn't passed
 - [x] Cancel confirmation dialog: AlertDialog in PricingPage shows exact access-end date, "Keep my plan" / "Yes, cancel" buttons. Cancelled plan shows amber "Access ends [date]" banner and "Active until [date]" button label
