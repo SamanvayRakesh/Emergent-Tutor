@@ -227,7 +227,13 @@ Enforced BNPS curriculum, KaTeX math rendering, Admin dashboard (3 hardcoded ema
 - Duolingo-style Chat mastery progress (complete lessons to reach 100% mastery)
 - Daily Study Reminder Email (user-configurable time, email nudge with next task)
 
-## Completed (July 2026 — Session 3)
+## Completed (Aug 2026 — Session 4)
+- [x] PayU payment integration: new `/app/backend/routes/payments.py` with `payu-initiate` (SHA-512 hash + SI mandate), `payu-success`, `payu-failure`, `payu-webhook` endpoints
+- [x] PricingPage buttons connected to PayU — Starter (₹399) and Pro (₹699) submit hidden form to `https://secure.payu.in/_payment`; monthly UPI mandate (SI) configured
+- [x] Webhook activates correct plan in `db.subscriptions`, awards bonus credits (+500 Starter / +1000 Pro), fully idempotent
+- [x] PAYU_PAYMENT_URL env var added (defaults to production; swap to `https://test.payu.in/_payment` for sandbox testing)
+- [x] Auth UX: Google-auth conflict shows inline "Continue with Google" banner; duplicate email shows "Sign in instead" prompt
+- [x] Production CORS fix: `https://ace-it.in` hardcoded in allowed origins in server.py
 - [x] Fixed sidebar overflow: Added `overflow-y-auto min-h-0` to nav element so all items remain scrollable and bottom buttons (Sign Out, Send Feedback) are always visible
 - [x] Moved FeedbackModal to Layout.jsx: showFeedback state lifted to Layout, FeedbackModal rendered at top level (outside sidebar tree), Sidebar receives onFeedbackOpen callback
 - [x] Fixed FeedbackModal X close button: Changed onClick from `setOpen(false)` to `handleClose()` — stops the immediate re-open loop

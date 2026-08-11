@@ -1,12 +1,11 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Check, Sparkles, Crown, Zap, ArrowRight, X, ShieldCheck, Star } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { useCredits } from '../contexts/CreditsContext';
-import { loadRazorpayCheckout } from '../lib/razorpay';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -19,75 +18,68 @@ const PLAN_VISUALS = {
 
 export default function PricingPage() {
   const nav = useNavigate();
+  const [searchParams] = useSearchParams();
   const { plan: myPlan, refresh } = useSubscription();
   const { refresh: refreshCredits } = useCredits();
   const [plans, setPlans] = useState([]);
-  const [billing, setBilling] = useState('monthly'); // 'monthly' | 'yearly'
+  const [billing, setBilling] = useState('monthly');
   const [subscribing, setSubscribing] = useState(null);
   const [success, setSuccess] = useState(null);
 
   useEffect(() => {
     axios.get(`${API}/subscription/plans`)
       .then(r => {
-        // Show only Starter and Pro — the 2 paid plans
         const paid = (r.data.plans || []).filter(p => p.id === 'starter' || p.id === 'pro');
         setPlans(paid);
       })
       .catch(() => setPlans([]));
   }, []);
 
+  // Handle return from PayU checkout
+  useEffect(() => {
+    const payment = searchParams.get('payment');
+    const planId  = searchParams.get('plan');
+    if (payment === 'success' && planId) {
+      const planDetails = { starter: { name: 'Starter', amount: 399, credits: 500 }, pro: { name: 'Pro', amount: 699, credits: 1000 } };
+      const p = planDetails[planId] || { name: planId, amount: 0, credits: 0 };
+      setSuccess({ message: `You're now on ${p.name}!`, billing_cycle: 'monthly', amount_inr: p.amount, credits_added: p.credits });
+      refresh?.();
+      refreshCredits?.();
+      // Clean up URL params
+      nav('/upgrade', { replace: true });
+    } else if (payment === 'failed') {
+      toast.error('Payment was not completed. Please try again.');
+      nav('/upgrade', { replace: true });
+    }
+  }, [searchParams]); // eslint-disable-line
+
   const handleSubscribe = async (planId) => {
     if (planId === 'free') return;
     setSubscribing(planId);
     try {
-      // 1. Ask backend for an order (or mock_mode fallback)
-      const { data: order } = await axios.post(`${API}/subscription/create-order`,
-        { plan: planId, billing_cycle: billing }, { withCredentials: true });
+      // Get PayU form fields from backend
+      const { data } = await axios.post(
+        `${API}/payments/payu-initiate`,
+        { plan: planId },
+        { withCredentials: true },
+      );
 
-      if (order.mock_mode) {
-        // No Razorpay keys configured — use the legacy mock subscribe
-        const { data } = await axios.post(`${API}/subscription/subscribe`,
-          { plan: planId, billing_cycle: billing }, { withCredentials: true });
-        toast.success(`Subscription activated — ${data.credits_added} bonus credits added!`);
-        setSuccess(data);
-        refresh?.(); refreshCredits?.();
-        setSubscribing(null);
-        return;
-      }
-
-      // 2. Open Razorpay checkout
-      const Razorpay = await loadRazorpayCheckout();
-      const rzp = new Razorpay({
-        key: order.key_id || process.env.REACT_APP_RAZORPAY_KEY_ID,
-        amount: order.amount_paise, currency: order.currency || 'INR',
-        order_id: order.order_id,
-        name: 'AceIt AI', description: `${planId.toUpperCase()} • ${billing}`,
-        image: '/favicon.ico',
-        prefill: order.prefill || {},
-        theme: { color: '#dc2626' },
-        handler: async (rsp) => {
-          try {
-            const { data: verified } = await axios.post(`${API}/subscription/verify-payment`,
-              { ...rsp, plan: planId, billing_cycle: billing },
-              { withCredentials: true });
-            toast.success(`Payment verified! +${verified.credits_added} bonus credits.`);
-            setSuccess(verified);
-            refresh?.(); refreshCredits?.();
-          } catch (e) {
-            toast.error('Payment verification failed. Please contact support if charged.');
-          }
-          setSubscribing(null);
-        },
-        modal: { ondismiss: () => { setSubscribing(null); toast('Payment cancelled', { icon: '✖' }); } },
+      // Build and auto-submit hidden form to PayU hosted checkout
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = data.action;
+      Object.entries(data.fields).forEach(([name, value]) => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = name;
+        input.value = String(value ?? '');
+        form.appendChild(input);
       });
-      rzp.on('payment.failed', (resp) => {
-        toast.error(`Payment failed: ${resp.error?.description || 'Try again'}`);
-        setSubscribing(null);
-      });
-      rzp.open();
+      document.body.appendChild(form);
+      form.submit();
+      // Browser navigates away — no setSubscribing(null) needed
     } catch (e) {
-      console.error(e);
-      toast.error(e?.response?.data?.detail || 'Could not start payment. Try again.');
+      toast.error(e?.response?.data?.detail || 'Could not start payment. Please try again.');
       setSubscribing(null);
     }
   };

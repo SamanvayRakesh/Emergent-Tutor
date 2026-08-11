@@ -32,6 +32,7 @@ from routes import question_bank as question_bank_routes
 from routes import analytics as analytics_routes
 from routes import admin as admin_routes
 from routes import feedback as feedback_routes
+from routes import payments as payment_routes
 from curriculum_engine import load_curriculum_from_json
 
 
@@ -52,6 +53,7 @@ api_router.include_router(question_bank_routes.router)
 api_router.include_router(analytics_routes.router)
 api_router.include_router(admin_routes.router)
 api_router.include_router(feedback_routes.router)
+api_router.include_router(payment_routes.router)
 
 app.add_middleware(
     CORSMiddleware,
