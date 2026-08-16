@@ -290,3 +290,61 @@ async def admin_reset_credits(body: ResetCreditsRequest, request: Request):
         "skipped_ids":  skipped,
         "new_amount":   body.amount,
     }
+
+
+# ── Per-user credit management ─────────────────────────────────────────────────
+
+class AdjustCreditsRequest(BaseModel):
+    action: str        # "add" | "set" | "reset"
+    amount: int = 100  # used for "add" and "set"; ignored for "reset"
+
+@router.post("/admin/users/{user_id}/credits")
+async def admin_adjust_user_credits(user_id: str, body: AdjustCreditsRequest, request: Request):
+    """
+    Adjust credits for a single user.
+      action=add   → credits += amount
+      action=set   → credits  = amount
+      action=reset → credits  = 100
+    """
+    await _require_admin(request)
+
+    user = await db.users.find_one({"user_id": user_id}, {"_id": 0, "credits": 1, "name": 1, "email": 1, "role": 1})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if user.get("role") == "admin":
+        raise HTTPException(status_code=403, detail="Cannot modify admin credits")
+
+    if body.action == "add":
+        if body.amount <= 0:
+            raise HTTPException(status_code=400, detail="Amount must be positive")
+        await db.users.update_one({"user_id": user_id}, {"$inc": {"credits": body.amount}})
+        new_credits = (user.get("credits") or 0) + body.amount
+    elif body.action == "set":
+        if body.amount < 0:
+            raise HTTPException(status_code=400, detail="Amount cannot be negative")
+        await db.users.update_one({"user_id": user_id}, {"$set": {"credits": body.amount}})
+        new_credits = body.amount
+    elif body.action == "reset":
+        await db.users.update_one({"user_id": user_id}, {"$set": {"credits": 100}})
+        new_credits = 100
+    else:
+        raise HTTPException(status_code=400, detail="action must be 'add', 'set', or 'reset'")
+
+    logger.info(f"Admin credit adjust: user={user_id} action={body.action} amount={body.amount} new_credits={new_credits}")
+    return {"success": True, "user_id": user_id, "new_credits": new_credits}
+
+@router.get("/admin/users/credits")
+async def admin_get_users_with_credits(request: Request, search: str = ""):
+    """List all non-admin users with name, email, credits. Optional search by name/email."""
+    await _require_admin(request)
+    query: dict = {"role": {"$ne": "admin"}}
+    if search:
+        query["$or"] = [
+            {"name":  {"$regex": search, "$options": "i"}},
+            {"email": {"$regex": search, "$options": "i"}},
+        ]
+    users = await db.users.find(
+        query,
+        {"_id": 0, "user_id": 1, "name": 1, "email": 1, "credits": 1, "role": 1, "created_at": 1}
+    ).sort("credits", -1).limit(500).to_list(500)
+    return {"users": users, "total": len(users)}

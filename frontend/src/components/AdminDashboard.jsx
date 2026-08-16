@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import { ShieldCheck, Users, TrendingUp, GraduationCap, Eye, EyeOff, CheckCircle, XCircle, RefreshCw, IndianRupee, MessageSquarePlus, Crown, Zap, ArrowUpRight, Calendar, BadgeCheck, Clock } from 'lucide-react';
+import { ShieldCheck, Users, TrendingUp, GraduationCap, Eye, EyeOff, CheckCircle, XCircle, RefreshCw, IndianRupee, MessageSquarePlus, Crown, Zap, ArrowUpRight, Calendar, BadgeCheck, Search, Plus, RotateCcw } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -18,7 +18,12 @@ export default function AdminDashboard() {
   const [data, setData]   = useState({});
   const [loading, setLoading] = useState(false);
 
-  const fetchTab = useCallback(async (t) => {
+  // Users tab state
+  const [userSearch, setUserSearch]   = useState('');
+  const [addAmounts, setAddAmounts]   = useState({});  // { user_id: string }
+  const [creditBusy, setCreditBusy]   = useState({});  // { user_id: bool }
+
+  const fetchTab = useCallback(async (t, extra = '') => {
     setLoading(true);
     try {
       const urlMap = {
@@ -26,6 +31,7 @@ export default function AdminDashboard() {
         leaderboard:      `${API}/admin/leaderboard/users`,
         'grade-requests': `${API}/admin/grade-requests`,
         feedback:         `${API}/admin/feedback`,
+        users:            `${API}/admin/users/credits${extra}`,
       };
       const { data: res } = await axios.get(urlMap[t], { withCredentials: true });
       setData(prev => ({ ...prev, [t]: res }));
@@ -59,6 +65,43 @@ export default function AdminDashboard() {
     } catch { toast.error('Failed to resolve'); }
   };
 
+  const handleCreditAction = async (userId, action, amount) => {
+    setCreditBusy(prev => ({ ...prev, [userId]: true }));
+    try {
+      const { data: res } = await axios.post(
+        `${API}/admin/users/${userId}/credits`,
+        { action, amount: parseInt(amount) || 100 },
+        { withCredentials: true }
+      );
+      toast.success(
+        action === 'reset'
+          ? `Credits reset to 100`
+          : action === 'add'
+          ? `Added ${amount} credits → now ${res.new_credits}`
+          : `Credits set to ${res.new_credits}`
+      );
+      // Refresh just the credits for that user in local state
+      setData(prev => ({
+        ...prev,
+        users: {
+          ...prev.users,
+          users: (prev.users?.users || []).map(u =>
+            u.user_id === userId ? { ...u, credits: res.new_credits } : u
+          ),
+        },
+      }));
+      setAddAmounts(prev => ({ ...prev, [userId]: '' }));
+    } catch (e) {
+      toast.error(e?.response?.data?.detail || 'Failed to update credits');
+    }
+    setCreditBusy(prev => ({ ...prev, [userId]: false }));
+  };
+
+  const handleUserSearch = (e) => {
+    e.preventDefault();
+    fetchTab('users', userSearch ? `?search=${encodeURIComponent(userSearch)}` : '');
+  };
+
   const e = data.earnings || {};
 
   return (
@@ -80,7 +123,8 @@ export default function AdminDashboard() {
         <div className="flex gap-2 mb-6 border-b border-white/10 pb-4 flex-wrap">
           {[
             { id: 'earnings',       label: 'Earnings',       icon: IndianRupee },
-            { id: 'leaderboard',    label: 'Leaderboard',    icon: Users },
+            { id: 'users',          label: 'Users',          icon: Users },
+            { id: 'leaderboard',    label: 'Leaderboard',    icon: TrendingUp },
             { id: 'grade-requests', label: 'Grade Requests', icon: GraduationCap },
             { id: 'feedback',       label: 'Feedback',       icon: MessageSquarePlus },
           ].map(({ id, label, icon: Icon }) => (
@@ -246,6 +290,110 @@ export default function AdminDashboard() {
                   </div>
                 )}
               </>
+            )}
+          </div>
+        )}
+
+        {/* ── USERS / CREDITS TAB ── */}
+        {tab === 'users' && (
+          <div data-testid="admin-users-panel">
+            {/* Search bar */}
+            <form onSubmit={handleUserSearch} className="flex gap-2 mb-4">
+              <div className="relative flex-1">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" />
+                <input
+                  data-testid="user-search-input"
+                  value={userSearch}
+                  onChange={e => setUserSearch(e.target.value)}
+                  placeholder="Search by name or email…"
+                  className="w-full bg-zinc-900 border border-white/10 rounded-xl pl-9 pr-4 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-cyan-500/40 font-body"
+                />
+              </div>
+              <button type="submit" className="px-4 py-2.5 rounded-xl bg-cyan-500/10 text-cyan-400 text-sm font-semibold hover:bg-cyan-500/20 transition-all border border-cyan-500/20">
+                Search
+              </button>
+              <button type="button" onClick={() => { setUserSearch(''); fetchTab('users'); }}
+                className="px-3 py-2.5 rounded-xl text-zinc-500 hover:text-white hover:bg-white/5 transition-all" title="Clear">
+                <XCircle size={16} />
+              </button>
+            </form>
+
+            <div className="glass rounded-xl border border-white/5 overflow-hidden">
+              {/* Table header */}
+              <div className="grid grid-cols-[1fr_1fr_auto_auto] gap-3 px-5 py-3 border-b border-white/10 text-zinc-500 text-xs font-body font-semibold">
+                <span>Name</span>
+                <span>Email</span>
+                <span className="text-right pr-2">Credits</span>
+                <span>Actions</span>
+              </div>
+
+              {loading && (
+                <div className="text-center text-zinc-500 py-8 font-body text-sm">Loading users…</div>
+              )}
+
+              {!loading && (data.users?.users || []).map((u) => (
+                <div key={u.user_id} data-testid={`user-row-${u.user_id}`}
+                  className="grid grid-cols-[1fr_1fr_auto_auto] gap-3 items-center px-5 py-3.5 border-b border-white/5 last:border-0 hover:bg-white/[0.02] transition-colors">
+
+                  {/* Name */}
+                  <div className="min-w-0">
+                    <p className="text-white text-sm font-body font-semibold truncate">{u.name || '—'}</p>
+                    <p className="text-zinc-600 text-[10px] font-body">{u.user_id}</p>
+                  </div>
+
+                  {/* Email */}
+                  <p className="text-zinc-400 text-xs font-body truncate">{u.email}</p>
+
+                  {/* Credits */}
+                  <div className="text-right pr-2">
+                    <span data-testid={`credits-display-${u.user_id}`}
+                      className="text-amber-400 font-heading font-black text-base">{u.credits ?? 0}</span>
+                    <p className="text-zinc-600 text-[9px] font-body">credits</p>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-1.5">
+                    {/* Add credits input + button */}
+                    <input
+                      data-testid={`add-credits-input-${u.user_id}`}
+                      type="number"
+                      min="1" max="99999"
+                      placeholder="amt"
+                      value={addAmounts[u.user_id] || ''}
+                      onChange={e => setAddAmounts(prev => ({ ...prev, [u.user_id]: e.target.value }))}
+                      className="w-16 bg-zinc-900 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white text-center focus:outline-none focus:border-cyan-500/40 font-body"
+                    />
+                    <button
+                      data-testid={`add-credits-btn-${u.user_id}`}
+                      disabled={!addAmounts[u.user_id] || creditBusy[u.user_id]}
+                      onClick={() => handleCreditAction(u.user_id, 'add', addAmounts[u.user_id])}
+                      title="Add credits"
+                      className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 disabled:opacity-30 disabled:cursor-not-allowed transition-all">
+                      {creditBusy[u.user_id]
+                        ? <div className="w-3.5 h-3.5 border-2 border-emerald-400/30 border-t-emerald-400 rounded-full animate-spin" />
+                        : <Plus size={13} />}
+                    </button>
+                    <button
+                      data-testid={`reset-credits-btn-${u.user_id}`}
+                      disabled={creditBusy[u.user_id]}
+                      onClick={() => handleCreditAction(u.user_id, 'reset', 100)}
+                      title="Reset to 100"
+                      className="p-1.5 rounded-lg bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-white disabled:opacity-30 transition-all">
+                      <RotateCcw size={13} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+
+              {!loading && !(data.users?.users || []).length && (
+                <div className="text-center text-zinc-500 py-10 font-body text-sm">No users found</div>
+              )}
+            </div>
+
+            {data.users?.total > 0 && (
+              <p className="text-zinc-600 text-xs font-body mt-3 text-right">
+                Showing {(data.users?.users || []).length} of {data.users?.total} users
+              </p>
             )}
           </div>
         )}
