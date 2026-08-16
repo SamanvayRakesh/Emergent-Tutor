@@ -35,6 +35,12 @@ export function CreditsProvider({ children }) {
 
   useEffect(() => { refresh(); }, [refresh]);
 
+  // Poll every 30 s so admin credit changes show up without a page reload
+  useEffect(() => {
+    const id = setInterval(refresh, 30000);
+    return () => clearInterval(id);
+  }, [refresh]);
+
   // Optimistic + toast hook on success/failure for credit-spending routes
   useEffect(() => {
     const reqI = axios.interceptors.request.use(cfg => cfg);
