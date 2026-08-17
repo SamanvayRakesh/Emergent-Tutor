@@ -8,6 +8,7 @@ Cost-optimised stack:
 
 import uuid
 import json
+import asyncio
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Request
@@ -270,13 +271,12 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
             ch_no = c.get("chapter_no")
             break
 
-    kb_match = await find_kb_answer(
-        body.content, session["class_level"], session["subject"], chapter_no=ch_no,
+    # Parallelise independent DB calls to cut pre-LLM latency
+    kb_match, profile = await asyncio.gather(
+        find_kb_answer(body.content, session["class_level"], session["subject"], chapter_no=ch_no),
+        get_student_profile(user["user_id"]),
     )
-
-    # Adaptive memory
-    profile = await get_student_profile(user["user_id"])
-    memory  = build_compact_memory(profile)
+    memory = build_compact_memory(profile)
 
     # Persist user message
     now = datetime.now(timezone.utc).isoformat()
@@ -341,6 +341,7 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
                 stream=True,
                 max_tokens=generation_tokens,
                 temperature=0.75,
+                extra_body={"include_reasoning": False},
             )
             async for chunk in stream:
                 delta = chunk.choices[0].delta.content

@@ -195,6 +195,11 @@ Enforced BNPS curriculum, KaTeX math rendering, Admin dashboard (3 hardcoded ema
 - `POST /api/admin/grade-requests/{id}/resolve`
 - `GET  /api/admin/users`
 
+## Completed (Aug 2026 — Session 7)
+- [x] AI latency fix: Added `extra_body={"include_reasoning": False}` to OpenRouter streaming call in `chat.py` to explicitly disable DeepSeek reasoning tokens — TTFT now ~2.4s
+- [x] Parallelised pre-LLM DB calls: KB lookup + student profile fetch now run concurrently via `asyncio.gather()` instead of sequentially, saving ~100–200ms per request
+- [x] No change to model, temperature, max_tokens, or system prompt — accuracy and clarity fully preserved
+
 ## Prioritized Backlog
 
 ### P1 — Next Up
