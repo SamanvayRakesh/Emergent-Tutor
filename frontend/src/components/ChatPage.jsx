@@ -140,7 +140,8 @@ function QuizCard({ data }) {
 
 function MessageBubble({ msg, isStreaming }) {
   const isUser = msg.role === 'user';
-  const parts = !isUser ? parseQuizBlocks(msg.content) : null;
+  // Skip expensive parse+render while streaming — plain text only
+  const parts = (!isUser && !isStreaming) ? parseQuizBlocks(msg.content) : null;
 
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
@@ -153,8 +154,11 @@ function MessageBubble({ msg, isStreaming }) {
       <div className={`max-w-[82%] ${isUser ? 'message-user' : 'message-ai'} p-3.5`}>
         {isUser ? (
           <p className="text-white text-sm font-body leading-relaxed">{msg.content}</p>
+        ) : isStreaming ? (
+          // Plain text while streaming — no markdown/KaTeX parse overhead
+          <p className="text-sm font-body leading-relaxed text-white/90 whitespace-pre-wrap streaming-cursor">{msg.content}</p>
         ) : (
-          <div className={`text-sm font-body ${isStreaming ? 'streaming-cursor' : ''}`}>
+          <div className="text-sm font-body">
             {parts?.map((part, i) =>
               part.type === 'quiz' ? (
                 <QuizCard key={`quiz-${i}`} data={part.data} />
@@ -332,6 +336,11 @@ export default function ChatPage() {
   const [showSessions, setShowSessions] = useState(false);
   const [quizModal, setQuizModal] = useState(null); // {quizData}
   const bottomRef = useRef(null);
+  const streamBufferRef = useRef('');
+  const rafRef = useRef(null);
+
+  // Cleanup RAF on unmount
+  useEffect(() => () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); }, []);
 
   const loadSession = useCallback(async (sid) => {
     try {
@@ -355,8 +364,8 @@ export default function ChatPage() {
   }, [paramId, loadSession, nav]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, streamingContent]);
+    bottomRef.current?.scrollIntoView({ behavior: streaming ? 'instant' : 'smooth' });
+  }, [messages, streamingContent, streaming]);
 
   const handleCreated = (newSession) => {
     setSessions(p => [newSession, ...p]);
@@ -383,8 +392,20 @@ export default function ChatPage() {
         if (line.startsWith('data: ')) {
           try {
             const d = JSON.parse(line.slice(6));
-            if (d.type === 'chunk') { full += d.content; setStreamingContent(full); }
+            if (d.type === 'chunk') {
+              full += d.content;
+              streamBufferRef.current = full;
+              // RAF-batch: update state at most once per animation frame (~60fps)
+              if (!rafRef.current) {
+                rafRef.current = requestAnimationFrame(() => {
+                  setStreamingContent(streamBufferRef.current);
+                  rafRef.current = null;
+                });
+              }
+            }
             if (d.type === 'done') {
+              // Flush any pending RAF before finalising
+              if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
               setMessages(p => [...p, { role: 'assistant', content: full, timestamp: new Date().toISOString() }]);
               setStreamingContent('');
               // Show accurate credit deduction
