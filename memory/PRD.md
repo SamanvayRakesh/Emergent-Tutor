@@ -195,7 +195,12 @@ Enforced BNPS curriculum, KaTeX math rendering, Admin dashboard (3 hardcoded ema
 - `POST /api/admin/grade-requests/{id}/resolve`
 - `GET  /api/admin/users`
 
-## Completed (Aug 2026 — Session 7)
+## Completed (Aug 2026 — Session 8)
+- [x] Quiz fix: Removed `response_format={"type": "json_object"}` (unreliable with DeepSeek V4 Flash via OpenRouter) — replaced with regex-based JSON extraction that strips markdown fences. Added credit refund (15 cr) if AI generation fails so users are never charged for a failed quiz. Added `include_reasoning: False` for faster generation
+- [x] Quiz error UX: Replaced raw `alert()` with proper toast error in QuizArena.jsx
+- [x] Admin leaderboard reset: `POST /api/admin/reset-leaderboard` — sets all non-admin users' XP=0 and level=1. Non-admins get 403. Verified: reset 52 users in one call
+- [x] Admin UI: "Reset All XP" button added to Leaderboard tab in AdminDashboard with `window.confirm` guard
+
 - [x] AI latency fix: Added `extra_body={"include_reasoning": False}` to OpenRouter streaming call in `chat.py` to explicitly disable DeepSeek reasoning tokens — TTFT now ~2.4s
 - [x] Parallelised pre-LLM DB calls: KB lookup + student profile fetch now run concurrently via `asyncio.gather()` instead of sequentially, saving ~100–200ms per request
 - [x] No change to model, temperature, max_tokens, or system prompt — accuracy and clarity fully preserved

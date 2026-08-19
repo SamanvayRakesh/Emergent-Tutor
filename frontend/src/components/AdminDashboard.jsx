@@ -49,6 +49,15 @@ export default function AdminDashboard() {
     } catch { toast.error('Failed to update'); }
   };
 
+  const resetLeaderboard = async () => {
+    if (!window.confirm('Reset ALL users XP to 0? This cannot be undone.')) return;
+    try {
+      const { data: res } = await axios.post(`${API}/admin/reset-leaderboard`, {}, { withCredentials: true });
+      toast.success(`XP reset for ${res.reset_count} users`);
+      fetchTab('leaderboard');
+    } catch { toast.error('Failed to reset leaderboard'); }
+  };
+
   const resolveGrade = async (reqId, action) => {
     try {
       await axios.post(`${API}/admin/grade-requests/${reqId}/resolve`, { action }, { withCredentials: true });
@@ -401,7 +410,15 @@ export default function AdminDashboard() {
         {/* ── LEADERBOARD TAB ── */}
         {tab === 'leaderboard' && (
           <div data-testid="admin-leaderboard-panel">
-            <p className="text-zinc-500 text-xs font-body mb-4">Toggle visibility of users on the public leaderboard.</p>
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-zinc-500 text-xs font-body">Toggle visibility of users on the public leaderboard.</p>
+              <button
+                data-testid="reset-leaderboard-btn"
+                onClick={resetLeaderboard}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-all">
+                <RotateCcw size={12} /> Reset All XP
+              </button>
+            </div>
             <div className="glass rounded-xl border border-white/5 overflow-hidden">
               {data.leaderboard?.users?.map((u) => (
                 <div key={u.user_id} className="flex items-center justify-between px-5 py-3 border-b border-white/5 last:border-0">

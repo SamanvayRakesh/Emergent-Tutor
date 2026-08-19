@@ -1,6 +1,7 @@
 """Quiz generation + submission + gamification stats."""
 import uuid
 import json
+import re
 import random
 from datetime import datetime, timezone
 
@@ -196,15 +197,24 @@ Make questions test conceptual understanding, not just memorization. Include a b
         response = await openai_client.chat.completions.create(
             model="deepseek/deepseek-v4-flash",
             messages=[
-                {"role": "system", "content": "You are an expert CBSE question paper setter. Generate clear, educational MCQ questions."},
+                {"role": "system", "content": "You are an expert CBSE question paper setter. Generate clear, educational MCQ questions. Return ONLY valid JSON, no extra text."},
                 {"role": "user", "content": prompt},
             ],
-            response_format={"type": "json_object"},
             temperature=0.7, max_tokens=2000,
+            extra_body={"include_reasoning": False},
         )
-        quiz_data = json.loads(response.choices[0].message.content)
+        raw = response.choices[0].message.content or ""
+        # Strip markdown code fences if present, then find the JSON object
+        raw = re.sub(r"```(?:json)?", "", raw).strip()
+        m = re.search(r"\{[\s\S]*\}", raw)
+        if not m:
+            raise ValueError("No JSON object found in response")
+        quiz_data = json.loads(m.group())
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"AI generation failed: {e}")
+        # Refund the credits we already deducted
+        if past_quiz_count > 0:
+            await db.users.update_one({"user_id": user["user_id"]}, {"$inc": {"credits": 15}})
+        raise HTTPException(status_code=502, detail=f"Quiz generation failed. Your credits have been refunded. ({e})")
 
     quiz_id = f"quiz_{uuid.uuid4().hex[:12]}"
     now = datetime.now(timezone.utc).isoformat()

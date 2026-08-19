@@ -55,6 +55,19 @@ async def admin_hide_from_leaderboard(user_id: str, request: Request):
     return {"success": True, "message": f"User {action} leaderboard", "hidden": hidden}
 
 
+@router.post("/admin/reset-leaderboard")
+async def admin_reset_leaderboard(request: Request):
+    """Reset all non-admin users' XP and level to 0 / 1."""
+    await _require_admin(request)
+    result = await db.users.update_many(
+        {"role": {"$ne": "admin"}},
+        {"$set": {"xp": 0, "level": 1}},
+    )
+    logger.info(f"Admin leaderboard reset: {result.modified_count} users' XP wiped")
+    return {"success": True, "reset_count": result.modified_count,
+            "message": f"XP reset to 0 for {result.modified_count} users"}
+
+
 # ── Grade change requests ─────────────────────────────────────────────────────
 
 @router.get("/admin/grade-requests")

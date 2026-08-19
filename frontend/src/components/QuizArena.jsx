@@ -7,6 +7,7 @@ import {
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import { MathText } from './MathRenderer';
+import { toast } from 'sonner';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -103,8 +104,8 @@ export default function QuizArena() {
       }, { withCredentials: true });
       setQuiz(data); setAnswers({}); setCurrent(0); setPhase('quiz');
     } catch (e) {
-      const msg = e.response?.data?.detail?.message || e.response?.data?.detail || 'Generation failed';
-      alert(msg);
+      const msg = e.response?.data?.detail?.message || e.response?.data?.detail || 'Quiz generation failed. Please try again.';
+      toast.error(msg, { duration: 5000 });
     }
     setLoading(false);
   };
