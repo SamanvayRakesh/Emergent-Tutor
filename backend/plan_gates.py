@@ -11,7 +11,7 @@ PLANS = {
         "limits": {
             "ai_messages_per_day": 10,
             "mock_exams_per_week": 1,
-            "quizzes_per_day": 3,
+            "quizzes_per_day": None,
             "study_plan": False,
             "adaptive_quizzes": False,
             "leaderboard_full": False,
@@ -22,7 +22,7 @@ PLANS = {
         "highlights": [
             "10 AI messages / day",
             "1 mock exam / week",
-            "3 quizzes / day",
+            "Unlimited quizzes",
             "Basic study plan",
         ],
     },
