@@ -195,7 +195,12 @@ Enforced BNPS curriculum, KaTeX math rendering, Admin dashboard (3 hardcoded ema
 - `POST /api/admin/grade-requests/{id}/resolve`
 - `GET  /api/admin/users`
 
-## Completed (Aug 2026 — Session 8)
+## Completed (Aug 2026 — Session 9)
+- [x] Feedback reply system: `POST /api/admin/feedback/{id}/reply` — admin replies stored in feedback doc (`admin_reply`, `replied_at`, `replied_by`), auto-resolves item
+- [x] User reply view: `GET /api/feedback/my-feedback` — returns user's own feedback items with replies
+- [x] AdminDashboard: inline reply input per feedback item with Enter-to-send; existing reply shown with left-border accent; "Replied by" attribution
+- [x] FeedbackModal: "My Replies" tab with reply count badge, fetches `/feedback/my-feedback` on tab open; shows "Awaiting reply…" or admin reply with cyan accent; non-admin cannot reply (403 enforced)
+
 - [x] Quiz fix: Removed `response_format={"type": "json_object"}` (unreliable with DeepSeek V4 Flash via OpenRouter) — replaced with regex-based JSON extraction that strips markdown fences. Added credit refund (15 cr) if AI generation fails so users are never charged for a failed quiz. Added `include_reasoning: False` for faster generation
 - [x] Quiz error UX: Replaced raw `alert()` with proper toast error in QuizArena.jsx
 - [x] Admin leaderboard reset: `POST /api/admin/reset-leaderboard` — sets all non-admin users' XP=0 and level=1. Non-admins get 403. Verified: reset 52 users in one call

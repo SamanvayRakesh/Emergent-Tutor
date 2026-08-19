@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import { ShieldCheck, Users, TrendingUp, GraduationCap, Eye, EyeOff, CheckCircle, XCircle, RefreshCw, IndianRupee, MessageSquarePlus, Crown, Zap, ArrowUpRight, Calendar, BadgeCheck, Search, Plus, RotateCcw } from 'lucide-react';
+import { ShieldCheck, Users, TrendingUp, GraduationCap, Eye, EyeOff, CheckCircle, XCircle, RefreshCw, IndianRupee, MessageSquarePlus, Crown, Zap, ArrowUpRight, Calendar, BadgeCheck, Search, Plus, RotateCcw, CornerDownRight, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -56,6 +56,22 @@ export default function AdminDashboard() {
       toast.success(`XP reset for ${res.reset_count} users`);
       fetchTab('leaderboard');
     } catch { toast.error('Failed to reset leaderboard'); }
+  };
+
+  const [replyInputs, setReplyInputs] = useState({});
+  const [replyBusy, setReplyBusy]     = useState({});
+
+  const sendReply = async (feedbackId) => {
+    const text = (replyInputs[feedbackId] || '').trim();
+    if (!text) return;
+    setReplyBusy(p => ({ ...p, [feedbackId]: true }));
+    try {
+      await axios.post(`${API}/admin/feedback/${feedbackId}/reply`, { reply: text }, { withCredentials: true });
+      toast.success('Reply sent');
+      setReplyInputs(p => ({ ...p, [feedbackId]: '' }));
+      fetchTab('feedback');
+    } catch { toast.error('Failed to send reply'); }
+    finally { setReplyBusy(p => ({ ...p, [feedbackId]: false })); }
   };
 
   const resolveGrade = async (reqId, action) => {
@@ -504,6 +520,34 @@ export default function AdminDashboard() {
                       </div>
                       <p className="text-white text-sm font-body">{fb.message}</p>
                       <p className="text-zinc-600 text-xs font-body mt-1">{new Date(fb.created_at).toLocaleString()}</p>
+
+                      {/* Existing reply */}
+                      {fb.admin_reply && (
+                        <div className="mt-3 pl-3 border-l-2 border-cyan-500/40">
+                          <p className="text-cyan-300 text-xs font-body font-semibold mb-0.5">Reply by {fb.replied_by || 'Admin'}</p>
+                          <p className="text-zinc-300 text-sm font-body">{fb.admin_reply}</p>
+                          <p className="text-zinc-600 text-[11px] font-body mt-0.5">{fb.replied_at ? new Date(fb.replied_at).toLocaleString() : ''}</p>
+                        </div>
+                      )}
+
+                      {/* Reply input — always visible for admins */}
+                      <div className="mt-3 flex gap-2">
+                        <input
+                          data-testid={`reply-input-${fb.feedback_id}`}
+                          value={replyInputs[fb.feedback_id] || ''}
+                          onChange={e => setReplyInputs(p => ({ ...p, [fb.feedback_id]: e.target.value }))}
+                          onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendReply(fb.feedback_id)}
+                          placeholder={fb.admin_reply ? 'Update reply…' : 'Write a reply…'}
+                          className="flex-1 bg-zinc-800 border border-white/10 rounded-lg px-3 py-1.5 text-white text-xs font-body placeholder-zinc-600 focus:outline-none focus:border-cyan-500/50 transition-all"
+                        />
+                        <button
+                          data-testid={`reply-send-${fb.feedback_id}`}
+                          onClick={() => sendReply(fb.feedback_id)}
+                          disabled={replyBusy[fb.feedback_id] || !(replyInputs[fb.feedback_id] || '').trim()}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-cyan-500/10 text-cyan-400 text-xs font-semibold hover:bg-cyan-500/20 transition-all disabled:opacity-40">
+                          <CornerDownRight size={12} /> {replyBusy[fb.feedback_id] ? '…' : 'Reply'}
+                        </button>
+                      </div>
                     </div>
                     {fb.status === 'open' ? (
                       <button onClick={() => resolveFeedback(fb.feedback_id)}
