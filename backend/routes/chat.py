@@ -364,11 +364,21 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
             {"$set": {"updated_at": ts}, "$inc": {"message_count": 2}},
         )
 
-        # XP
-        await db.users.update_one(
+        # XP: once per day only (not spammable) — encourages daily use without reward farming
+        today_str = datetime.now(timezone.utc).date().isoformat()
+        user_fresh = await db.users.find_one(
             {"user_id": user["user_id"]},
-            {"$inc": {"xp": 5}, "$set": {"last_active": ts}},
+            {"_id": 0, "last_daily_chat_xp": 1, "xp": 1, "level": 1},
         )
+        already_got_chat_xp = user_fresh.get("last_daily_chat_xp") == today_str
+        chat_xp = 0 if already_got_chat_xp else 10
+
+        xp_update: dict = {"$set": {"last_active": ts}}
+        if chat_xp > 0:
+            xp_update["$inc"] = {"xp": chat_xp}
+            xp_update["$set"]["last_daily_chat_xp"] = today_str
+        await db.users.update_one({"user_id": user["user_id"]}, xp_update)
+
         updated = await db.users.find_one({"user_id": user["user_id"]}, {"_id": 0})
         if updated:
             new_level = max(1, updated.get("xp", 0) // 500 + 1)

@@ -200,6 +200,13 @@ Enforced BNPS curriculum, KaTeX math rendering, Admin dashboard (3 hardcoded ema
 - [x] Quiz error UX: Replaced raw `alert()` with proper toast error in QuizArena.jsx
 - [x] Admin leaderboard reset: `POST /api/admin/reset-leaderboard` — sets all non-admin users' XP=0 and level=1. Non-admins get 403. Verified: reset 52 users in one call
 - [x] Admin UI: "Reset All XP" button added to Leaderboard tab in AdminDashboard with `window.confirm` guard
+- [x] XP overhaul — anti-spam, correct-answer only, improvement detection:
+  - Chat XP: removed flat +5/message → now +10 once per day (tracked via `last_daily_chat_xp` field)
+  - Quiz XP: `correct_count × 15` (base) + **+50 Improvement Bonus** if topic mastery was <0.5 AND score ≥70%
+  - Daily quiz XP cap: 200 XP/day (tracked via `daily_quiz_xp` + `daily_xp_date` fields)
+  - Mock exam XP unchanged (already score-based, not spammable)
+  - QuizArena result screen shows improvement bonus label when awarded
+  - Verified: 3/3 correct on weak topic = 45+50=95 XP; daily cap correctly reduces subsequent awards
 
 - [x] AI latency fix: Added `extra_body={"include_reasoning": False}` to OpenRouter streaming call in `chat.py` to explicitly disable DeepSeek reasoning tokens — TTFT now ~2.4s
 - [x] Parallelised pre-LLM DB calls: KB lookup + student profile fetch now run concurrently via `asyncio.gather()` instead of sequentially, saving ~100–200ms per request

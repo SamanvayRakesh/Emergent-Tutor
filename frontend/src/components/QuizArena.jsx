@@ -357,7 +357,16 @@ export default function QuizArena() {
               <div className="flex items-center justify-center gap-1.5 mt-3">
                 <Zap size={16} className="text-amber-400" />
                 <span className="text-amber-400 font-heading font-bold">+{result.xp_earned} XP</span>
+                {result.xp_earned === 0 && (
+                  <span className="text-zinc-500 text-xs font-body ml-1">(daily cap reached)</span>
+                )}
               </div>
+              {result.improvement_bonus > 0 && (
+                <div className="flex items-center justify-center gap-1.5 mt-1">
+                  <TrendingUp size={13} className="text-emerald-400" />
+                  <span className="text-emerald-400 text-xs font-body font-semibold">+{result.improvement_bonus} Improvement Bonus — you levelled up a weak topic!</span>
+                </div>
+              )}
 
               {/* Adaptive next-difficulty hint */}
               {mastery && (

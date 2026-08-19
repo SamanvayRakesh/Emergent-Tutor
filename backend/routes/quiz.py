@@ -11,7 +11,7 @@ from core import db, openai_client, get_current_user
 from plan_gates import check_limit, increment_usage
 from credits import deduct_credits
 from models import QuizGenerateRequest, QuizSubmitRequest
-from adaptive_engine import record_quiz_result, update_topic_performance
+from adaptive_engine import record_quiz_result, update_topic_performance, get_student_profile
 from school_curriculum import get_school_chapters, has_school_curriculum
 
 router = APIRouter()
@@ -293,14 +293,42 @@ async def submit_quiz(quiz_id: str, body: QuizSubmitRequest, request: Request):
 
     total = len(questions)
     score_pct = int((correct_count / total * 100)) if total > 0 else 0
-    xp_earned = correct_count * 20
+
+    # ── XP: correct-answer based + improvement bonus + daily cap ─────────────
+    today = datetime.now(timezone.utc).date().isoformat()
+    user_doc = await db.users.find_one(
+        {"user_id": user["user_id"]},
+        {"_id": 0, "daily_quiz_xp": 1, "daily_xp_date": 1},
+    )
+    daily_used = user_doc.get("daily_quiz_xp", 0) if user_doc.get("daily_xp_date") == today else 0
+    DAILY_CAP = 200
+
+    base_xp = min(correct_count * 15, max(0, DAILY_CAP - daily_used))
+
+    # Improvement bonus: +50 XP if the topic was weak AND student scored ≥70%
+    improvement_bonus = 0
+    topic_key = quiz.get("topic", "")
+    if base_xp > 0 and score_pct >= 70 and topic_key:
+        profile = await get_student_profile(user["user_id"])
+        topic_mastery = profile.get("topics", {}).get(topic_key, {}).get("mastery", 0.5)
+        if topic_mastery < 0.5:            # was a weak topic
+            improvement_bonus = min(50, DAILY_CAP - daily_used - base_xp)
+            improvement_bonus = max(0, improvement_bonus)
+
+    total_xp = base_xp + improvement_bonus
+    new_daily = daily_used + total_xp
 
     await db.quizzes.update_one(
         {"quiz_id": quiz_id},
         {"$set": {"completed": True, "score": score_pct, "correct_count": correct_count,
                   "total_questions": total, "completed_at": datetime.now(timezone.utc).isoformat()}},
     )
-    await db.users.update_one({"user_id": user["user_id"]}, {"$inc": {"xp": xp_earned}})
+    if total_xp > 0:
+        await db.users.update_one(
+            {"user_id": user["user_id"]},
+            {"$inc": {"xp": total_xp}, "$set": {"daily_quiz_xp": new_daily, "daily_xp_date": today}},
+        )
+    # ─────────────────────────────────────────────────────────────────────────
 
     # Bonus credits for completing a quiz (reward participation)
     bonus_credits = min(5, max(1, correct_count))  # 1–5 bonus credits based on correct answers
@@ -315,7 +343,9 @@ async def submit_quiz(quiz_id: str, body: QuizSubmitRequest, request: Request):
         await update_topic_performance(user["user_id"], topic_label, is_correct)
 
     return {"score": score_pct, "correct_count": correct_count, "total_questions": total,
-            "xp_earned": xp_earned, "results": results}
+            "xp_earned": total_xp, "improvement_bonus": improvement_bonus,
+            "daily_xp_used": new_daily, "daily_xp_cap": DAILY_CAP,
+            "results": results}
 
 
 @router.get("/gamification/stats")
