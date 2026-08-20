@@ -294,29 +294,19 @@ async def submit_quiz(quiz_id: str, body: QuizSubmitRequest, request: Request):
     total = len(questions)
     score_pct = int((correct_count / total * 100)) if total > 0 else 0
 
-    # ── XP: correct-answer based + improvement bonus + daily cap ─────────────
-    today = datetime.now(timezone.utc).date().isoformat()
-    user_doc = await db.users.find_one(
-        {"user_id": user["user_id"]},
-        {"_id": 0, "daily_quiz_xp": 1, "daily_xp_date": 1},
-    )
-    daily_used = user_doc.get("daily_quiz_xp", 0) if user_doc.get("daily_xp_date") == today else 0
-    DAILY_CAP = 200
+    # ── XP: correct-answer based + improvement bonus ──────────────────────────
+    base_xp = correct_count * 15   # 15 XP per correct answer, no daily cap
 
-    base_xp = min(correct_count * 15, max(0, DAILY_CAP - daily_used))
-
-    # Improvement bonus: +50 XP if the topic was weak AND student scored ≥70%
+    # Improvement bonus: +50 XP if topic was weak (mastery < 0.5) AND score ≥ 70%
     improvement_bonus = 0
     topic_key = quiz.get("topic", "")
-    if base_xp > 0 and score_pct >= 70 and topic_key:
+    if score_pct >= 70 and topic_key:
         profile = await get_student_profile(user["user_id"])
         topic_mastery = profile.get("topics", {}).get(topic_key, {}).get("mastery", 0.5)
-        if topic_mastery < 0.5:            # was a weak topic
-            improvement_bonus = min(50, DAILY_CAP - daily_used - base_xp)
-            improvement_bonus = max(0, improvement_bonus)
+        if topic_mastery < 0.5:
+            improvement_bonus = 50
 
     total_xp = base_xp + improvement_bonus
-    new_daily = daily_used + total_xp
 
     await db.quizzes.update_one(
         {"quiz_id": quiz_id},
@@ -325,9 +315,16 @@ async def submit_quiz(quiz_id: str, body: QuizSubmitRequest, request: Request):
     )
     if total_xp > 0:
         await db.users.update_one(
-            {"user_id": user["user_id"]},
-            {"$inc": {"xp": total_xp}, "$set": {"daily_quiz_xp": new_daily, "daily_xp_date": today}},
+            {"user_id": user["user_id"]}, {"$inc": {"xp": total_xp}}
         )
+        # Level-up check
+        updated = await db.users.find_one({"user_id": user["user_id"]}, {"_id": 0, "xp": 1, "level": 1})
+        if updated:
+            new_level = max(1, updated.get("xp", 0) // 500 + 1)
+            if new_level > updated.get("level", 1):
+                await db.users.update_one(
+                    {"user_id": user["user_id"]}, {"$set": {"level": new_level}}
+                )
     # ─────────────────────────────────────────────────────────────────────────
 
     # Bonus credits for completing a quiz (reward participation)
@@ -344,7 +341,6 @@ async def submit_quiz(quiz_id: str, body: QuizSubmitRequest, request: Request):
 
     return {"score": score_pct, "correct_count": correct_count, "total_questions": total,
             "xp_earned": total_xp, "improvement_bonus": improvement_bonus,
-            "daily_xp_used": new_daily, "daily_xp_cap": DAILY_CAP,
             "results": results}
 
 

@@ -10,7 +10,7 @@ PLANS = {
         "color": "#94a3b8",
         "limits": {
             "ai_messages_per_day": 10,
-            "mock_exams_per_week": 1,
+            "mock_exams_per_week": None,
             "quizzes_per_day": None,
             "study_plan": False,
             "adaptive_quizzes": False,

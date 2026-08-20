@@ -155,6 +155,15 @@ async def submit_mock_exam(exam_id: str, body: QuizSubmitRequest, request: Reque
                   "completed_at": datetime.now(timezone.utc).isoformat()}},
     )
     await db.users.update_one({"user_id": user["user_id"]}, {"$inc": {"xp": xp_earned}})
+    # Level-up check
+    if xp_earned > 0:
+        updated = await db.users.find_one({"user_id": user["user_id"]}, {"_id": 0, "xp": 1, "level": 1})
+        if updated:
+            new_level = max(1, updated.get("xp", 0) // 500 + 1)
+            if new_level > updated.get("level", 1):
+                await db.users.update_one(
+                    {"user_id": user["user_id"]}, {"$set": {"level": new_level}}
+                )
 
     # Phase 7: Persist weak topics to student_profiles for cross-session recommendations
     if weak_unique:
