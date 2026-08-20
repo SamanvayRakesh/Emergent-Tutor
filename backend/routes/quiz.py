@@ -295,7 +295,22 @@ async def submit_quiz(quiz_id: str, body: QuizSubmitRequest, request: Request):
     score_pct = int((correct_count / total * 100)) if total > 0 else 0
 
     # ── XP: correct-answer based + improvement bonus ──────────────────────────
-    base_xp = correct_count * 15   # 15 XP per correct answer, no daily cap
+    difficulty = quiz.get("difficulty", "medium")
+    xp_per_correct = {"easy": 10, "medium": 15, "hard": 22}.get(difficulty, 15)
+    base_xp = correct_count * xp_per_correct
+
+    # Perfect score bonus
+    perfect_bonus = 25 if correct_count == total and total > 0 else 0
+
+    # Longest consecutive correct streak bonus (+2 XP per answer in streak)
+    streak = max_streak = 0
+    for r in results:
+        if r.get("is_correct"):
+            streak += 1
+            max_streak = max(max_streak, streak)
+        else:
+            streak = 0
+    streak_bonus = max_streak * 2
 
     # Improvement bonus: +50 XP if topic was weak (mastery < 0.5) AND score ≥ 70%
     improvement_bonus = 0
@@ -306,7 +321,7 @@ async def submit_quiz(quiz_id: str, body: QuizSubmitRequest, request: Request):
         if topic_mastery < 0.5:
             improvement_bonus = 50
 
-    total_xp = base_xp + improvement_bonus
+    total_xp = base_xp + perfect_bonus + streak_bonus + improvement_bonus
 
     await db.quizzes.update_one(
         {"quiz_id": quiz_id},
@@ -341,6 +356,7 @@ async def submit_quiz(quiz_id: str, body: QuizSubmitRequest, request: Request):
 
     return {"score": score_pct, "correct_count": correct_count, "total_questions": total,
             "xp_earned": total_xp, "improvement_bonus": improvement_bonus,
+            "perfect_bonus": perfect_bonus, "streak_bonus": streak_bonus,
             "results": results}
 
 
