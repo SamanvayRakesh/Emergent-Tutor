@@ -3,13 +3,13 @@ import uuid
 import json
 import re
 import random
+import asyncio
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Request
 
 from core import db, openai_client, get_current_user
 from plan_gates import check_limit, increment_usage
-from credits import deduct_credits
 from models import QuizGenerateRequest, QuizSubmitRequest
 from adaptive_engine import record_quiz_result, update_topic_performance, get_student_profile
 from school_curriculum import get_school_chapters, has_school_curriculum
@@ -153,10 +153,17 @@ async def generate_quiz(body: QuizGenerateRequest, request: Request):
             },
         )
 
-    # Credit gate: first quiz is FREE; subsequent quizzes cost credits
+    # Credit gate: first quiz is FREE; subsequent quizzes cost credits.
+    # IMPORTANT: check balance first, deduct ONLY after successful generation
+    # so users are NEVER charged for a failed or timed-out quiz.
+    QUIZ_COST = 15
     past_quiz_count = await db.quizzes.count_documents({"user_id": user["user_id"]})
     if past_quiz_count > 0:
-        await deduct_credits(user["user_id"], "quiz_generate")
+        if user.get("credits", 0) < QUIZ_COST:
+            raise HTTPException(
+                status_code=402,
+                detail={"code": "INSUFFICIENT_CREDITS", "message": "Not enough credits to generate a quiz.", "required": QUIZ_COST, "current": user.get("credits", 0)},
+            )
 
     # Build school context for BNPS students
     school = user.get("school", "")
@@ -171,50 +178,42 @@ async def generate_quiz(body: QuizGenerateRequest, request: Request):
             f"Focus ONLY on the topic '{body.topic}' as it appears in the BNPS curriculum."
         )
 
-    prompt = f"""Generate exactly {body.num_questions} multiple-choice questions for Grade {body.class_level} {body.subject} on the topic: "{body.topic}".{school_context}
+    prompt = f"""Generate exactly {body.num_questions} multiple-choice questions for Grade {body.class_level} {body.subject} on topic: "{body.topic}".{school_context}
+Difficulty: {body.difficulty}
+Return ONLY valid JSON (no markdown, no extra text):
+{{"title":"Quiz: {body.topic}","questions":[{{"type":"mcq","question":"...","options":["A. ...","B. ...","C. ...","D. ..."],"correct":"A","explanation":"One sentence."}}]}}"""
 
-Difficulty level: {body.difficulty}
-
-Return ONLY a JSON object with this EXACT structure (every question MUST have "type": "mcq"):
-{{
-  "title": "Quiz: {body.topic}",
-  "subject": "{body.subject}",
-  "class_level": "{body.class_level}",
-  "questions": [
-    {{
-      "type": "mcq",
-      "question": "...",
-      "options": ["A. ...", "B. ...", "C. ...", "D. ..."],
-      "correct": "A",
-      "explanation": "Brief explanation why the answer is correct"
-    }}
-  ]
-}}
-
-Make questions test conceptual understanding, not just memorization. Include a brief explanation for each answer."""
+    # Scale token budget: ~130 tokens per question + 200 overhead (well within model capacity)
+    max_tokens = min(body.num_questions * 130 + 250, 1400)
 
     try:
-        response = await openai_client.chat.completions.create(
-            model="deepseek/deepseek-v4-flash",
-            messages=[
-                {"role": "system", "content": "You are an expert CBSE question paper setter. Generate clear, educational MCQ questions. Return ONLY valid JSON, no extra text."},
-                {"role": "user", "content": prompt},
-            ],
-            temperature=0.7, max_tokens=2000,
-            extra_body={"include_reasoning": False},
+        response = await asyncio.wait_for(
+            openai_client.chat.completions.create(
+                model="deepseek/deepseek-v4-flash",
+                messages=[
+                    {"role": "system", "content": "You are a CBSE quiz generator. Return ONLY valid JSON, no extra text."},
+                    {"role": "user", "content": prompt},
+                ],
+                temperature=0.7,
+                max_tokens=max_tokens,
+                extra_body={"include_reasoning": False},
+            ),
+            timeout=50.0,   # hard cap — Cloudflare proxy limit is 120 s, stay well under it
         )
         raw = response.choices[0].message.content or ""
-        # Strip markdown code fences if present, then find the JSON object
         raw = re.sub(r"```(?:json)?", "", raw).strip()
         m = re.search(r"\{[\s\S]*\}", raw)
         if not m:
-            raise ValueError("No JSON object found in response")
+            raise ValueError("Model returned no JSON object")
         quiz_data = json.loads(m.group())
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="Quiz generation timed out. No credits were charged. Please try again.")
     except Exception as e:
-        # Refund the credits we already deducted
-        if past_quiz_count > 0:
-            await db.users.update_one({"user_id": user["user_id"]}, {"$inc": {"credits": 15}})
-        raise HTTPException(status_code=502, detail=f"Quiz generation failed. Your credits have been refunded. ({e})")
+        raise HTTPException(status_code=502, detail=f"Quiz generation failed. No credits were charged. ({type(e).__name__})")
+
+    # ── Only deduct credits AFTER the quiz is successfully generated ──────────
+    if past_quiz_count > 0:
+        await db.users.update_one({"user_id": user["user_id"]}, {"$inc": {"credits": -QUIZ_COST}})
 
     quiz_id = f"quiz_{uuid.uuid4().hex[:12]}"
     now = datetime.now(timezone.utc).isoformat()
