@@ -195,7 +195,15 @@ Enforced BNPS curriculum, KaTeX math rendering, Admin dashboard (3 hardcoded ema
 - `POST /api/admin/grade-requests/{id}/resolve`
 - `GET  /api/admin/users`
 
-## Completed (Aug 2026 — Session 9)
+## Completed (Aug 2026 — Session 10)
+- [x] Anti-farming XP system (3 layers):
+  - Layer 1 — Replay block: same quiz_id can't be submitted twice (400 error)
+  - Layer 2 — Speed gate: `num_questions × difficulty_floor_seconds` (easy=6, medium=9, hard=14). Too fast = 0 XP
+  - Layer 3 — Topic daily decay: 1st quiz on topic = 100%, 2nd = 50%, 3rd+ = 20% XP
+- [x] Free credits removed: deleted `bonus_credits` block from quiz submit (no more 1–5 credits per completed quiz)
+- [x] QuizArena result screen: "(answered too fast)" hint shown when XP=0 but answers were correct
+- Verified all 3 layers via direct API tests: speed gate → 0 XP, replay → 400, decay → 61→30→15 XP
+
 - [x] Feedback reply system: `POST /api/admin/feedback/{id}/reply` — admin replies stored in feedback doc (`admin_reply`, `replied_at`, `replied_by`), auto-resolves item
 - [x] User reply view: `GET /api/feedback/my-feedback` — returns user's own feedback items with replies
 - [x] AdminDashboard: inline reply input per feedback item with Enter-to-send; existing reply shown with left-border accent; "Replied by" attribution

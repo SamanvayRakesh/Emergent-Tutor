@@ -357,11 +357,10 @@ export default function QuizArena() {
               <div className="flex items-center justify-center gap-1.5 mt-3">
                 <Zap size={16} className="text-amber-400" />
                 <span className="text-amber-400 font-heading font-bold">+{result.xp_earned} XP</span>
-                {result.xp_earned === 0 && (
-                  <span className="text-zinc-500 text-xs font-body ml-1">(no correct answers)</span>
+                {result.xp_earned === 0 && result.correct_count > 0 && (
+                  <span className="text-zinc-500 text-xs font-body ml-1">(answered too fast)</span>
                 )}
               </div>
-              {/* XP breakdown */}
               {result.xp_earned > 0 && (
                 <div className="flex items-center justify-center gap-3 mt-1 flex-wrap">
                   {result.perfect_bonus > 0 && (

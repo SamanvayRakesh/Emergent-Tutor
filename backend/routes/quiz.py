@@ -276,6 +276,10 @@ async def submit_quiz(quiz_id: str, body: QuizSubmitRequest, request: Request):
     if not quiz:
         raise HTTPException(status_code=404, detail="Quiz not found")
 
+    # ── Layer 1: Replay block ─────────────────────────────────────────────────
+    if quiz.get("completed"):
+        raise HTTPException(status_code=400, detail="This quiz has already been submitted.")
+
     questions = quiz.get("questions", [])
     correct_count = 0
     results = []
@@ -293,15 +297,13 @@ async def submit_quiz(quiz_id: str, body: QuizSubmitRequest, request: Request):
     total = len(questions)
     score_pct = int((correct_count / total * 100)) if total > 0 else 0
 
-    # ── XP: correct-answer based + improvement bonus ──────────────────────────
+    # XP calculation
     difficulty = quiz.get("difficulty", "medium")
     xp_per_correct = {"easy": 10, "medium": 15, "hard": 22}.get(difficulty, 15)
     base_xp = correct_count * xp_per_correct
 
-    # Perfect score bonus
     perfect_bonus = 25 if correct_count == total and total > 0 else 0
 
-    # Longest consecutive correct streak bonus (+2 XP per answer in streak)
     streak = max_streak = 0
     for r in results:
         if r.get("is_correct"):
@@ -311,7 +313,6 @@ async def submit_quiz(quiz_id: str, body: QuizSubmitRequest, request: Request):
             streak = 0
     streak_bonus = max_streak * 2
 
-    # Improvement bonus: +50 XP if topic was weak (mastery < 0.5) AND score ≥ 70%
     improvement_bonus = 0
     topic_key = quiz.get("topic", "")
     if score_pct >= 70 and topic_key:
@@ -322,16 +323,41 @@ async def submit_quiz(quiz_id: str, body: QuizSubmitRequest, request: Request):
 
     total_xp = base_xp + perfect_bonus + streak_bonus + improvement_bonus
 
+    # ── Layer 2: Speed gate — too fast = answer-copying, 0 XP ────────────────
+    speed_floor = {"easy": 6, "medium": 9, "hard": 14}   # min seconds per question
+    min_seconds = total * speed_floor.get(difficulty, 9)
+    try:
+        quiz_created = datetime.fromisoformat(quiz["created_at"].replace("Z", "+00:00"))
+        time_spent = (datetime.now(timezone.utc) - quiz_created).total_seconds()
+    except (ValueError, AttributeError, KeyError):
+        time_spent = 9999
+    if time_spent < min_seconds:
+        total_xp = 0
+
+    # ── Layer 3: Per-topic daily decay — stops spam farming ───────────────────
+    if total_xp > 0 and topic_key:
+        today_start = datetime.now(timezone.utc).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        ).isoformat()
+        topic_today = await db.quizzes.count_documents({
+            "user_id": user["user_id"], "topic": topic_key,
+            "completed": True, "completed_at": {"$gte": today_start},
+        })
+        # 1st quiz on topic: 100%, 2nd: 50%, 3rd+: 20%
+        decay = [1.0, 0.5, 0.2]
+        multiplier = decay[min(topic_today, len(decay) - 1)]
+        total_xp = int(total_xp * multiplier)
+
+    now_iso = datetime.now(timezone.utc).isoformat()
     await db.quizzes.update_one(
         {"quiz_id": quiz_id},
         {"$set": {"completed": True, "score": score_pct, "correct_count": correct_count,
-                  "total_questions": total, "completed_at": datetime.now(timezone.utc).isoformat()}},
+                  "total_questions": total, "completed_at": now_iso}},
     )
     if total_xp > 0:
         await db.users.update_one(
             {"user_id": user["user_id"]}, {"$inc": {"xp": total_xp}}
         )
-        # Level-up check
         updated = await db.users.find_one({"user_id": user["user_id"]}, {"_id": 0, "xp": 1, "level": 1})
         if updated:
             new_level = max(1, updated.get("xp", 0) // 500 + 1)
@@ -339,13 +365,7 @@ async def submit_quiz(quiz_id: str, body: QuizSubmitRequest, request: Request):
                 await db.users.update_one(
                     {"user_id": user["user_id"]}, {"$set": {"level": new_level}}
                 )
-    # ─────────────────────────────────────────────────────────────────────────
 
-    # Bonus credits for completing a quiz (reward participation)
-    bonus_credits = min(5, max(1, correct_count))  # 1–5 bonus credits based on correct answers
-    await db.users.update_one({"user_id": user["user_id"]}, {"$inc": {"credits": bonus_credits}})
-
-    # Feed quiz result into adaptive engine (per-question tracking)
     await record_quiz_result(user["user_id"], quiz.get("topic", "General"), score_pct, correct_count, total)
     for i, q in enumerate(questions):
         ua = body.answers.get(str(i))
@@ -357,8 +377,6 @@ async def submit_quiz(quiz_id: str, body: QuizSubmitRequest, request: Request):
             "xp_earned": total_xp, "improvement_bonus": improvement_bonus,
             "perfect_bonus": perfect_bonus, "streak_bonus": streak_bonus,
             "results": results}
-
-
 @router.get("/gamification/stats")
 async def get_gamification_stats(request: Request):
     user = await get_current_user(request)
