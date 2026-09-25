@@ -10,6 +10,12 @@ PDF URLs are from NCERT 2024-25 official textbooks:
                  → Ganita Prakash Pt 2 (hegp2): ch02-07
 """
 
+from nios_curriculum import (
+    get_nios_subjects as _get_nios_subjects,
+    get_nios_chapters as _get_nios_chapters,
+    NIOS_CURRICULUM as _NIOS_CURRICULUM,
+)
+
 NCERT = "https://ncert.nic.in/textbook/pdf/"
 
 # ── Brooklyn National Public School — Grade 8 ────────────────────────────────
@@ -75,12 +81,22 @@ SCHOOLS: dict = {
                 "Social Science": _BNPS_8_SST,
             }
         },
-    }
+    },
+    "nios": {
+        "id":         "nios",
+        "name":       "NIOS — National Institute of Open Schooling",
+        "short_name": "NIOS Secondary",
+        "available_grades": ["10"],
+        "curriculum": {
+            "10": {subj: chapters for subj, chapters in _NIOS_CURRICULUM.items()}
+        },
+    },
 }
 
 # List of all schools for the signup UI (includes "coming soon" entries)
 SCHOOL_LIST = [
     {"id": "brooklyn_national", "name": "Brooklyn National Public School", "available": True},
+    {"id": "nios",              "name": "NIOS — National Institute of Open Schooling", "available": True, "note": "Secondary (Class 10)"},
     {"id": "national_public",   "name": "National Public School",          "available": False, "note": "Coming Soon"},
 ]
 
@@ -93,6 +109,8 @@ def has_school_curriculum(school_id: str, grade: str) -> bool:
 
 def get_school_subjects(school_id: str, grade: str) -> list[dict]:
     """Return subject metadata list for a school+grade, or [] if not available."""
+    if school_id == "nios":
+        return _get_nios_subjects()
     s = SCHOOLS.get(school_id)
     if not s:
         return []
@@ -115,6 +133,8 @@ def get_school_subjects(school_id: str, grade: str) -> list[dict]:
 
 def get_school_chapters(school_id: str, grade: str, subject: str) -> list[dict]:
     """Return chapters for a school+grade+subject, or [] if not available."""
+    if school_id == "nios":
+        return _get_nios_chapters(subject)
     s = SCHOOLS.get(school_id)
     if not s:
         return []

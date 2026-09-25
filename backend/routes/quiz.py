@@ -32,7 +32,7 @@ _SUBTOPICS: dict = {
     "circles": ["Tangent to a Circle", "Number of Tangents from a Point", "Properties of Tangents"],
     "areas related to circles": ["Perimeter and Area of a Circle", "Areas of Sector and Segment", "Combination Figures"],
     "surface areas and volumes": ["Surface Area of Cuboid & Cylinder", "Volume of Cone & Sphere", "Conversion of Solids", "Frustum of a Cone"],
-    "statistics": ["Mean", "Median", "Mode", "Cumulative Frequency"],
+    "statistics_10": ["Mean", "Median", "Mode", "Cumulative Frequency"],
     "probability": ["Classical Probability", "Complementary Events", "Problems on Playing Cards & Dice"],
     # Class 10 Science
     "chemical reactions and equations": ["Types of Chemical Reactions", "Balancing Equations", "Oxidation & Reduction"],
@@ -165,18 +165,26 @@ async def generate_quiz(body: QuizGenerateRequest, request: Request):
                 detail={"code": "INSUFFICIENT_CREDITS", "message": "Not enough credits to generate a quiz.", "required": QUIZ_COST, "current": user.get("credits", 0)},
             )
 
-    # Build school context for BNPS students
+    # Build school context for BNPS / NIOS students
     school = user.get("school", "")
     school_context = ""
     if school and has_school_curriculum(school, body.class_level):
         chapters = get_school_chapters(school, body.class_level, body.subject)
         ch_names = [c["name"] for c in chapters]
-        school_context = (
-            f"\nSCHOOL CONTEXT: This student attends Brooklyn National Public School (BNPS). "
-            f"Generate questions strictly based on their syllabus for Grade {body.class_level} {body.subject}. "
-            f"Syllabus chapters: {', '.join(ch_names)}. "
-            f"Focus ONLY on the topic '{body.topic}' as it appears in the BNPS curriculum."
-        )
+        if school == "nios":
+            school_context = (
+                f"\nCURRICULUM: NIOS Secondary (National Institute of Open Schooling) — Grade {body.class_level}.\n"
+                f"Generate questions STRICTLY from the NIOS Secondary syllabus for {body.subject}. "
+                f"Syllabus chapters: {', '.join(ch_names)}. "
+                f"Focus ONLY on the topic '{body.topic}' as it appears in the NIOS curriculum."
+            )
+        else:
+            school_context = (
+                f"\nSCHOOL CONTEXT: This student attends Brooklyn National Public School (BNPS). "
+                f"Generate questions strictly based on their syllabus for Grade {body.class_level} {body.subject}. "
+                f"Syllabus chapters: {', '.join(ch_names)}. "
+                f"Focus ONLY on the topic '{body.topic}' as it appears in the BNPS curriculum."
+            )
 
     prompt = f"""Generate exactly {body.num_questions} multiple-choice questions for Grade {body.class_level} {body.subject} on topic: "{body.topic}".{school_context}
 Difficulty: {body.difficulty}

@@ -139,7 +139,7 @@ async def register(body: UserRegister, request: Request, response: Response):
         "avatar": None,
         "xp": 0, "level": 1, "streak": 0, "longest_streak": 0,
         "last_active": now.isoformat(),
-        "class_level": body.class_level or "9",
+        "class_level": "10" if body.school == "nios" else (body.class_level or "9"),
         "school": body.school or None,
         "achievements": [],
         "created_at": now.isoformat(),
@@ -372,7 +372,6 @@ async def update_school(request: Request, body: dict):
     school_id = (body.get("school") or "").strip()
     if not school_id:
         raise HTTPException(status_code=400, detail="School is required")
-    from school_curriculum import SCHOOLS
     if school_id not in SCHOOLS:
         raise HTTPException(status_code=400, detail="Invalid school selection")
     await db.users.update_one(

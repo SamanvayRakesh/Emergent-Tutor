@@ -194,13 +194,12 @@ async def _activate_subscription(user: dict, plan_id: str, cycle: str,
 
 @router.post("/subscription/subscribe")
 async def subscribe(body: SubscribeRequest, request: Request):
-    """Legacy/mock subscribe — flips DB record. Used as fallback when Razorpay keys absent."""
-    user = await get_current_user(request)
-    if body.plan not in ("starter", "pro", "elite"):
-        raise HTTPException(status_code=400, detail="Plan must be 'starter', 'pro' or 'elite'")
-    if body.billing_cycle not in ("monthly", "yearly"):
-        raise HTTPException(status_code=400, detail="billing_cycle must be 'monthly' or 'yearly'")
-    return await _activate_subscription(user, body.plan, body.billing_cycle, provider="mock")
+    """Disabled — direct subscription activation requires a real payment via PayU."""
+    await get_current_user(request)  # still require auth so unauthenticated gets 401
+    raise HTTPException(
+        status_code=403,
+        detail="Direct subscription activation is disabled. Please use the payment flow to upgrade your plan.",
+    )
 
 
 @router.post("/subscription/cancel")

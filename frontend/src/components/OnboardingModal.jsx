@@ -22,9 +22,10 @@ export default function OnboardingModal({ onComplete }) {
   const { user, setUser } = useAuth();
   const [step, setStep] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const isNIOS = user?.school === 'nios';
   const [form, setForm] = useState({
     name: user?.name || '',
-    class_level: user?.class_level || '9',
+    class_level: user?.class_level || (isNIOS ? '10' : '9'),
     exam_goal: '',
     weak_subjects: [],
     learning_style: 'balanced',
@@ -47,10 +48,23 @@ export default function OnboardingModal({ onComplete }) {
     },
     {
       icon: GraduationCap, color: '#2563eb',
-      title: 'Which grade are you in?',
-      subtitle: 'This locks your syllabus to your real class — no distractions.',
+      title: isNIOS ? 'Your NIOS Course' : 'Which grade are you in?',
+      subtitle: isNIOS
+        ? 'You are enrolled in NIOS Secondary — your syllabus is set to Class 10.'
+        : 'This locks your syllabus to your real class — no distractions.',
       key: 'class',
-      content: (
+      content: isNIOS ? (
+        <div className="text-center py-6">
+          <div className="inline-flex items-center gap-3 px-6 py-4 rounded-xl bg-blue-500/20 border-2 border-blue-400 text-blue-300">
+            <GraduationCap size={24} />
+            <div className="text-left">
+              <p className="font-heading font-bold text-lg text-white">NIOS Secondary</p>
+              <p className="text-sm text-blue-300">Class 10 • National Institute of Open Schooling</p>
+            </div>
+          </div>
+          <p className="mt-3 text-zinc-500 text-xs">Your curriculum includes: Accountancy, Business Studies, Economics, English, and more.</p>
+        </div>
+      ) : (
         <div className="grid grid-cols-3 gap-2">
           {CLASSES.map(c => {
             const isComingSoon = COMING_SOON_GRADES.includes(c);
@@ -74,7 +88,7 @@ export default function OnboardingModal({ onComplete }) {
           })}
         </div>
       ),
-      canProceed: () => form.class_level === '8',
+      canProceed: () => isNIOS ? true : form.class_level === '8',
     },
     {
       icon: Target, color: '#dc2626',

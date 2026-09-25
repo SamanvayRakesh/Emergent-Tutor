@@ -1,6 +1,7 @@
 """Mock Exam: generate, history, submit, follow-up quiz on weak topics."""
 import uuid
 import json
+import asyncio
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Request
@@ -32,25 +33,39 @@ async def generate_mock_exam(body: MockExamRequest, request: Request):
             },
         )
 
-    # Credit gate: deduct 10 credits per mock exam
-    await deduct_credits(user["user_id"], "mock_exam_generate")
+    # Credit gate: check balance upfront but deduct ONLY after successful generation
+    # so users are NEVER charged for a failed or timed-out mock exam.
+    EXAM_COST = 30
+    if user.get("credits", 0) < EXAM_COST:
+        raise HTTPException(
+            status_code=402,
+            detail={"code": "INSUFFICIENT_CREDITS", "message": "Not enough credits for a mock exam.", "required": EXAM_COST, "current": user.get("credits", 0)},
+        )
 
     is_board = body.class_level in ["10", "12"]
     sec_a = max(4, body.num_questions // 2)
     sec_b = max(3, body.num_questions // 4)
     sec_c = body.num_questions - sec_a - sec_b
 
-    # Build school context for BNPS students
+    # Build school context for BNPS / NIOS students
     school = user.get("school", "")
     school_context = ""
     if school and has_school_curriculum(school, body.class_level):
         chapters = get_school_chapters(school, body.class_level, body.subject)
         ch_names = [c["name"] for c in chapters]
-        school_context = (
-            f"\nSCHOOL: Brooklyn National Public School (BNPS) — Grade {body.class_level}.\n"
-            f"Generate questions STRICTLY from these BNPS syllabus chapters: {', '.join(ch_names)}.\n"
-            f"Do NOT use NCERT default chapters or generic CBSE content."
-        )
+        if school == "nios":
+            school_context = (
+                f"\nCURRICULUM: NIOS Secondary (National Institute of Open Schooling).\n"
+                f"Generate questions STRICTLY from the NIOS Secondary syllabus for {body.subject}. "
+                f"NIOS chapters: {', '.join(ch_names)}.\n"
+                f"Do NOT use CBSE/NCERT content."
+            )
+        else:
+            school_context = (
+                f"\nSCHOOL: Brooklyn National Public School (BNPS) — Grade {body.class_level}.\n"
+                f"Generate questions STRICTLY from these BNPS syllabus chapters: {', '.join(ch_names)}.\n"
+                f"Do NOT use NCERT default chapters or generic CBSE content."
+            )
 
     prompt = f"""Generate a Grade {body.class_level} {body.subject} mock exam paper with {body.num_questions} questions total.{school_context}
 Structure: Section A ({sec_a} MCQs, 1 mark each), Section B ({sec_b} questions, 2 marks each), Section C ({sec_c} questions, 3 marks each).
@@ -78,17 +93,26 @@ Return ONLY valid JSON:
 Generate EXACTLY {sec_a} questions in Section A, {sec_b} in Section B, {sec_c} in Section C. Cover different chapters."""
 
     try:
-        response = await openai_client.chat.completions.create(
-            model="deepseek/deepseek-v4-flash",
-            messages=[
-                {"role": "system", "content": "Expert CBSE question paper setter."},
-                {"role": "user", "content": prompt},
-            ],
-            response_format={"type": "json_object"}, temperature=0.7, max_tokens=4000,
+        response = await asyncio.wait_for(
+            openai_client.chat.completions.create(
+                model="deepseek/deepseek-v4-flash",
+                messages=[
+                    {"role": "system", "content": "Expert CBSE question paper setter."},
+                    {"role": "user", "content": prompt},
+                ],
+                response_format={"type": "json_object"}, temperature=0.7, max_tokens=4000,
+                extra_body={"include_reasoning": False},
+            ),
+            timeout=50.0,
         )
         exam_data = json.loads(response.choices[0].message.content)
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="Mock exam generation timed out. No credits were charged. Please try again.")
     except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Mock exam generation failed: {e}")
+        raise HTTPException(status_code=502, detail=f"Mock exam generation failed. No credits were charged. ({type(e).__name__})")
+
+    # Deduct credits AFTER successful generation
+    await db.users.update_one({"user_id": user["user_id"]}, {"$inc": {"credits": -EXAM_COST}})
 
     exam_id = f"exam_{uuid.uuid4().hex[:12]}"
     now = datetime.now(timezone.utc).isoformat()
@@ -120,6 +144,8 @@ async def submit_mock_exam(exam_id: str, body: QuizSubmitRequest, request: Reque
     exam = await db.mock_exams.find_one({"exam_id": exam_id, "user_id": user["user_id"]}, {"_id": 0})
     if not exam:
         raise HTTPException(status_code=404, detail="Exam not found")
+    if exam.get("completed"):
+        raise HTTPException(status_code=400, detail="This exam has already been submitted. Start a new exam to earn more XP.")
 
     total_marks = earned_marks = 0
     section_results = []

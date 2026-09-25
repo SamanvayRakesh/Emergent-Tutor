@@ -195,7 +195,26 @@ Enforced BNPS curriculum, KaTeX math rendering, Admin dashboard (3 hardcoded ema
 - `POST /api/admin/grade-requests/{id}/resolve`
 - `GET  /api/admin/users`
 
-## Completed (Aug 2026 — Session 10)
+## Completed (Sep 2026 — Security Patches + NIOS Curriculum)
+
+### Security Fixes
+- [x] **P0 BLOCKED**: `POST /api/subscription/subscribe` now returns HTTP 403 for all users — direct plan activation without real payment is impossible
+- [x] **P1 FIXED**: PayU webhook idempotency — `_process_payu_callback` uses `update_one({status: {$ne: "paid"}})` to atomically guard against browser redirect + S2S webhook race condition
+- [x] **P2a FIXED**: Mock Exam replay XP farming — `submit_mock_exam` checks `exam.get("completed")` and returns 400 if already submitted
+- [x] **P2b FIXED**: Mock Exam credit loss on AI failure — credit deduction moved to AFTER successful generation with `asyncio.wait_for(50s)` timeout
+
+### NIOS Secondary Curriculum
+- [x] **82 chapters across 7 subjects**: Accountancy (8), Business Studies (15), Data Entry Operations (8), Economics (12), English (27), Entrepreneurship (7), Folk Art (5)
+- [x] **`nios_curriculum.py`**: Hardcoded NIOS Secondary chapter structure (extracted from PDFs + NIOS curriculum knowledge)
+- [x] **`school_curriculum.py`**: NIOS added to SCHOOLS registry and SCHOOL_LIST; `get_school_subjects` and `get_school_chapters` route NIOS correctly
+- [x] **Auth**: Registering with `school=nios` auto-sets `class_level=10` in the database
+- [x] **Quiz + Mock Exam**: NIOS-specific AI prompt context injected ("NIOS Secondary, not CBSE/NCERT")
+- [x] **Signup UI**: NIOS appears in school selector with "Secondary (Class 10)" badge
+- [x] **Onboarding Modal**: NIOS users see "Your NIOS Course" info card in grade step instead of grade 7/8/9 buttons
+- [x] **Syllabus API**: `/api/syllabus/10/subjects` and `/api/syllabus/10/{subject}/chapters` return NIOS data for school=nios users
+- [x] **`ingest_nios.py`**: Optional offline script to build question bank from PDFs using user's OpenRouter key (run as: `cd /app && python backend/scripts/ingest_nios.py`)
+
+
 - [x] Anti-farming XP system (3 layers):
   - Layer 1 — Replay block: same quiz_id can't be submitted twice (400 error)
   - Layer 2 — Speed gate: `num_questions × difficulty_floor_seconds` (easy=6, medium=9, hard=14). Too fast = 0 XP

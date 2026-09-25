@@ -178,7 +178,16 @@ async def _process_payu_callback(data: dict) -> dict:
         update["mandate_active"]     = True
         update["mandate_authpayuid"] = data.get("mihpayid")
 
-    await db.payu_orders.update_one({"txnid": txnid}, {"$set": update})
+    # Atomically mark as paid — only process once (idempotency guard)
+    # Use a conditional update: only writes if the order is NOT already "paid".
+    result = await db.payu_orders.update_one(
+        {"txnid": txnid, "status": {"$ne": "paid"}},
+        {"$set": update},
+    )
+    if result.modified_count == 0 and db_status == "paid":
+        # Already processed (browser redirect + S2S webhook race condition)
+        logger.info(f"PayU: txn={txnid} already processed — skipping duplicate callback")
+        return {"status": status, "plan": plan_id, "txnid": txnid}
 
     # Activate subscription plan on success (idempotent)
     if status == "success" and plan_id in PLAN_AMOUNTS:

@@ -11,6 +11,7 @@ const SPECIAL_CHAR_REGEX = /[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?`~]/;
 
 const FALLBACK_SCHOOLS = [
   { id: 'brooklyn_national', name: 'Brooklyn National Public School', available: true },
+  { id: 'nios',              name: 'NIOS — National Institute of Open Schooling', available: true, note: 'Secondary (Class 10)' },
   { id: 'national_public',   name: 'National Public School', available: false, note: 'Coming Soon' },
 ];
 
@@ -233,6 +234,9 @@ export default function AuthPage() {
                     <span className="font-medium">{s.name}</span>
                     {!s.available && (
                       <span className="ml-2 text-[10px] bg-zinc-800 text-zinc-500 px-2 py-0.5 rounded-full">Coming Soon</span>
+                    )}
+                    {s.available && s.note && (
+                      <span className="ml-2 text-[10px] bg-cyan-900/40 text-cyan-400 px-2 py-0.5 rounded-full">{s.note}</span>
                     )}
                     {form.school === s.id && (
                       <CheckCircle2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-cyan-400" />
