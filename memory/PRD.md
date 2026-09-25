@@ -195,7 +195,20 @@ Enforced BNPS curriculum, KaTeX math rendering, Admin dashboard (3 hardcoded ema
 - `POST /api/admin/grade-requests/{id}/resolve`
 - `GET  /api/admin/users`
 
-## Completed (Sep 2026 — Security Patches + NIOS Curriculum)
+## Completed (Sep 2026 — NIOS Subtopics + Question Bank)
+
+### NIOS Subtopics in quiz.py
+- [x] **82 chapters with curated subtopics** added to `_SUBTOPICS` dict in `quiz.py`
+- [x] All 7 subjects covered: Accountancy, Business Studies, Data Entry Operations, Economics, English (all 27 lessons), Entrepreneurship, Folk Art
+- [x] Live API `/api/quiz/subtopics?class_level=10&subject=X&chapter=Y` returns correct NIOS subtopics
+
+### NIOS Question Bank (ingest_nios.py — running in background)
+- [x] Script running: `python backend/scripts/ingest_nios.py` (uses OPENAI_API_KEY from .env)
+- [x] 435+ Q&As stored in `question_bank` collection with `curriculum: "nios"` tag
+- [x] Still ingesting: English (27 lessons), Entrepreneurship (7), Folk Art (5)
+- [x] Idempotency: Re-running script is safe (skips chapters with 15+ Q&As already)
+
+
 
 ### Security Fixes
 - [x] **P0 BLOCKED**: `POST /api/subscription/subscribe` now returns HTTP 403 for all users — direct plan activation without real payment is impossible
