@@ -34,7 +34,7 @@ export default function StreakReminderBanner() {
               icon: '/favicon.ico',
             });
             n.onclick = () => { window.focus(); nav('/chat'); n.close(); };
-          } catch {}
+          } catch (e) { console.warn('[AceIt] Notification dispatch failed:', e); }
         }
       })
       .catch(() => {});
@@ -55,7 +55,7 @@ export default function StreakReminderBanner() {
           body: 'We\'ll nudge you when your streak is at risk. Now go crush a quiz!',
           icon: '/favicon.ico',
         });
-      } catch {}
+      } catch (e) { console.warn('[AceIt] Notification creation failed:', e); }
     }
   };
 

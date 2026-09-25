@@ -5,9 +5,9 @@ import os
 
 BASE_URL = os.environ.get('REACT_APP_BACKEND_URL', '').rstrip('/')
 
-# Admin credentials
-ADMIN_EMAIL = "admin@neuralearn.ai"
-ADMIN_PASSWORD = "Admin@123456"
+# Admin credentials — read from environment so they are never committed in plain text
+ADMIN_EMAIL    = os.environ.get('TEST_ADMIN_EMAIL',    'admin@neuralearn.ai')
+ADMIN_PASSWORD = os.environ.get('TEST_ADMIN_PASSWORD', 'Admin@123456')
 
 
 @pytest.fixture(scope="module")

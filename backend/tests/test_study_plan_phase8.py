@@ -39,7 +39,7 @@ class TestStudyPlanContext:
         r = auth_session.get(f"{BASE_URL}/api/study-plan/context")
         data = r.json()
         # Admin has quiz history, has_history should be true
-        assert data["has_history"] is True
+        assert data["has_history"] == True
 
     def test_context_weak_topics_is_list(self, auth_session):
         r = auth_session.get(f"{BASE_URL}/api/study-plan/context")

@@ -95,7 +95,7 @@ export function markTutorialSeen() {
 async function markSeenInDB() {
   try {
     await axios.patch(`${API}/auth/tutorial/seen`, {}, { withCredentials: true });
-  } catch (e) { /* non-critical */ }
+  } catch (e) { console.warn('[AceIt] Tutorial non-critical error:', e); }
 }
 
 export default function NewUserTutorial({ onClose }) {

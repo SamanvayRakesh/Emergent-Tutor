@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { ShieldCheck, Users, TrendingUp, GraduationCap, Eye, EyeOff, CheckCircle, XCircle, RefreshCw, IndianRupee, MessageSquarePlus, Crown, Zap, ArrowUpRight, Calendar, BadgeCheck, Search, Plus, RotateCcw, CornerDownRight, Send } from 'lucide-react';
 import { toast } from 'sonner';
@@ -128,6 +128,11 @@ export default function AdminDashboard() {
   };
 
   const e = data.earnings || {};
+  const sortedMonthlyRevenue = useMemo(
+    () => Object.entries(e.monthly_revenue || {}).sort((a, b) => b[0].localeCompare(a[0])),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [e.monthly_revenue],
+  );
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
@@ -224,13 +229,13 @@ export default function AdminDashboard() {
                 </div>
 
                 {/* Monthly revenue */}
-                {Object.keys(e.monthly_revenue || {}).length > 0 && (
+                {sortedMonthlyRevenue.length > 0 && (
                   <div className="glass rounded-xl p-5 border border-white/5 mb-4">
                     <h3 className="text-white font-heading font-bold text-sm mb-3 flex items-center gap-2">
                       <Calendar size={14} className="text-zinc-400" /> Monthly Revenue
                     </h3>
                     <div className="space-y-2">
-                      {Object.entries(e.monthly_revenue).sort((a, b) => b[0].localeCompare(a[0])).map(([month, amt]) => (
+                      {sortedMonthlyRevenue.map(([month, amt]) => (
                         <div key={month} className="flex items-center justify-between py-1.5 border-b border-white/5 last:border-0">
                           <span className="text-zinc-400 text-sm font-body">{month}</span>
                           <span className="text-green-400 font-heading font-bold text-sm">{fmt(amt)}</span>

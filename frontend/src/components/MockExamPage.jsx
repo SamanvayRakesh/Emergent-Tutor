@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FileText, Clock, Sparkles, ChevronDown, CheckCircle, XCircle, AlertCircle, Zap, RotateCcw, BookOpen, Target } from 'lucide-react';
 import axios from 'axios';
@@ -63,6 +63,7 @@ export default function MockExamPage() {
   const [currentSection, setCurrentSection] = useState(() => _saved?.currentSection || 0);
   const [timerRunning, setTimerRunning] = useState(() => !!_saved);
   const [history, setHistory]       = useState([]);
+  const completedExams = useMemo(() => history.filter(e => e.completed), [history]);
   const [weakAreas, setWeakAreas]   = useState(null);
   const [followUp, setFollowUp]     = useState(null);
   const [followUpLoading, setFollowUpLoading] = useState(false);
@@ -219,11 +220,11 @@ export default function MockExamPage() {
               </button>
             </div>
 
-            {history.filter(e => e.completed).length > 0 && (
+            {completedExams.length > 0 && (
               <div>
                 <h3 className="text-zinc-400 text-sm font-body font-semibold mb-3 uppercase tracking-wider">Recent Scores</h3>
                 <div className="space-y-2">
-                  {history.filter(e => e.completed).map(e => (
+                  {completedExams.map(e => (
                     <div key={e.exam_id} className={`flex items-center gap-3 p-3 rounded-xl border ${e.score >= 70 ? 'border-green-500/15 bg-green-500/5' : 'border-red-500/15 bg-red-500/5'}`}>
                       <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 font-heading font-black text-sm"
                         style={{ background: e.score >= 70 ? '#10b98120' : '#ef444420', color: e.score >= 70 ? '#10b981' : '#ef4444' }}>

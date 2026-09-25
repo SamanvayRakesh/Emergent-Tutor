@@ -60,7 +60,7 @@ class TestAdminLogin:
         data = resp.json()
         assert "user_id" in data, f"No user_id in response: {data}"
         assert data.get("email") == "admin@neuralearn.ai"
-        assert data.get("is_verified") is True, f"Admin should be verified: {data}"
+        assert data.get("is_verified") == True, f"Admin should be verified: {data}"
         print(f"PASS: Admin login → user_id={data['user_id']}, plan={data.get('plan')}")
 
     def test_admin_login_wrong_password(self):
@@ -78,7 +78,7 @@ class TestAdminLogin:
         assert resp.status_code == 200, f"/auth/me failed: {resp.status_code} {resp.text}"
         data = resp.json()
         assert data.get("email") == "admin@neuralearn.ai"
-        assert data.get("is_verified") is True
+        assert data.get("is_verified") == True
         print(f"PASS: /auth/me → email={data['email']}, plan={data.get('plan')}")
 
 
@@ -96,7 +96,7 @@ class TestEmailVerification:
         })
         assert resp.status_code == 200, f"Register failed: {resp.status_code} {resp.text}"
         data = resp.json()
-        assert data.get("requires_verification") is True, \
+        assert data.get("requires_verification") == True, \
             f"Expected requires_verification=True, got: {data}"
         assert "message" in data
         print(f"PASS: Register → requires_verification=True. Email={test_user_email}")
@@ -156,7 +156,7 @@ class TestAdminVerifyUser:
         assert resp.status_code == 200, \
             f"admin verify-user failed: {resp.status_code} {resp.text}"
         data = resp.json()
-        assert data.get("success") is True, f"Expected success=True: {data}"
+        assert data.get("success") == True, f"Expected success=True: {data}"
         print(f"PASS: Admin verified user {test_user_email}")
 
     def test_verified_user_can_now_login(self, test_user_email):
@@ -168,7 +168,7 @@ class TestAdminVerifyUser:
         assert resp.status_code == 200, \
             f"Login after admin verification failed: {resp.status_code} {resp.text}"
         data = resp.json()
-        assert data.get("is_verified") is True, f"User should be verified: {data}"
+        assert data.get("is_verified") == True, f"User should be verified: {data}"
         print(f"PASS: Verified user can now login: {test_user_email}")
 
     def test_non_admin_cannot_verify_user(self):
@@ -245,7 +245,7 @@ class TestNCERTSyllabus:
         resp = requests.get(f"{BASE_URL}/api/syllabus/6/Science/chapters")
         assert resp.status_code == 200
         chapters = resp.json()
-        verified_count = sum(1 for ch in chapters if ch.get("verified") is True)
+        verified_count = sum(1 for ch in chapters if ch.get("verified") == True)
         print(f"Class 6 Science: {verified_count}/{len(chapters)} verified chapters")
         # At least some chapters should be verified
         assert verified_count > 0, "No verified chapters for Class 6 Science"

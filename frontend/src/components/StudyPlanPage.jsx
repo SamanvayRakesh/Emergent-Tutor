@@ -117,7 +117,7 @@ export default function StudyPlanPage() {
 
   if (loading) return (
     <div className="p-6 space-y-4">
-      {[...Array(3)].map((_, i) => <div key={i} className="h-24 rounded-2xl shimmer bg-zinc-900" />)}
+      {[...Array(3)].map((_, i) => <div key={`skeleton-${i}`} className="h-24 rounded-2xl shimmer bg-zinc-900" />)}
     </div>
   );
 
@@ -360,7 +360,7 @@ export default function StudyPlanPage() {
             {studyPlan.tips?.length > 0 && (
               <div className="grid sm:grid-cols-3 gap-3">
                 {studyPlan.tips.slice(0, 3).map((tip, i) => (
-                  <div key={i} className="glass-surface rounded-xl p-3 border border-white/5">
+                  <div key={`tip-${i}-${tip.slice(0,20)}`} className="glass-surface rounded-xl p-3 border border-white/5">
                     <div className="w-6 h-6 rounded-full bg-violet-500/20 flex items-center justify-center mb-2">
                       <Check size={12} className="text-violet-400" />
                     </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { User, Mail, BookOpen, Zap, Flame, Trophy, Save, Shield, Star, Clock, Lock, Send, X, CheckCircle, AlertTriangle, Crown, ArrowRight, CreditCard, Package, Calendar, TrendingUp, LogOut, Pencil, Check } from 'lucide-react';
 import axios from 'axios';
@@ -27,6 +27,10 @@ export default function ProfilePage() {
   const [errorMsg, setErrorMsg]           = useState('');
   const [cancelLoading, setCancelLoading] = useState(false);
   const [credits, setCredits]             = useState(user?.credits || 0);
+  const appealableClasses = useMemo(
+    () => CLASSES.filter(c => c !== user?.class_level && !COMING_SOON_GRADES.includes(c)),
+    [user?.class_level],
+  );
 
   // Name editing
   const [editingName, setEditingName]     = useState(false);
@@ -293,7 +297,7 @@ export default function ProfilePage() {
 
               <label className="block text-zinc-500 text-xs font-body uppercase tracking-wider mb-1">Desired class</label>
               <div className="flex flex-wrap gap-2 mb-3">
-                {CLASSES.filter(c => c !== user?.class_level && !COMING_SOON_GRADES.includes(c)).map(c => (
+                {appealableClasses.map(c => (
                   <button key={c} data-testid={`appeal-class-${c}`}
                     onClick={() => setAppealForm(p => ({ ...p, desired_class: c }))}
                     className={`w-10 h-10 rounded-lg text-sm font-heading font-bold transition-all ${appealForm.desired_class === c ? 'bg-rose-500 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}>

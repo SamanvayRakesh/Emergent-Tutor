@@ -94,7 +94,7 @@ class TestAIRouter:
         sys.path.insert(0, '/app/backend')
         from ai_router import build_routing_decision
         result = build_routing_decision("anything", "free", over_budget=True)
-        assert result["blocked"] is True
+        assert result["blocked"] == True
 
 
 class TestStudyPlanAPI:

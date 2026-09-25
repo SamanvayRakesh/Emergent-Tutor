@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Trophy, Sparkles, ChevronDown, CheckCircle, XCircle,
@@ -33,6 +33,7 @@ export default function QuizArena() {
   const [loading, setLoading]       = useState(false);
   const [phase, setPhase]           = useState(() => (_saved?.phase === 'quiz' || _saved?.phase === 'result') ? _saved.phase : 'setup');
   const [history, setHistory]       = useState([]);
+  const recentCompletedQuizzes = useMemo(() => history.filter(q => q.completed).slice(0, 5), [history]);
   const [current, setCurrent]       = useState(() => _saved?.phase === 'quiz' ? (_saved.current || 0) : 0);
   const [adaptiveUsed, setAdaptiveUsed] = useState(false);
 
@@ -235,11 +236,11 @@ export default function QuizArena() {
             </div>
 
             {/* Recent history */}
-            {history.filter(q => q.completed).length > 0 && (
+            {recentCompletedQuizzes.length > 0 && (
               <div>
                 <h3 className="text-zinc-400 text-sm font-body font-semibold mb-3 uppercase tracking-wider">Recent Scores</h3>
                 <div className="space-y-2">
-                  {history.filter(q => q.completed).slice(0, 5).map(q => (
+                  {recentCompletedQuizzes.map(q => (
                     <div key={q.quiz_id} className="flex items-center gap-3 p-3 glass-surface rounded-xl border border-white/5">
                       <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
                         style={{ background: q.score >= 70 ? '#10b98120' : '#ef444420' }}>

@@ -25,7 +25,8 @@ export function AuthProvider({ children }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // API and axios are stable module-level imports; window.location is global
 
   useEffect(() => {
     checkAuth();

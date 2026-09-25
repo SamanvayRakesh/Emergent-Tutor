@@ -43,7 +43,7 @@ class TestRegistration:
                             timeout=30)
         assert resp.status_code == 200, f"Register failed: {resp.text}"
         data = resp.json()
-        assert data.get("requires_verification") is True
+        assert data.get("requires_verification") == True
         assert "message" in data
         assert data["message"] == "Verification email sent. Please check your inbox to activate your AceIt AI account."
         assert data.get("email") == email
@@ -115,7 +115,7 @@ class TestLoginGate:
         assert resp.status_code == 200, f"Admin login failed: {resp.text}"
         data = resp.json()
         assert data.get("email") == "admin@neuralearn.ai"
-        assert data.get("is_verified") is True
+        assert data.get("is_verified") == True
         print(f"PASS: Admin login works, is_verified=True")
 
     def test_wrong_password_returns_401(self, session):
@@ -153,7 +153,7 @@ class TestTokenVerification:
                                   json={"email": email}, timeout=15)
         assert resp.status_code == 200, f"Admin verify failed: {resp.text}"
         data = resp.json()
-        assert data.get("success") is True
+        assert data.get("success") == True
         print(f"PASS: Admin manually verified {email}")
 
         # Login should now succeed

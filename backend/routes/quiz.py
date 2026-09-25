@@ -2,6 +2,7 @@
 import uuid
 import json
 import re
+import hashlib
 import random
 import asyncio
 from datetime import datetime, timezone
@@ -507,8 +508,9 @@ async def get_gamification_stats(request: Request):
         achievements.append({"id": "streak_3", "name": "On Fire!", "description": "3-day learning streak", "icon": "flame", "color": "#ef4444"})
 
     daily_topics = ["Photosynthesis", "Newton's Laws", "Quadratic Equations", "Periodic Table", "French Revolution", "Python Lists"]
-    random.seed(datetime.now().date().toordinal())
-    daily_topic = random.choice(daily_topics)
+    # Use hashlib for a stable per-day selection — avoids mutating global random state
+    today_key = datetime.now().date().isoformat().encode()
+    daily_topic = daily_topics[int(hashlib.sha256(today_key).hexdigest(), 16) % len(daily_topics)]
 
     return {
         "xp": xp, "level": level, "xp_in_level": xp_in_level, "xp_to_next": 500 - xp_in_level,

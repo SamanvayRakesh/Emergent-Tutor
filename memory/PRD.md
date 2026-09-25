@@ -195,7 +195,40 @@ Enforced BNPS curriculum, KaTeX math rendering, Admin dashboard (3 hardcoded ema
 - `POST /api/admin/grade-requests/{id}/resolve`
 - `GET  /api/admin/users`
 
-## Completed (Sep 2026 — NIOS Subtopics + Question Bank)
+## Completed (Sep 2026 — Code Review Fixes)
+
+### Security Fixes
+- [x] `subscription.py:296` — replaced `__import__('uuid')` with static `uuid.uuid4()` (uuid already imported)
+- [x] `quiz.py:511` — replaced `random.seed() + random.choice()` with `hashlib.sha256(date).hexdigest()` for deterministic daily topic (no global RNG state mutation)
+- [x] `test_iteration13.py:10` — hardcoded admin credentials moved to `os.environ.get('TEST_ADMIN_EMAIL', ...)` pattern
+- [x] `curriculum.py:36` — added comment clarifying `create_subprocess_exec` ≠ `exec()` (false positive, path is hardcoded)
+
+### Python Code Safety
+- [x] `admin.py:84` — mutable default `body: dict = {}` → `body: dict | None = None` with `(body or {}).get()`
+
+### React Hook Dependencies
+- [x] `AuthContext.js:12` — added `// eslint-disable-next-line` with explanation (deps are stable module imports)
+- [x] `CreditsContext.jsx:45` — already had interceptor cleanup + correct deps (no change needed)
+
+### React Empty Catch Blocks
+- [x] `StreakReminderBanner.jsx:37,58` — `catch {}` → `catch (e) { console.warn(...) }`
+- [x] `NewUserTutorial.jsx:98` — `/* non-critical */` → `console.warn('[AceIt] Tutorial non-critical error:', e)`
+
+### React Key Props
+- [x] `StudyPlanPage.jsx:120,363` — skeleton/tip keys use `skeleton-{i}` / `tip-{i}-{text}`
+- [x] `LeaderboardPage.jsx:131` — skeleton key `lb-skeleton-{i}`
+- [x] `MathRenderer.jsx:94-96,115` — content-based keys `{type}-{i}-{content.slice(0,12)}`
+
+### React Performance (useMemo)
+- [x] `AdminDashboard.jsx:233` — `Object.entries(monthly_revenue).sort()` → `useMemo`
+- [x] `MockExamPage.jsx:226` — `history.filter(completed)` computed twice → `completedExams` useMemo
+- [x] `QuizArena.jsx:242` — `history.filter.slice` → `recentCompletedQuizzes` useMemo
+- [x] `ProfilePage.jsx:296` — `CLASSES.filter()` → `appealableClasses` useMemo
+
+### Test Files
+- [x] 72 instances of `is True` / `is False` → `== True` / `== False` across 9 test files (via sed)
+
+
 
 ### NIOS Subtopics in quiz.py
 - [x] **82 chapters with curated subtopics** added to `_SUBTOPICS` dict in `quiz.py`

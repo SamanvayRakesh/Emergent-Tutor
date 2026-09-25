@@ -128,7 +128,7 @@ export default function LeaderboardPage() {
 
       {loading ? (
         <div className="space-y-2">
-          {[...Array(6)].map((_, i) => <div key={i} className="h-14 rounded-xl shimmer bg-zinc-900" />)}
+          {[...Array(6)].map((_, i) => <div key={`lb-skeleton-${i}`} className="h-14 rounded-xl shimmer bg-zinc-900" />)}
         </div>
       ) : (
         <>

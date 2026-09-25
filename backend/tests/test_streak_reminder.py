@@ -39,9 +39,9 @@ def test_streak_reminder_admin_active(admin_session):
     assert r.status_code == 200, r.text
     data = r.json()
     assert REQUIRED_KEYS.issubset(set(data.keys())), f"missing keys: {REQUIRED_KEYS - set(data.keys())}"
-    assert data["active_today"] is True
-    assert data["at_risk"] is False
-    assert data["broken"] is False
+    assert data["active_today"] == True
+    assert data["at_risk"] == False
+    assert data["broken"] == False
     assert data["streak"] == 30, f"expected streak=30, got {data['streak']}"
     # Message should reference 30 (or be fire/streak-themed)
     assert "30" in data["message"] or "streak" in data["message"].lower()
@@ -53,12 +53,12 @@ def test_streak_reminder_fresh_user(fresh_student):
     assert r.status_code == 200, r.text
     data = r.json()
     assert REQUIRED_KEYS.issubset(set(data.keys()))
-    assert data["active_today"] is True  # just registered = very recent last_active
-    assert data["at_risk"] is False
+    assert data["active_today"] == True  # just registered = very recent last_active
+    assert data["at_risk"] == False
     # Fresh user: streak could be 0 or 1 depending on registration flow
     assert data["streak"] in (0, 1), f"expected streak 0 or 1, got {data['streak']}"
     # Should not be a "broken" message
-    assert data["broken"] is False
+    assert data["broken"] == False
     # Message should exist and not be empty
     assert isinstance(data["message"], str) and len(data["message"]) > 5
     assert isinstance(data["cta"], str) and len(data["cta"]) > 0

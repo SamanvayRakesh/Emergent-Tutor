@@ -91,9 +91,10 @@ export function MathLine({ text }) {
   return (
     <span>
       {segments.map((seg, i) => {
-        if (seg.type === 'block')  return <span key={i} className="block my-2">{safeRenderBlock(seg.content)}</span>;
-        if (seg.type === 'inline') return <span key={i}>{safeRenderInline(seg.content)}</span>;
-        return <span key={i}>{seg.content}</span>;
+        const k = `${seg.type}-${i}-${seg.content.slice(0, 12)}`;
+        if (seg.type === 'block')  return <span key={k} className="block my-2">{safeRenderBlock(seg.content)}</span>;
+        if (seg.type === 'inline') return <span key={k}>{safeRenderInline(seg.content)}</span>;
+        return <span key={k}>{seg.content}</span>;
       })}
     </span>
   );
@@ -112,7 +113,7 @@ export function MathText({ text, className = '' }) {
   return (
     <span className={className}>
       {lines.map((line, i) => (
-        <span key={i}>
+        <span key={`line-${i}-${line.slice(0, 12)}`}>
           <MathLine text={line} />
           {i < lines.length - 1 && <br />}
         </span>

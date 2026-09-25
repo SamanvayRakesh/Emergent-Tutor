@@ -32,7 +32,7 @@ class TestFeedbackAPI:
         r = admin_session.post(f"{BASE_URL}/api/feedback", json={"type": "bug", "message": "TEST_ This is a test bug report"})
         assert r.status_code == 200
         data = r.json()
-        assert data.get("success") is True
+        assert data.get("success") == True
 
     def test_admin_get_feedback(self, admin_session):
         r = admin_session.get(f"{BASE_URL}/api/admin/feedback")
@@ -57,7 +57,7 @@ class TestFeedbackAPI:
         fb_id = open_items[0]["feedback_id"]
         r2 = admin_session.patch(f"{BASE_URL}/api/admin/feedback/{fb_id}/resolve")
         assert r2.status_code == 200
-        assert r2.json().get("success") is True
+        assert r2.json().get("success") == True
 
 
 class TestTutorialAPI:
@@ -68,7 +68,7 @@ class TestTutorialAPI:
         assert r.status_code == 200
         user = r.json()
         # Admin is existing user - should have is_tutorial_seen=True
-        assert user.get("is_tutorial_seen") is True, f"Admin should have is_tutorial_seen=True, got: {user.get('is_tutorial_seen')}"
+        assert user.get("is_tutorial_seen") == True, f"Admin should have is_tutorial_seen=True, got: {user.get('is_tutorial_seen')}"
 
     def test_tutorial_seen_endpoint(self, admin_session):
         r = admin_session.patch(f"{BASE_URL}/api/auth/tutorial/seen")

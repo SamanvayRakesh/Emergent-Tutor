@@ -81,10 +81,10 @@ async def admin_get_grade_requests(request: Request):
 
 
 @router.post("/admin/grade-requests/{request_id}/resolve")
-async def admin_resolve_grade_request(request_id: str, request: Request, body: dict = {}):
+async def admin_resolve_grade_request(request_id: str, request: Request, body: dict | None = None):
     """Approve or deny a grade change request. Body: {action: 'approve'|'deny'}"""
     await _require_admin(request)
-    action = (body.get("action") or "approve").lower()
+    action = ((body or {}).get("action") or "approve").lower()
     if action not in ("approve", "deny"):
         raise HTTPException(status_code=400, detail="action must be 'approve' or 'deny'")
 

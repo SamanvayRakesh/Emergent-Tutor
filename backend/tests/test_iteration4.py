@@ -48,7 +48,7 @@ class TestEmailVerification:
         })
         assert resp.status_code == 200, f"Register failed: {resp.text}"
         data = resp.json()
-        assert data.get("requires_verification") is True, \
+        assert data.get("requires_verification") == True, \
             f"Expected requires_verification=True, got: {data}"
         assert "message" in data
         # Should mention email check
@@ -303,12 +303,12 @@ class TestSyllabusNCERTTitles:
                 return True
             return any(p.search(t) for p in CORRUPT_PATTERNS)
 
-        assert is_corrupt("Question Answer in Hindi") is True
-        assert is_corrupt("Chapter 5") is True
-        assert is_corrupt("NCERT Textbook") is True
-        assert is_corrupt("") is True
-        assert is_corrupt("Crop Production and Management") is False
-        assert is_corrupt("Chemical Reactions and Equations") is False
+        assert is_corrupt("Question Answer in Hindi") == True
+        assert is_corrupt("Chapter 5") == True
+        assert is_corrupt("NCERT Textbook") == True
+        assert is_corrupt("") == True
+        assert is_corrupt("Crop Production and Management") == False
+        assert is_corrupt("Chemical Reactions and Equations") == False
         print("PASS: _is_corrupt_title logic works correctly")
 
 

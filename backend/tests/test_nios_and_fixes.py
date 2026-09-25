@@ -98,7 +98,7 @@ class TestNIOSSchools:
         schools = data if isinstance(data, list) else data.get("schools", [])
         nios = next((s for s in schools if s.get("id") == "nios"), None)
         assert nios is not None
-        assert nios.get("available") is True, f"nios available != True: {nios}"
+        assert nios.get("available") == True, f"nios available != True: {nios}"
         note = nios.get("note", "")
         assert "Secondary" in note or "Class 10" in note, f"nios note unexpected: {note}"
         print(f"PASS: nios school entry: {nios}")

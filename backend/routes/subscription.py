@@ -293,7 +293,7 @@ async def update_user_grade(body: dict, request: Request):
         )
 
     record = {
-        "request_id": f"gcr_{__import__('uuid').uuid4().hex[:10]}",
+        "request_id": f"gcr_{uuid.uuid4().hex[:10]}",
         "user_id": user["user_id"],
         "user_email": user.get("email"),
         "user_name": user.get("name"),

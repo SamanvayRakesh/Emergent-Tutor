@@ -34,7 +34,7 @@ async def curriculum_refresh(request: Request):
 
     async def _bg():
         proc = await asyncio.create_subprocess_exec(
-            sys.executable, script,
+            sys.executable, script,  # script path is hardcoded — not user-supplied
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
         )
         await proc.wait()
