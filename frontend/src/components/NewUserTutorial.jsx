@@ -2,87 +2,100 @@ import { useState } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, Zap, MessageSquare, Trophy, FileText, X, ArrowRight, Check } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;const STEPS = [
-  {
-    icon: Sparkles,
-    color: '#22d3ee',
-    gradient: 'from-cyan-500/20 to-cyan-500/5',
-    border: 'border-cyan-500/30',
-    title: 'Welcome to AceIt AI!',
-    subtitle: 'Your smart BNPS Grade 8 exam prep companion',
-    description: 'AceIt AI is built specifically for your school curriculum. Everything — AI tutor, quizzes, and mock exams — is based on your exact Grade 8 chapters.',
-    highlight: 'Brooklyn National Public School • Grade 8 Curriculum',
-    highlightColor: 'text-cyan-400',
-  },
-  {
-    icon: Zap,
-    color: '#fbbf24',
-    gradient: 'from-amber-500/20 to-amber-500/5',
-    border: 'border-amber-500/30',
-    title: 'Credits System',
-    subtitle: 'You start with 100 free credits',
-    description: 'You start with 100 free credits. Spend them on AI chat and quizzes. Earn bonus credits back by completing quizzes — the more correct answers, the more you earn!',
-    items: [
-      { label: 'AI Tutor chat', cost: '2–10 credits / message' },
-      { label: 'Generate a Quiz', cost: '15 credits' },
-      { label: 'Your first quiz', cost: 'FREE!' },
-      { label: 'Complete any quiz', cost: '+1 to +5 credits back' },
-    ],
-    highlight: 'Starting balance: 100 credits',
-    highlightColor: 'text-amber-400',
-  },
-  {
-    icon: MessageSquare,
-    color: '#8b5cf6',
-    gradient: 'from-violet-500/20 to-violet-500/5',
-    border: 'border-violet-500/30',
-    title: 'AI Tutor',
-    subtitle: 'Your 24/7 personal CBSE teacher',
-    description: 'Select any chapter from your syllabus and start chatting. The AI explains concepts, gives examples, embeds mini-quizzes, and adapts to your learning style over time.',
-    items: [
-      { label: 'Chapter-locked conversations' },
-      { label: 'Inline quick-check quizzes' },
-      { label: 'YouTube visual boosts' },
-      { label: 'Adapts to your progress' },
-    ],
-    highlight: 'Tip: Try "Give me a quiz" in chat!',
-    highlightColor: 'text-violet-400',
-  },
-  {
-    icon: Trophy,
-    color: '#10b981',
-    gradient: 'from-emerald-500/20 to-emerald-500/5',
-    border: 'border-emerald-500/30',
-    title: 'Quiz Arena',
-    subtitle: 'Test your knowledge chapter by chapter',
-    description: 'Generate AI-powered MCQ quizzes for any chapter. After each quiz, the AI tutor automatically explains your wrong answers. Track your scores and improve over time.',
-    items: [
-      { label: 'Chapter-specific MCQ quizzes' },
-      { label: 'Adaptive difficulty (Easy/Medium/Hard)' },
-      { label: 'Auto-analysis of wrong answers' },
-    ],
-    highlight: 'First quiz is on us!',
-    highlightColor: 'text-emerald-400',
-  },
-  {
-    icon: FileText,
-    color: '#f43f5e',
-    gradient: 'from-rose-500/20 to-rose-500/5',
-    border: 'border-rose-500/30',
-    title: 'Mock Exams & More',
-    subtitle: 'Full exam simulation + Rankings + Study Plan',
-    description: 'Take full timed mock exams in CBSE pattern with MCQ, Short Answer, and Application sections. Climb the leaderboard, build a study plan, and track your overall progress.',
-    items: [
-      { label: 'Timed CBSE-pattern mock exams' },
-      { label: 'School leaderboard & rankings' },
-      { label: 'AI-generated study plan' },
-      { label: 'Progress tracking & analytics' },
-    ],
-    highlight: "You're all set — let's start learning!",
-    highlightColor: 'text-rose-400',
-  },
-];
+const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+function buildSteps(isNIOS) {
+  return [
+    {
+      icon: Sparkles,
+      color: '#22d3ee',
+      gradient: 'from-cyan-500/20 to-cyan-500/5',
+      border: 'border-cyan-500/30',
+      title: 'Welcome to AceIt AI!',
+      subtitle: isNIOS
+        ? 'Your smart NIOS Secondary exam prep companion'
+        : 'Your smart BNPS Grade 8 exam prep companion',
+      description: isNIOS
+        ? 'AceIt AI is built for the NIOS Secondary curriculum. Everything — AI tutor, quizzes, and mock exams — is grounded in your exact NIOS chapters.'
+        : 'AceIt AI is built specifically for your school curriculum. Everything — AI tutor, quizzes, and mock exams — is based on your exact Grade 8 chapters.',
+      highlight: isNIOS
+        ? 'NIOS — National Institute of Open Schooling • Secondary Course'
+        : 'Brooklyn National Public School • Grade 8 Curriculum',
+      highlightColor: 'text-cyan-400',
+    },
+    {
+      icon: Zap,
+      color: '#fbbf24',
+      gradient: 'from-amber-500/20 to-amber-500/5',
+      border: 'border-amber-500/30',
+      title: 'Credits System',
+      subtitle: 'You start with 100 free credits',
+      description: 'You start with 100 free credits. Spend them on AI chat and quizzes. Earn bonus credits back by completing quizzes — the more correct answers, the more you earn!',
+      items: [
+        { label: 'AI Tutor chat', cost: '2–10 credits / message' },
+        { label: 'Generate a Quiz', cost: '15 credits' },
+        { label: 'Your first quiz', cost: 'FREE!' },
+        { label: 'Complete any quiz', cost: '+1 to +5 credits back' },
+      ],
+      highlight: 'Starting balance: 100 credits',
+      highlightColor: 'text-amber-400',
+    },
+    {
+      icon: MessageSquare,
+      color: '#8b5cf6',
+      gradient: 'from-violet-500/20 to-violet-500/5',
+      border: 'border-violet-500/30',
+      title: 'AI Tutor',
+      subtitle: isNIOS ? 'Your 24/7 personal NIOS tutor' : 'Your 24/7 personal CBSE teacher',
+      description: 'Select any chapter from your syllabus and start chatting. The AI explains concepts, gives examples, embeds mini-quizzes, and adapts to your learning style over time.',
+      items: [
+        { label: 'Chapter-locked conversations' },
+        { label: 'Inline quick-check quizzes' },
+        { label: 'YouTube visual boosts' },
+        { label: 'Adapts to your progress' },
+      ],
+      highlight: 'Tip: Try "Give me a quiz" in chat!',
+      highlightColor: 'text-violet-400',
+    },
+    {
+      icon: Trophy,
+      color: '#10b981',
+      gradient: 'from-emerald-500/20 to-emerald-500/5',
+      border: 'border-emerald-500/30',
+      title: 'Quiz Arena',
+      subtitle: 'Test your knowledge chapter by chapter',
+      description: 'Generate AI-powered MCQ quizzes for any chapter. After each quiz, the AI tutor automatically explains your wrong answers. Track your scores and improve over time.',
+      items: [
+        { label: 'Chapter-specific MCQ quizzes' },
+        { label: 'Adaptive difficulty (Easy/Medium/Hard)' },
+        { label: 'Auto-analysis of wrong answers' },
+      ],
+      highlight: 'First quiz is on us!',
+      highlightColor: 'text-emerald-400',
+    },
+    {
+      icon: FileText,
+      color: '#f43f5e',
+      gradient: 'from-rose-500/20 to-rose-500/5',
+      border: 'border-rose-500/30',
+      title: 'Mock Exams & More',
+      subtitle: 'Full exam simulation + Rankings + Study Plan',
+      description: isNIOS
+        ? 'Take full timed mock exams in NIOS Secondary pattern with MCQ, Short Answer, and Application sections. Climb the leaderboard, build a study plan, and track your overall progress.'
+        : 'Take full timed mock exams in CBSE pattern with MCQ, Short Answer, and Application sections. Climb the leaderboard, build a study plan, and track your overall progress.',
+      items: [
+        { label: isNIOS ? 'Timed NIOS-pattern mock exams' : 'Timed CBSE-pattern mock exams' },
+        { label: 'School leaderboard & rankings' },
+        { label: 'AI-generated study plan' },
+        { label: 'Progress tracking & analytics' },
+      ],
+      highlight: "You're all set — let's start learning!",
+      highlightColor: 'text-rose-400',
+    },
+  ];
+}
 
 export function shouldShowTutorial() {
   return !localStorage.getItem('aceit_tutorial_seen');
@@ -99,6 +112,9 @@ async function markSeenInDB() {
 }
 
 export default function NewUserTutorial({ onClose }) {
+  const { user } = useAuth();
+  const isNIOS = user?.school === 'nios';
+  const STEPS = buildSteps(isNIOS);
   const [step, setStep] = useState(0);
   const current = STEPS[step];
   const Icon = current.icon;
