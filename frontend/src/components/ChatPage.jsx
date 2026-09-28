@@ -385,6 +385,7 @@ export default function ChatPage() {
   const [showSessions, setShowSessions] = useState(false);
   const [quizModal, setQuizModal] = useState(null); // {quizData}
   const [feedbackMap, setFeedbackMap] = useState({}); // { [message_id]: 'up'|'down' }
+  const [chapterMastery, setChapterMastery] = useState(null); // { mastery_pct, recommended_difficulty }
   const bottomRef = useRef(null);
   const streamBufferRef = useRef('');
   const rafRef = useRef(null);
@@ -411,11 +412,31 @@ export default function ChatPage() {
       setSession(data.session);
       setMessages(data.messages);
       localStorage.setItem('aceit_last_chat_session', sid);
+      // Fetch chapter mastery (fire-and-forget, non-blocking)
+      if (data.session?.chapter) {
+        axios.get(`${API}/quiz/topic-mastery`, {
+          params: { topic: data.session.chapter }, withCredentials: true,
+        }).then(r => setChapterMastery(r.data)).catch(() => {});
+      }
     } catch {
       localStorage.removeItem('aceit_last_chat_session');
       nav('/chat', { replace: true });
     }
   }, [nav]);
+
+  const handleCreated = (newSession) => {
+    setSessions(p => [newSession, ...p]);
+    setSession(newSession);
+    setMessages([]);
+    setChapterMastery(null);
+    localStorage.setItem('aceit_last_chat_session', newSession.session_id);
+    nav(`/chat/${newSession.session_id}`, { replace: true, state: null });
+    if (newSession?.chapter) {
+      axios.get(`${API}/quiz/topic-mastery`, {
+        params: { topic: newSession.chapter }, withCredentials: true,
+      }).then(r => setChapterMastery(r.data)).catch(() => {});
+    }
+  };
 
   useEffect(() => {
     if (!paramId) {
@@ -429,15 +450,6 @@ export default function ChatPage() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: streaming ? 'instant' : 'smooth' });
   }, [messages, streamingContent, streaming]);
-
-  const handleCreated = (newSession) => {
-    setSessions(p => [newSession, ...p]);
-    setSession(newSession);
-    setMessages([]);
-    localStorage.setItem('aceit_last_chat_session', newSession.session_id);
-    // Clear prefill state so back-nav doesn't re-trigger
-    nav(`/chat/${newSession.session_id}`, { replace: true, state: null });
-  };
 
   const processStream = async (res) => {
     if (!res.ok) return;
@@ -621,6 +633,24 @@ export default function ChatPage() {
             {session?.chapter} • {isNios ? 'Secondary Course' : `Class ${session?.class_level}`}
           </p>
         </div>
+
+        {/* Chapter Mastery Badge */}
+        {chapterMastery && (
+          <div
+            data-testid="chapter-mastery-badge"
+            className={`flex-shrink-0 flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-body font-bold border ${
+              chapterMastery.mastery_pct >= 70
+                ? 'bg-green-500/15 text-green-400 border-green-500/30'
+                : chapterMastery.mastery_pct >= 40
+                ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+                : 'bg-zinc-700/50 text-zinc-400 border-zinc-600/40'
+            }`}
+            title={`Chapter mastery: ${chapterMastery.mastery_pct}%`}
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-current" />
+            {chapterMastery.mastery_pct}% mastery
+          </div>
+        )}
         <button onClick={() => { localStorage.removeItem('aceit_last_chat_session'); setSession(null); setMessages([]); nav('/chat', { replace: true }); }} data-testid="new-chat-btn"
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-sm font-body hover:bg-cyan-500/20 transition-all">
           <Plus size={14} /> New Chat

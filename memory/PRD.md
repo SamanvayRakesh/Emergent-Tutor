@@ -195,7 +195,19 @@ Enforced BNPS curriculum, KaTeX math rendering, Admin dashboard (3 hardcoded ema
 - `POST /api/admin/grade-requests/{id}/resolve`
 - `GET  /api/admin/users`
 
-## Completed (Sep 2026 — Quiz Chapter Selection + 17 Subject Q&A Bank)
+## Completed (Sep 2026 — Chapter Mastery Badge in Chat)
+
+### Chapter Mastery Badge
+- [x] `chapterMastery` state added to `ChatPage.jsx`
+- [x] Fetched via `GET /api/quiz/topic-mastery?topic={chapter}` on session load AND on new session creation (fire-and-forget, non-blocking)
+- [x] Badge shown in chat header next to subject/chapter info:
+  - Green (≥70%): "X% mastery"
+  - Amber (40–69%): "X% mastery"
+  - Grey (<40%): "X% mastery"
+- [x] `data-testid="chapter-mastery-badge"` for testability
+- [x] 0 Emergent credits used
+
+
 
 ### Quiz Chapter Selection (already existed — verified working for all 17 subjects)
 - [x] `QuizArena.jsx` already had chapter dropdown; confirmed chapters load for all 17 new NIOS subjects
