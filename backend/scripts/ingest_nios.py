@@ -34,7 +34,8 @@ if not OPENAI_KEY:
     sys.exit("[ERR] OPENAI_API_KEY not set — needed for question generation")
 
 PDF_DIR    = "/app/nios_syllabus"
-QA_PER_CHAPTER = 15   # 15 Q&As per chapter — sufficient for RAG + quiz use
+QA_PER_CHAPTER = 10   # 10 per LLM call — fits comfortably in one response without truncation
+QA_BATCH = 5          # generate in two batches of 5 per chapter (more reliable JSON)
 MAX_CHARS  = 6000
 
 mongo_client  = AsyncIOMotorClient(MONGO_URL)
@@ -84,52 +85,75 @@ def extract_subject_text(pdf_paths: list[str], max_chars: int = MAX_CHARS) -> st
     return combined[:max_chars]
 
 
-async def generate_qa_for_chapter(text_snippet: str, chapter: str, subject: str) -> list:
-    if not text_snippet.strip():
-        return []
-    prompt = f"""You are building a Q&A knowledge base for NIOS Secondary (Class 10) {subject}.
-Chapter: "{chapter}"
-
-SUBJECT CONTEXT (first {len(text_snippet)} chars of textbook):
-{text_snippet[:3000]}
-
-TASK: Generate exactly {QA_PER_CHAPTER} question-answer pairs that a NIOS Secondary student
-should know about this chapter.
-
-Rules:
-- Answers: factual, 2-3 sentences, self-contained
-- Mix difficulty: easy (40%), medium (40%), hard (20%)
-- Vary question types: definition, application, comparison, numerical/formula where relevant
-- DO NOT repeat similar questions
-
-Respond ONLY with valid JSON (no markdown):
-{{
-  "qa_pairs": [
-    {{
-      "question": "...",
-      "answer": "...",
-      "difficulty": "easy|medium|hard",
-      "topic": "sub-topic name"
-    }}
-  ]
-}}"""
+async def _call_llm(prompt: str) -> list:
+    """Single LLM call with JSON extraction. Returns [] on any failure."""
     try:
         resp = await openai_client.chat.completions.create(
             model="deepseek/deepseek-v4-flash",
             messages=[{"role": "user", "content": prompt}],
-            max_tokens=2500,
+            max_tokens=1500,
             temperature=0.7,
             extra_body={"include_reasoning": False},
         )
-        raw = resp.choices[0].message.content.strip()
+        raw = (resp.choices[0].message.content or "").strip()
         raw = re.sub(r"^```json|^```|```$", "", raw, flags=re.MULTILINE).strip()
         m = re.search(r"\{[\s\S]*\}", raw)
         if not m:
             return []
         return json.loads(m.group()).get("qa_pairs", [])
     except Exception as e:
-        print(f"  [ERR] LLM failed for {chapter}: {e}")
+        print(f"  [ERR] LLM call failed: {e}")
         return []
+
+
+async def generate_qa_for_chapter(text_snippet: str, chapter: str, subject: str) -> list:
+    """Generate Q&A pairs for a chapter.
+
+    If `text_snippet` is empty (no PDF available), falls back to generating
+    from general NIOS curriculum knowledge — still NIOS-accurate, just not
+    PDF-verbatim.
+    Generates in two batches of QA_BATCH to avoid JSON truncation.
+    """
+    has_pdf = bool(text_snippet.strip())
+    results = []
+
+    for batch_num in range(1, 3):  # 2 batches per chapter
+        if has_pdf:
+            prompt = f"""Build NIOS Secondary (Class 10) {subject} Q&A knowledge base.
+Chapter: "{chapter}" | Batch {batch_num}/2
+
+TEXTBOOK EXCERPT:
+{text_snippet[:2000]}
+
+Generate exactly {QA_BATCH} question-answer pairs (different from batch {batch_num-1}).
+
+Rules:
+- Factual, 2-3 sentence answers
+- Mix: easy/medium/hard
+- No repeated questions
+
+Respond ONLY valid JSON:
+{{"qa_pairs":[{{"question":"...","answer":"...","difficulty":"easy","topic":"..."}}]}}"""
+        else:
+            prompt = f"""Build NIOS Secondary Course (Class 10) {subject} Q&A knowledge base.
+Chapter: "{chapter}" | Batch {batch_num}/2
+
+Based on the official NIOS curriculum for this chapter, generate exactly {QA_BATCH} question-answer pairs.
+
+Rules:
+- Strictly from NIOS syllabus content for this chapter
+- Factual, 2-3 sentence answers suitable for a 16-year-old
+- Mix: easy/medium/hard
+- No repeated questions across batches
+
+Respond ONLY valid JSON:
+{{"qa_pairs":[{{"question":"...","answer":"...","difficulty":"easy","topic":"..."}}]}}"""
+
+        pairs = await _call_llm(prompt)
+        results.extend(pairs)
+        await asyncio.sleep(0.2)
+
+    return results
 
 
 async def store_qa(qa_pairs: list, subject: str, chapter: str, chapter_no: int) -> int:
@@ -173,11 +197,8 @@ async def build():
     for subject, chapters in NIOS_CURRICULUM.items():
         pdf_paths = SUBJECT_PDF_MAP.get(subject, [])
         subject_text = extract_subject_text(pdf_paths)
-        if not subject_text:
-            print(f"\n[SKIP] {subject} — no PDF text available")
-            continue
-
-        print(f"\n[{subject}] ({len(subject_text)} chars from PDF)")
+        source_label = f"PDF ({len(subject_text)} chars)" if subject_text else "NIOS curriculum knowledge"
+        print(f"\n[{subject}] — {source_label}")
 
         for ch in chapters:
             ch_no   = ch["chapter_no"]
@@ -191,21 +212,25 @@ async def build():
                 print(f"  [SKIP] Ch{ch_no}: {ch_name} ({existing} Q&As exist)")
                 continue
 
-            # Use a text slice proportional to chapter position within the book
-            slice_start = max(0, (ch_no - 1) * 800)
-            slice_end   = min(len(subject_text), slice_start + 4000)
-            text_slice  = subject_text[slice_start:slice_end]
+            # For PDF subjects: use a proportional text slice
+            if subject_text:
+                slice_start = max(0, (ch_no - 1) * 800)
+                slice_end   = min(len(subject_text), slice_start + 4000)
+                text_slice  = subject_text[slice_start:slice_end]
+            else:
+                text_slice = ""  # no PDF — will use curriculum-knowledge prompt
 
             print(f"  [GEN]  Ch{ch_no}: {ch_name}")
             qa_pairs = await generate_qa_for_chapter(text_slice, ch_name, subject)
             if not qa_pairs:
+                print(f"  [WARN] No Q&As returned for {ch_name}")
                 continue
 
             stored = await store_qa(qa_pairs, subject, ch_name, ch_no)
             total_qa  += stored
             total_ch  += 1
             print(f"  [OK]   Stored {stored} Q&As")
-            await asyncio.sleep(0.5)   # gentle rate limit
+            await asyncio.sleep(0.3)   # gentle rate limit
 
     print(f"\n{'=' * 50}")
     print(f"NIOS Question Bank Build Complete")

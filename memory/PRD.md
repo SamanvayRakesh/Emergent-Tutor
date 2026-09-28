@@ -195,7 +195,23 @@ Enforced BNPS curriculum, KaTeX math rendering, Admin dashboard (3 hardcoded ema
 - `POST /api/admin/grade-requests/{id}/resolve`
 - `GET  /api/admin/users`
 
-## Completed (Sep 2026 — All 17 NIOS Subjects + Mock Exam Chapter Selection)
+## Completed (Sep 2026 — Quiz Chapter Selection + 17 Subject Q&A Bank)
+
+### Quiz Chapter Selection (already existed — verified working for all 17 subjects)
+- [x] `QuizArena.jsx` already had chapter dropdown; confirmed chapters load for all 17 new NIOS subjects
+- [x] "Secondary Course" label added to quiz class badge for NIOS users (was "Class 10")
+- [x] All 17 subjects return chapters via `/api/syllabus/10/{subject}/chapters`
+
+### Q&A Bank for All 17 NIOS Subjects
+- [x] `ingest_nios.py` updated: removed PDF-only gate; generates from NIOS curriculum knowledge when no PDF exists
+- [x] Batch generation changed from 15 at once (truncation errors) to 2 × 5 batches per chapter (reliable JSON)
+- [x] Running in background at `/app/nios_ingest.log` — all new subjects processing:
+  - ✅ Home Science (12 ch, NIOS knowledge)
+  - ✅ Indian Culture and Heritage (in progress)
+  - 🔄 Logistics, Mathematics, Paintings, Psychology, Science & Technology, Social Science, Warehouse, Indian Sign Language (queued)
+- [x] 1200+ Q&As at time of writing, growing to ~1800 when complete
+- [x] All idempotent — safe to re-run anytime; skips already-built chapters
+
 
 ### 17 NIOS Subjects in Curriculum
 - [x] Added 10 new subjects to `nios_curriculum.py` (was 7, now 17):

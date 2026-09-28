@@ -18,6 +18,7 @@ const sel = 'w-full bg-zinc-900 border border-white/10 rounded-xl px-4 py-3 text
 export default function QuizArena() {
   const { user } = useAuth();
   const userClass = user?.class_level || '9';
+  const isNios = user?.school === 'nios';
 
   // Restore saved quiz state from localStorage
   const _saved = (() => { try { return JSON.parse(localStorage.getItem('aceit_quiz_state') || 'null'); } catch { return null; } })();
@@ -158,7 +159,7 @@ export default function QuizArena() {
               <div className="grid grid-cols-2 gap-3">
                 <div className="px-3 py-3 rounded-xl border border-amber-400/30 bg-amber-500/10 text-amber-300 text-sm font-body font-semibold flex items-center gap-2"
                   data-testid="quiz-class-locked">
-                  <Sparkles size={14} /> Class {userClass}
+                  <Sparkles size={14} /> {isNios ? 'Secondary Course' : `Class ${userClass}`}
                 </div>
                 <div className="relative">
                   <select value={form.subject} onChange={e => onSubjectChange(e.target.value)}
