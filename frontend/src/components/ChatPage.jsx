@@ -504,17 +504,22 @@ export default function ChatPage() {
 
   const openQuizModal = useCallback(async () => {
     if (!session) return false;
+    const toastId = toast.loading('Generating quick quiz…');
     try {
       const { data } = await axios.post(`${API}/quiz/generate`, {
         class_level: session.class_level,
         subject: session.subject,
         chapter: session.chapter,
-        topic: session.chapter,   // use the actual chapter as quiz topic
+        topic: session.chapter,
         num_questions: 5,
       }, { withCredentials: true });
+      toast.dismiss(toastId);
       setQuizModal({ quizData: data });
       return true;
-    } catch {
+    } catch (e) {
+      toast.dismiss(toastId);
+      const msg = e?.response?.data?.detail || 'Could not generate quiz. Try again.';
+      toast.error(msg);
       return false;
     }
   }, [session]);
@@ -526,10 +531,15 @@ export default function ChatPage() {
 
     // Detect quiz intent → open quiz modal
     if (isQuizIntent(text)) {
-      setMessages(p => [...p, { role: 'user', content: text, timestamp: new Date().toISOString() }]);
       const opened = await openQuizModal();
-      if (opened) return;
-      // Fallback: continue to send as chat if quiz generation fails
+      if (opened) {
+        // Only add the user message if quiz actually opened
+        await axios.post(`${API}/chat/sessions/${session.session_id}/message`,
+          { content: text }, { withCredentials: true }).catch(() => {});
+        setMessages(p => [...p, { role: 'user', content: text, timestamp: new Date().toISOString() }]);
+        return;
+      }
+      // Fallback: quiz failed — continue as normal chat message
     }
 
     setMessages(p => [...p, { role: 'user', content: text, timestamp: new Date().toISOString() }]);

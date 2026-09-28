@@ -23,6 +23,9 @@ export default function SyllabusPage() {
   const { user } = useAuth();
   const userClass = user?.class_level || '9';
   const isBNPS = user?.school === 'brooklyn_national';
+  const isNios = user?.school === 'nios';
+  // NIOS has its own verified curriculum — don't show NCERT/BNPS badge
+  const showVerifiedBadge = !isNios;
   const verifiedLabel = isBNPS ? 'BNPS' : 'NCERT';
   const verifiedTitle = isBNPS
     ? 'Chapters verified against Brooklyn National Public School curriculum'
@@ -103,7 +106,7 @@ export default function SyllabusPage() {
                       <h3 className="text-white font-heading font-bold text-base leading-tight mb-1">{subj.name}</h3>
                       <div className="flex items-center gap-2">
                         <p className="text-zinc-500 text-xs font-body">{subj.chapter_count} chapters</p>
-                        {subj.verified && (
+                        {subj.verified && showVerifiedBadge && (
                           <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-body font-semibold"
                             style={{ background: '#10b98122', color: '#10b981', border: '1px solid #10b98155' }}
                             data-testid={`verified-${subj.name}`} title={verifiedTitle}>
@@ -147,7 +150,7 @@ export default function SyllabusPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <p className="text-white text-sm font-body font-medium truncate flex-1">{ch.name}</p>
-                      {ch.verified && (
+                      {ch.verified && showVerifiedBadge && (
                         <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-body font-semibold flex-shrink-0"
                           style={{ background: '#10b98122', color: '#10b981', border: '1px solid #10b98155' }}
                           title={verifiedTitle}>
@@ -156,7 +159,7 @@ export default function SyllabusPage() {
                       )}
                     </div>
                     <p className="text-zinc-600 text-xs font-body mt-0.5">
-                      {ch.book_title || (isBNPS ? 'BNPS Textbook' : 'NCERT Textbook')}
+                      {ch.book_title || (isNios ? 'NIOS Secondary Textbook' : isBNPS ? 'BNPS Textbook' : 'NCERT Textbook')}
                     </p>
                   </div>
                   <button onClick={() => startChat(ch)} data-testid={`start-chapter-${ch.id}`}

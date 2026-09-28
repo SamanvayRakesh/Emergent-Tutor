@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, Sparkles, Crown, Zap, ArrowRight, X, ShieldCheck, Star, AlertTriangle } from 'lucide-react';
+import { Check, CheckCircle, Sparkles, Crown, Zap, ArrowRight, X, ShieldCheck, Star, AlertTriangle } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { useSubscription } from '../contexts/SubscriptionContext';
@@ -216,6 +216,16 @@ export default function PricingPage() {
                           <AlertTriangle size={12} className="text-amber-400 shrink-0" />
                           <span className="text-amber-300 text-xs font-body">
                             Access ends {formatDate(accessUntil)}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Renews-on badge for active paid plans */}
+                      {isCurrent && !isCancelledPlan && p.id !== 'free' && accessUntil && (
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green-500/10 border border-green-500/20 mb-3" data-testid="renews-on-badge">
+                          <CheckCircle size={12} className="text-green-400 shrink-0" />
+                          <span className="text-green-300 text-xs font-body">
+                            Renews {formatDate(accessUntil)} · Payment via PayU
                           </span>
                         </div>
                       )}

@@ -47,31 +47,41 @@ async def generate_mock_exam(body: MockExamRequest, request: Request):
     sec_b = max(3, body.num_questions // 4)
     sec_c = body.num_questions - sec_a - sec_b
 
+    # Resolve chapters — multi-chapter takes priority over single-chapter legacy field
+    selected_chapters: list[str] = body.chapters[:7] if body.chapters else (
+        [body.chapter] if body.chapter else []
+    )
+
     # Build school context for BNPS / NIOS students
     school = user.get("school", "")
     school_context = ""
-    chapter_scope = f" Focus ONLY on chapter: \"{body.chapter}\"." if body.chapter else ""
     if school and has_school_curriculum(school, body.class_level):
-        chapters = get_school_chapters(school, body.class_level, body.subject)
-        ch_names = [c["name"] for c in chapters]
+        all_chapters = get_school_chapters(school, body.class_level, body.subject)
+        ch_names = [c["name"] for c in all_chapters]
+        scope_str = (
+            f"Focus ONLY on these chapter(s): {', '.join(selected_chapters)}."
+            if selected_chapters else
+            f"Cover all chapters: {', '.join(ch_names)}."
+        )
         if school == "nios":
             school_context = (
                 f"\nCURRICULUM: NIOS Secondary (National Institute of Open Schooling).\n"
                 f"Generate questions STRICTLY from the NIOS Secondary syllabus for {body.subject}. "
-                + (f"Focus ONLY on chapter: \"{body.chapter}\"." if body.chapter else f"NIOS chapters: {', '.join(ch_names)}.")
+                + scope_str
                 + "\nDo NOT use CBSE/NCERT content."
             )
         else:
             school_context = (
                 f"\nSCHOOL: Brooklyn National Public School (BNPS) — Grade {body.class_level}.\n"
-                f"Generate questions STRICTLY from these BNPS syllabus chapters: {', '.join(ch_names)}.\n"
-                f"Do NOT use NCERT default chapters or generic CBSE content."
+                f"Generate questions STRICTLY from the BNPS syllabus. " + scope_str
+                + "\nDo NOT use NCERT default chapters or generic CBSE content."
             )
-    elif body.chapter:
-        school_context = f"\nFocus ONLY on chapter: \"{body.chapter}\". All questions must be from this chapter."
+    elif selected_chapters:
+        school_context = f"\nFocus ONLY on these chapter(s): {', '.join(selected_chapters)}. All questions must be from these chapters."
 
     exam_label = "NIOS Secondary Course" if school == "nios" else f"Grade {body.class_level}"
-    exam_title_default = f"{'NIOS Secondary Course' if school == 'nios' else f'Class {body.class_level}'} {body.subject}{' — ' + body.chapter if body.chapter else ''} Mock Exam"
+    chapter_label = f" — {', '.join(selected_chapters[:3])}{'…' if len(selected_chapters) > 3 else ''}" if selected_chapters else ""
+    exam_title_default = f"{'NIOS Secondary Course' if school == 'nios' else f'Class {body.class_level}'} {body.subject}{chapter_label} Mock Exam"
 
     prompt = f"""Generate a {exam_label} {body.subject} mock exam paper with {body.num_questions} questions total.{school_context}
 Structure: Section A ({sec_a} MCQs, 1 mark each), Section B ({sec_b} questions, 2 marks each), Section C ({sec_c} questions, 3 marks each).
@@ -96,7 +106,7 @@ Return ONLY valid JSON:
     }}
   ]
 }}
-Generate EXACTLY {sec_a} questions in Section A, {sec_b} in Section B, {sec_c} in Section C.{"" if body.chapter else " Cover different chapters."}"""
+Generate EXACTLY {sec_a} questions in Section A, {sec_b} in Section B, {sec_c} in Section C.{"" if selected_chapters else " Cover different chapters."}"""
 
     try:
         response = await asyncio.wait_for(

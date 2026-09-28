@@ -47,7 +47,6 @@ export default function MockExamPage() {
     try {
       const s = JSON.parse(localStorage.getItem('aceit_exam_state') || 'null');
       if (!s || s.phase !== 'exam') return null;
-      // Adjust timer for time elapsed while away
       const elapsed = Math.floor((Date.now() - (s.savedAt || 0)) / 1000);
       const remainingSeconds = Math.max(0, (s.examDurationSeconds || 0) - elapsed);
       return { ...s, remainingSeconds };
@@ -56,7 +55,7 @@ export default function MockExamPage() {
 
   const [subjects, setSubjects] = useState([]);
   const [chapters, setChapters] = useState([]);
-  const [form, setForm] = useState({ class: userClass, subject: '', chapter: '', duration: 60, numQ: 15 });
+  const [form, setForm] = useState({ class: userClass, subject: '', selectedChapters: [], duration: 60, numQ: 15 });
   const [exam, setExam] = useState(() => _saved?.exam || null);
   const [answers, setAnswers] = useState(() => _saved?.answers || {});
   const [result, setResult] = useState(null);
@@ -99,7 +98,7 @@ export default function MockExamPage() {
   };
 
   const onSubjectChange = async (subject) => {
-    setForm(p => ({ ...p, subject, chapter: '' }));
+    setForm(p => ({ ...p, subject, selectedChapters: [] }));
     if (!subject) { setChapters([]); return; }
     try {
       const { data } = await axios.get(
@@ -110,14 +109,25 @@ export default function MockExamPage() {
     } catch { setChapters([]); }
   };
 
+  const toggleChapter = (chName) => {
+    setForm(p => {
+      const sel = p.selectedChapters;
+      if (sel.includes(chName)) return { ...p, selectedChapters: sel.filter(c => c !== chName) };
+      if (sel.length >= 7) return p; // cap at 7
+      return { ...p, selectedChapters: [...sel, chName] };
+    });
+  };
+
   const generateExam = async () => {
     if (!form.class || !form.subject) return;
     setLoading(true);
     try {
       const { data } = await axios.post(`${API}/mock-exam/generate`, {
-        class_level: form.class, subject: form.subject,
-        chapter: form.chapter || '',
-        duration_minutes: form.duration, num_questions: form.numQ
+        class_level: form.class,
+        subject: form.subject,
+        chapters: form.selectedChapters,   // multi-chapter array
+        duration_minutes: form.duration,
+        num_questions: form.numQ
       }, { withCredentials: true });
       restoredTimerSecondsRef.current = undefined; // clear restored seconds for fresh exam
       setExam(data);
@@ -213,19 +223,45 @@ export default function MockExamPage() {
                   <ChevronDown size={14} className="absolute right-3 top-3.5 text-zinc-500 pointer-events-none" />
                 </div>
               </div>
-              {/* Chapter selector — optional scope */}
+              {/* Multi-chapter chip selector */}
               {form.subject && chapters.length > 0 && (
-                <div className="relative" data-testid="mock-chapter-container">
-                  <select
-                    value={form.chapter}
-                    onChange={e => setForm(p => ({ ...p, chapter: e.target.value }))}
-                    data-testid="mock-chapter-select"
-                    className={sel}
-                  >
-                    <option value="">All chapters (full syllabus)</option>
-                    {chapters.map(c => <option key={c.id || c.name} value={c.name}>{c.name}</option>)}
-                  </select>
-                  <ChevronDown size={14} className="absolute right-3 top-3.5 text-zinc-500 pointer-events-none" />
+                <div data-testid="mock-chapter-container">
+                  <p className="text-zinc-500 text-xs font-body mb-2">
+                    Select chapters <span className="text-zinc-600">(up to 7 — leave empty for full syllabus)</span>
+                    {form.selectedChapters.length > 0 && (
+                      <button onClick={() => setForm(p => ({ ...p, selectedChapters: [] }))}
+                        className="ml-2 text-cyan-500 hover:text-cyan-400 text-xs">clear all</button>
+                    )}
+                  </p>
+                  <div className="flex flex-wrap gap-2 max-h-40 overflow-y-auto pr-1">
+                    {chapters.map(c => {
+                      const name = c.name || c;
+                      const selected = form.selectedChapters.includes(name);
+                      const disabled = !selected && form.selectedChapters.length >= 7;
+                      return (
+                        <button
+                          key={name}
+                          data-testid={`chapter-chip-${name}`}
+                          onClick={() => !disabled && toggleChapter(name)}
+                          disabled={disabled}
+                          className={`px-3 py-1.5 rounded-full text-xs font-body font-medium border transition-all ${
+                            selected
+                              ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50'
+                              : disabled
+                              ? 'opacity-30 cursor-not-allowed text-zinc-600 border-zinc-700'
+                              : 'text-zinc-400 border-zinc-700 hover:border-zinc-500 hover:text-zinc-300'
+                          }`}
+                        >
+                          {name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {form.selectedChapters.length > 0 && (
+                    <p className="text-cyan-400 text-xs font-body mt-2">
+                      {form.selectedChapters.length}/7 chapter{form.selectedChapters.length > 1 ? 's' : ''} selected
+                    </p>
+                  )}
                 </div>
               )}
               <div className="grid grid-cols-2 gap-3">

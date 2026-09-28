@@ -355,7 +355,7 @@ async def get_topic_mastery(topic: str, request: Request):
     user = await get_current_user(request)
     profile = await db.student_profiles.find_one({"user_id": user["user_id"]}, {"_id": 0, "topics": 1})
     if not profile:
-        return {"topic": topic, "mastery": 0.5, "recommended_difficulty": "medium", "attempts": 0}
+        return {"topic": topic, "mastery": 0.5, "mastery_pct": 50, "recommended_difficulty": "medium", "attempts": 0}
     data = profile.get("topics", {}).get(topic, {})
     mastery = data.get("mastery", 0.5)
     attempts = data.get("attempts", 0)

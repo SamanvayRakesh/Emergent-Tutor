@@ -1,0 +1,70 @@
+{
+  "summary": "Iteration 27 testing: NIOS features, multi-chapter mock exam, chat mastery badge, feedback buttons, quick quiz modal, BNPS regression. Most features working. Fixed 1 backend bug. Found 1 UI design issue.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "GET /api/quiz/topic-mastery",
+        "issue": "When user has no student profile, early-return path was missing 'mastery_pct' field (returning 'mastery' instead). Frontend ChatPage.jsx uses chapterMastery.mastery_pct so badge would never render for new users.",
+        "priority": "MEDIUM",
+        "status": "FIXED - added mastery_pct: 50 to early return"
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "Sidebar.jsx line 58",
+        "issue": "NIOS user sidebar shows 'Class 10 Student' instead of 'Secondary Course Student'. ProfilePage.jsx correctly shows 'Secondary Course Student' but Sidebar does not check for nios school.",
+        "selector": "Sidebar.jsx line 58: <p>Class {user.class_level || '9'} Student</p>",
+        "priority": "LOW",
+        "fix": "Change to: user?.school === 'nios' ? 'Secondary Course Student' : `Class ${user?.class_level || '9'} Student`"
+      }
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "features_tested": {
+    "NIOS login and dashboard": "PASS",
+    "NIOS SyllabusPage no NCERT badge": "PASS - showVerifiedBadge=false for NIOS, no badges shown",
+    "NIOS Profile 'Secondary Course Student'": "PASS - ProfilePage shows correct label",
+    "NIOS 17 subjects in Mock Exam": "PASS - 17 subjects in dropdown",
+    "Mock exam chapter chip UI": "PASS - chips appear, 3/7 and 7/7 counters shown, 8th chip disabled",
+    "Mock exam 8-chip block": "PASS - 8th chip has disabled=true and opacity-30 class",
+    "Chat mastery badge": "PASS - '50% mastery' badge shown in chat header after session load",
+    "Quick quiz loading toast": "PASS - 'Generating quick quiz...' toast appears when sending 'Give me a quick quiz'",
+    "Admin plan_id=pro": "PASS - /api/subscription/me returns plan_id=pro",
+    "BNPS school and class": "PASS - school=brooklyn_national, class_level=8",
+    "BNPS verified badges": "PASS - BNPS subjects have verified flag",
+    "Feedback buttons (thumbs up/down)": "CODE VERIFIED - data-testid=feedback-up-btn/feedback-down-btn present, shown for non-streaming messages only. Could not automate click test due to session message timing.",
+    "Explain in detail NIOS button": "CODE VERIFIED - data-testid=explain-detail-btn, shown for isNios=true non-streaming messages",
+    "AI response 5-8 sentences": "OBSERVED - Response visible in screenshot is multi-sentence (streaming was active when tested)"
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iteration27.py",
+    "/app/test_reports/pytest/iteration27_results.xml"
+  ],
+  "action_items": [
+    "Fix Sidebar.jsx line 58: NIOS user should show 'Secondary Course Student' not 'Class 10 Student'",
+    "Backend fix already applied: /api/quiz/topic-mastery early-return now includes mastery_pct: 50"
+  ],
+  "critical_code_review_comments": [
+    "Sidebar shows 'Class 10 Student' for NIOS user (should be 'Secondary Course Student') - inconsistent with ProfilePage",
+    "topic-mastery early-return path was missing mastery_pct - FIXED"
+  ],
+  "updated_files": [
+    "/app/backend/routes/quiz.py (fixed mastery_pct in no-profile early return)"
+  ],
+  "success_rate": {
+    "backend": "88% (8/9 tests - topic_mastery field mismatch fixed, chat session needs chapter_id)",
+    "frontend": "92% (12/13 features - sidebar NIOS label minor issue)"
+  },
+  "seed_data_creation": "Created 3 chat sessions for NIOS user during testing (Economics - Meaning and Nature of Economics)",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "NIOS user: niostest999@gmail.com / NiosTest@12345. Admin: admin@neuralearn.ai / Admin@123456. BNPS: bnps@student.edu / Test@12345. All major features working. One minor issue: Sidebar.jsx line 58 shows 'Class 10 Student' for NIOS (should be 'Secondary Course Student'). Backend topic-mastery fixed to include mastery_pct in early-return. Chat feedback buttons work by code inspection (rendered for finalized non-streaming messages). Quiz modal loading toast confirmed working.",
+  "rca_of_issues": {
+    "mastery_pct_missing": "Routes/quiz.py had two code paths: line 358 early-return (no profile) returned {mastery, recommended_difficulty, attempts} WITHOUT mastery_pct. Line 368-374 normal path correctly returned mastery_pct. Frontend ChatPage.jsx uses chapterMastery.mastery_pct for badge display. Fix: added mastery_pct: 50 to early return at line 358.",
+    "sidebar_nios_label": "Sidebar.jsx line 58 unconditionally renders 'Class {user.class_level} Student'. ProfilePage.jsx correctly checks user?.school === 'nios' ? 'Secondary Course Student' : `Class ${user?.class_level} Student`. No such check in Sidebar."
+  }
+}

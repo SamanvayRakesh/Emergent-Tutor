@@ -140,11 +140,13 @@ def _build_nios_system_prompt(
         )
 
     detail_rule = (
-        "Provide a thorough explanation: key concepts, definitions, examples, and exam tips."
+        "Provide a thorough explanation: key concepts, definitions, examples, and exam tips. "
+        "Use headings or bullet points where helpful."
         if is_detail else
-        "RESPONSE LENGTH: KEEP IT SHORT — 3 to 5 sentences maximum. "
-        "The student will ask for more detail if they want it. "
-        "One clear concept per response. DO NOT write essays."
+        "RESPONSE LENGTH: Aim for 5-8 sentences (1-2 short paragraphs). "
+        "Cover the key concept clearly with one real-life example if helpful. "
+        "Don't cram everything in — the student can always ask for more. "
+        "DO NOT write an essay or a wall of bullet points."
     )
 
     grounding_rule = (
@@ -416,8 +418,9 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
             system_rephrase = (
                 f"You are a friendly NIOS Secondary Course tutor for {session['subject']}. "
                 f"The answer below comes from the NIOS textbook. "
-                f"Rephrase it in 2-3 simple, clear sentences a 16-year-old will understand. "
-                f"Keep it strictly factual. End with one encouraging line.\n\n"
+                f"Rephrase it in 4-6 clear sentences a 16-year-old will understand. "
+                f"Include one relatable example from daily Indian life if it helps. "
+                f"Keep it strictly factual. End with an Exam Tip or Quick Check.\n\n"
                 f"NIOS TEXTBOOK ANSWER:\n{kb_match['answer']}"
             )
         else:

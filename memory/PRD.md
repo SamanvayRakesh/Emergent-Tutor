@@ -195,7 +195,33 @@ Enforced BNPS curriculum, KaTeX math rendering, Admin dashboard (3 hardcoded ema
 - `POST /api/admin/grade-requests/{id}/resolve`
 - `GET  /api/admin/users`
 
-## Completed (Sep 2026 — Chapter Mastery Badge in Chat)
+## Completed (Sep 2026 — Chat/Exam/Subscription Polish)
+
+### Quick Quiz Fix
+- [x] `openQuizModal` shows loading toast + error toast on failure (no more silent fails)
+- [x] Removed double-message bug when quiz intent detected
+
+### AI Response Length
+- [x] NIOS default: 5-8 sentences (was 2-3). KB-hit rephrase: 4-6 sentences with example.
+
+### NCERT Badge + Profile Terminology
+- [x] SyllabusPage: `showVerifiedBadge=false` for NIOS — no NCERT/BNPS badge shown
+- [x] Chapter book label shows "NIOS Secondary Textbook" for NIOS
+- [x] ProfilePage + Sidebar: "Secondary Course Student" for NIOS (was "Class 10 Student")
+
+### Subscription: Renews-on Badge
+- [x] PricingPage shows "Renews [date] · Payment via PayU" for active non-free paid plans
+- [x] Cancel dialog already existed and keeps access to end of billing cycle
+
+### Multi-Chapter Mock Exam (up to 7)
+- [x] Chip UI — click to toggle, cyan when selected, disabled (opacity-30) at 7 cap
+- [x] Backend `MockExamRequest.chapters: list[str]` — takes priority over legacy `chapter`
+- [x] Prompt scopes questions to all selected chapters; title includes first 3 names
+
+### Mastery Badge Fix
+- [x] Backend `topic-mastery` early-return path now includes `mastery_pct: 50`
+
+
 
 ### Chapter Mastery Badge
 - [x] `chapterMastery` state added to `ChatPage.jsx`

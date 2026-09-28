@@ -60,7 +60,8 @@ class ProgressUpdate(BaseModel):
 class MockExamRequest(BaseModel):
     class_level: str
     subject: str
-    chapter: str = ""          # optional: scope exam to one chapter
+    chapter: str = ""           # single chapter (legacy, still accepted)
+    chapters: list[str] = []    # multi-chapter selection (up to 7); overrides `chapter`
     duration_minutes: int = 60
     num_questions: int = 20
 

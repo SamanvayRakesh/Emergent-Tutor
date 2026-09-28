@@ -185,7 +185,9 @@ export default function ProfilePage() {
             )}
           </div>
         )}
-        <p className="text-zinc-500 text-sm font-body mt-0.5">Class {user?.class_level} Student</p>
+        <p className="text-zinc-500 text-sm font-body mt-0.5">
+          {user?.school === 'nios' ? 'Secondary Course Student' : `Class ${user?.class_level} Student`}
+        </p>
 
         {/* Level Badge */}
         <div className="inline-flex items-center gap-2 mt-3 px-4 py-2 rounded-full bg-amber-400/15 border border-amber-400/25">
