@@ -60,6 +60,7 @@ class ProgressUpdate(BaseModel):
 class MockExamRequest(BaseModel):
     class_level: str
     subject: str
+    chapter: str = ""          # optional: scope exam to one chapter
     duration_minutes: int = 60
     num_questions: int = 20
 

@@ -195,7 +195,25 @@ Enforced BNPS curriculum, KaTeX math rendering, Admin dashboard (3 hardcoded ema
 - `POST /api/admin/grade-requests/{id}/resolve`
 - `GET  /api/admin/users`
 
-## Completed (Sep 2026 — NIOS Polish + PDF RAG)
+## Completed (Sep 2026 — All 17 NIOS Subjects + Mock Exam Chapter Selection)
+
+### 17 NIOS Subjects in Curriculum
+- [x] Added 10 new subjects to `nios_curriculum.py` (was 7, now 17):
+  - Home Science (12 ch), Indian Culture and Heritage (12 ch), Logistics (8 ch),
+    Mathematics (14 ch), Paintings (8 ch), Psychology (14 ch),
+    Science and Technology (16 ch), Social Science (15 ch),
+    Warehouse (8 ch), Indian Sign Language (8 ch)
+- [x] All 17 subjects + their full chapter lists available via `GET /api/syllabus/10/subjects`
+- [x] `_NIOS_SUBJECT_META` updated with icons/colors for all 17 subjects
+- [x] Note: Only 7 subjects have real PDFs; the other 10 use AI's NIOS curriculum knowledge
+
+### Mock Exam Chapter Selection
+- [x] `MockExamRequest` model: added optional `chapter: str = ""` field
+- [x] `mock_exam.py`: When chapter is supplied, prompt scopes all questions to that chapter
+- [x] `MockExamPage.jsx`: Chapter dropdown appears after subject is selected; fetches from `GET /api/syllabus/{class}/{subject}/chapters`; "All chapters (full syllabus)" is the default
+- [x] Exam title includes chapter name when scoped (e.g., "NIOS Secondary Course Mathematics — Probability Mock Exam")
+- [x] "Secondary Course" shown in class badge (not "Class 10") for NIOS users
+
 
 ### NIOS AI Tutor — Full PDF-Grounded RAG
 - [x] **2689 PDF chunks** extracted from 7 NIOS textbooks → stored in `nios_pdf_chunks` collection with text index

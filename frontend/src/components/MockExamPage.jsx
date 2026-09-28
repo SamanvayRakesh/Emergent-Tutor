@@ -40,6 +40,7 @@ function Timer({ durationMinutes, initialSeconds, onTimeUp, running }) {
 export default function MockExamPage() {
   const { user } = useAuth();
   const userClass = user?.class_level || '9';
+  const isNios = user?.school === 'nios';
 
   // Restore saved exam state from localStorage
   const _saved = (() => {
@@ -54,7 +55,8 @@ export default function MockExamPage() {
   })();
 
   const [subjects, setSubjects] = useState([]);
-  const [form, setForm] = useState({ class: userClass, subject: '', duration: 60, numQ: 15 });
+  const [chapters, setChapters] = useState([]);
+  const [form, setForm] = useState({ class: userClass, subject: '', chapter: '', duration: 60, numQ: 15 });
   const [exam, setExam] = useState(() => _saved?.exam || null);
   const [answers, setAnswers] = useState(() => _saved?.answers || {});
   const [result, setResult] = useState(null);
@@ -90,9 +92,22 @@ export default function MockExamPage() {
   }, [userClass]);
 
   const onClassChange = async (cls) => {
-    setForm(p => ({ ...p, class: cls, subject: '' }));
+    setForm(p => ({ ...p, class: cls, subject: '', chapter: '' }));
+    setChapters([]);
     const r = await axios.get(`${API}/syllabus/${cls}/subjects`, { withCredentials: true });
     setSubjects(r.data);
+  };
+
+  const onSubjectChange = async (subject) => {
+    setForm(p => ({ ...p, subject, chapter: '' }));
+    if (!subject) { setChapters([]); return; }
+    try {
+      const { data } = await axios.get(
+        `${API}/syllabus/${form.class}/${encodeURIComponent(subject)}/chapters`,
+        { withCredentials: true }
+      );
+      setChapters(data || []);
+    } catch { setChapters([]); }
   };
 
   const generateExam = async () => {
@@ -101,6 +116,7 @@ export default function MockExamPage() {
     try {
       const { data } = await axios.post(`${API}/mock-exam/generate`, {
         class_level: form.class, subject: form.subject,
+        chapter: form.chapter || '',
         duration_minutes: form.duration, num_questions: form.numQ
       }, { withCredentials: true });
       restoredTimerSecondsRef.current = undefined; // clear restored seconds for fresh exam
@@ -174,7 +190,9 @@ export default function MockExamPage() {
         <h1 className="text-2xl sm:text-3xl font-heading font-black text-white flex items-center gap-3">
           <FileText size={28} className="text-cyan-400" /> Mock Exam
         </h1>
-        <p className="text-zinc-500 text-sm font-body mt-1">CBSE-pattern timed examinations</p>
+        <p className="text-zinc-500 text-sm font-body mt-1">
+          {isNios ? 'NIOS Secondary Course timed examinations' : 'CBSE-pattern timed examinations'}
+        </p>
       </div>
 
       <AnimatePresence mode="wait">
@@ -185,16 +203,31 @@ export default function MockExamPage() {
               <h2 className="text-white font-heading font-bold">Configure Exam</h2>
               <div className="grid grid-cols-2 gap-3">
                 <div className="relative px-3 py-3 rounded-xl border border-amber-400/30 bg-amber-500/10 text-amber-300 text-sm font-body font-semibold flex items-center gap-2" data-testid="mock-class-locked">
-                  <BookOpen size={14} /> Class {userClass}
+                  <BookOpen size={14} /> {isNios ? 'Secondary Course' : `Class ${userClass}`}
                 </div>
                 <div className="relative">
-                  <select value={form.subject} onChange={e => setForm(p => ({ ...p, subject: e.target.value }))} data-testid="mock-subject-select" className={sel} disabled={!form.class}>
+                  <select value={form.subject} onChange={e => onSubjectChange(e.target.value)} data-testid="mock-subject-select" className={sel} disabled={!form.class}>
                     <option value="">Subject</option>
                     {subjects.map(s => <option key={s.name} value={s.name}>{s.name}</option>)}
                   </select>
                   <ChevronDown size={14} className="absolute right-3 top-3.5 text-zinc-500 pointer-events-none" />
                 </div>
               </div>
+              {/* Chapter selector — optional scope */}
+              {form.subject && chapters.length > 0 && (
+                <div className="relative" data-testid="mock-chapter-container">
+                  <select
+                    value={form.chapter}
+                    onChange={e => setForm(p => ({ ...p, chapter: e.target.value }))}
+                    data-testid="mock-chapter-select"
+                    className={sel}
+                  >
+                    <option value="">All chapters (full syllabus)</option>
+                    {chapters.map(c => <option key={c.id || c.name} value={c.name}>{c.name}</option>)}
+                  </select>
+                  <ChevronDown size={14} className="absolute right-3 top-3.5 text-zinc-500 pointer-events-none" />
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-3">
                 <div className="relative">
                   <select value={form.duration} onChange={e => setForm(p => ({ ...p, duration: +e.target.value }))} className={sel}>

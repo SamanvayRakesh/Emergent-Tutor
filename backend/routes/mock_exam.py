@@ -50,6 +50,7 @@ async def generate_mock_exam(body: MockExamRequest, request: Request):
     # Build school context for BNPS / NIOS students
     school = user.get("school", "")
     school_context = ""
+    chapter_scope = f" Focus ONLY on chapter: \"{body.chapter}\"." if body.chapter else ""
     if school and has_school_curriculum(school, body.class_level):
         chapters = get_school_chapters(school, body.class_level, body.subject)
         ch_names = [c["name"] for c in chapters]
@@ -57,8 +58,8 @@ async def generate_mock_exam(body: MockExamRequest, request: Request):
             school_context = (
                 f"\nCURRICULUM: NIOS Secondary (National Institute of Open Schooling).\n"
                 f"Generate questions STRICTLY from the NIOS Secondary syllabus for {body.subject}. "
-                f"NIOS chapters: {', '.join(ch_names)}.\n"
-                f"Do NOT use CBSE/NCERT content."
+                + (f"Focus ONLY on chapter: \"{body.chapter}\"." if body.chapter else f"NIOS chapters: {', '.join(ch_names)}.")
+                + "\nDo NOT use CBSE/NCERT content."
             )
         else:
             school_context = (
@@ -66,14 +67,19 @@ async def generate_mock_exam(body: MockExamRequest, request: Request):
                 f"Generate questions STRICTLY from these BNPS syllabus chapters: {', '.join(ch_names)}.\n"
                 f"Do NOT use NCERT default chapters or generic CBSE content."
             )
+    elif body.chapter:
+        school_context = f"\nFocus ONLY on chapter: \"{body.chapter}\". All questions must be from this chapter."
 
-    prompt = f"""Generate a {"NIOS Secondary Course" if school == "nios" else f"Grade {body.class_level}"} {body.subject} mock exam paper with {body.num_questions} questions total.{school_context}
+    exam_label = "NIOS Secondary Course" if school == "nios" else f"Grade {body.class_level}"
+    exam_title_default = f"{'NIOS Secondary Course' if school == 'nios' else f'Class {body.class_level}'} {body.subject}{' — ' + body.chapter if body.chapter else ''} Mock Exam"
+
+    prompt = f"""Generate a {exam_label} {body.subject} mock exam paper with {body.num_questions} questions total.{school_context}
 Structure: Section A ({sec_a} MCQs, 1 mark each), Section B ({sec_b} questions, 2 marks each), Section C ({sec_c} questions, 3 marks each).
 {"Focus on board exam patterns with HOTS questions." if is_board else "Cover fundamental concepts suitable for internal assessments."}
 
 Return ONLY valid JSON:
 {{
-  "title": "Class {body.class_level} {body.subject} Mock Examination",
+  "title": "{exam_title_default}",
   "duration_minutes": {body.duration_minutes},
   "sections": [
     {{
@@ -90,7 +96,7 @@ Return ONLY valid JSON:
     }}
   ]
 }}
-Generate EXACTLY {sec_a} questions in Section A, {sec_b} in Section B, {sec_c} in Section C. Cover different chapters."""
+Generate EXACTLY {sec_a} questions in Section A, {sec_b} in Section B, {sec_c} in Section C.{"" if body.chapter else " Cover different chapters."}"""
 
     try:
         response = await asyncio.wait_for(
@@ -120,7 +126,7 @@ Generate EXACTLY {sec_a} questions in Section A, {sec_b} in Section B, {sec_c} i
         "exam_id": exam_id, "user_id": user["user_id"],
         "class_level": body.class_level, "subject": body.subject,
         "duration_minutes": body.duration_minutes,
-        "title": exam_data.get("title", f"{'NIOS Secondary Course' if school == 'nios' else f'Class {body.class_level}'} {body.subject} Mock Exam"),
+        "title": exam_data.get("title", exam_title_default),
         "sections": exam_data.get("sections", []),
         "completed": False, "score": None, "created_at": now,
     }
