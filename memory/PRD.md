@@ -195,7 +195,42 @@ Enforced BNPS curriculum, KaTeX math rendering, Admin dashboard (3 hardcoded ema
 - `POST /api/admin/grade-requests/{id}/resolve`
 - `GET  /api/admin/users`
 
-## Completed (Sep 2026 — Code Review Fixes)
+## Completed (Sep 2026 — NIOS Polish + PDF RAG)
+
+### NIOS AI Tutor — Full PDF-Grounded RAG
+- [x] **2689 PDF chunks** extracted from 7 NIOS textbooks → stored in `nios_pdf_chunks` collection with text index
+- [x] **705 Q&A pairs** in `question_bank` with `curriculum="nios"` for 7 subjects (82 chapters)
+- [x] **`_get_nios_kb_context`**: searches BOTH `nios_pdf_chunks` AND `question_bank` for relevant context at chat time
+- [x] **NIOS `send_message` path**: detects `user.school == "nios"` → uses `_build_nios_system_prompt` + PDF-grounded context (strictly scoped with `curriculum="nios"` — no CBSE cross-contamination)
+- [x] **KB hit path for NIOS**: NIOS-specific rephrase prompt, not generic CBSE
+- [x] **"Explain in detail"**: `_NIOS_DETAIL_RE` regex detects detail requests → switches to verbose `is_detail=True` prompt; frontend button sends "Explain in detail" as next message (NIOS only)
+- [x] **Short by default**: NIOS responses are 3-5 sentences max unless "Explain in detail" is triggered
+- [x] **Strict grounding**: If question is outside NIOS textbook material, AI says so explicitly
+
+### AI Message Feedback (👍/👎)
+- [x] `message_id` (e.g. `msg_abc123`) added to every stored AI message in DB
+- [x] `message_id` returned in SSE `done` event for frontend to capture
+- [x] `POST /api/chat/feedback` endpoint — stores vote (`up`/`down`) on message, returns 404 for unknown ids
+- [x] Frontend: 👍/👎 buttons below every finalised AI message with optimistic UI + revert on error
+- [x] Frontend: "Explain in detail" button (NIOS users only) with `data-testid="explain-detail-btn"`
+
+### "Secondary Course" Terminology
+- [x] Chat `SessionSetup` badge: `"Secondary Course — NIOS"` instead of `"Class 10 — your active grade"` for NIOS users
+- [x] Chat session header subtitle: `"Secondary Course"` instead of `"Class 10"` for NIOS users
+- [x] Mock exam title uses `"NIOS Secondary Course"` instead of `"Grade 10"` for NIOS users
+
+### Admin Free Pro Tier
+- [x] On every admin login, `subscriptions` collection is upserted with `plan=pro, status=active, expires_at=+100 years`
+- [x] All 3 admin emails get permanent pro access with no payment required
+
+### Assessment Grounding (Quiz + Mock Exam)
+- [x] `quiz.py` system message: `"NIOS Secondary quiz generator"` for NIOS, `"CBSE quiz generator"` otherwise
+- [x] `mock_exam.py` system message: `"Expert NIOS Secondary question paper setter"` for NIOS
+- [x] Mock exam prompt uses `"NIOS Secondary Course"` instead of `"Grade 10"` for NIOS users
+
+### BNPS Seed Fix
+- [x] `server.py` BNPS seed changed from `if not find_one` → always `update_one` to enforce `class_level=8` — prevents test mutations from breaking the seed user
+
 
 ### Security Fixes
 - [x] `subscription.py:296` — replaced `__import__('uuid')` with static `uuid.uuid4()` (uuid already imported)

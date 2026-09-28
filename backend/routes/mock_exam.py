@@ -67,7 +67,7 @@ async def generate_mock_exam(body: MockExamRequest, request: Request):
                 f"Do NOT use NCERT default chapters or generic CBSE content."
             )
 
-    prompt = f"""Generate a Grade {body.class_level} {body.subject} mock exam paper with {body.num_questions} questions total.{school_context}
+    prompt = f"""Generate a {"NIOS Secondary Course" if school == "nios" else f"Grade {body.class_level}"} {body.subject} mock exam paper with {body.num_questions} questions total.{school_context}
 Structure: Section A ({sec_a} MCQs, 1 mark each), Section B ({sec_b} questions, 2 marks each), Section C ({sec_c} questions, 3 marks each).
 {"Focus on board exam patterns with HOTS questions." if is_board else "Cover fundamental concepts suitable for internal assessments."}
 
@@ -97,7 +97,7 @@ Generate EXACTLY {sec_a} questions in Section A, {sec_b} in Section B, {sec_c} i
             openai_client.chat.completions.create(
                 model="deepseek/deepseek-v4-flash",
                 messages=[
-                    {"role": "system", "content": "Expert CBSE question paper setter."},
+                    {"role": "system", "content": "Expert NIOS Secondary question paper setter. Use NIOS curriculum only." if school == "nios" else "Expert CBSE question paper setter."},
                     {"role": "user", "content": prompt},
                 ],
                 response_format={"type": "json_object"}, temperature=0.7, max_tokens=4000,
@@ -120,7 +120,7 @@ Generate EXACTLY {sec_a} questions in Section A, {sec_b} in Section B, {sec_c} i
         "exam_id": exam_id, "user_id": user["user_id"],
         "class_level": body.class_level, "subject": body.subject,
         "duration_minutes": body.duration_minutes,
-        "title": exam_data.get("title", f"Class {body.class_level} {body.subject} Mock Exam"),
+        "title": exam_data.get("title", f"{'NIOS Secondary Course' if school == 'nios' else f'Class {body.class_level}'} {body.subject} Mock Exam"),
         "sections": exam_data.get("sections", []),
         "completed": False, "score": None, "created_at": now,
     }

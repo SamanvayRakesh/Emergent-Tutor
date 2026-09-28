@@ -296,7 +296,7 @@ Return ONLY valid JSON (no markdown, no extra text):
             openai_client.chat.completions.create(
                 model="deepseek/deepseek-v4-flash",
                 messages=[
-                    {"role": "system", "content": "You are a CBSE quiz generator. Return ONLY valid JSON, no extra text."},
+                    {"role": "system", "content": "You are a NIOS Secondary quiz generator. Return ONLY valid JSON, no extra text." if school == "nios" else "You are a CBSE quiz generator. Return ONLY valid JSON, no extra text."},
                     {"role": "user", "content": prompt},
                 ],
                 temperature=0.7,

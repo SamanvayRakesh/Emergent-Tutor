@@ -5,7 +5,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
-import { Send, Plus, BookOpen, ChevronDown, Trash2, Sparkles, CheckCircle, XCircle, MessageSquare, Brain, ArrowLeft, Youtube, ExternalLink, Zap } from 'lucide-react';
+import { Send, Plus, BookOpen, ChevronDown, Trash2, Sparkles, CheckCircle, XCircle, MessageSquare, Brain, ArrowLeft, Youtube, ExternalLink, Zap, ThumbsUp, ThumbsDown, ChevronRight } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import { useSubscription } from '../contexts/SubscriptionContext';
@@ -138,7 +138,7 @@ function QuizCard({ data }) {
   );
 }
 
-function MessageBubble({ msg, isStreaming }) {
+function MessageBubble({ msg, isStreaming, isNios, feedbackState, onFeedback, onDetailRequest }) {
   const isUser = msg.role === 'user';
   // Skip expensive parse+render while streaming — plain text only
   const parts = (!isUser && !isStreaming) ? parseQuizBlocks(msg.content) : null;
@@ -151,37 +151,83 @@ function MessageBubble({ msg, isStreaming }) {
         {isUser ? <span className="text-xs font-heading font-black">U</span> : <Sparkles size={14} className="text-white" />}
       </div>
 
-      <div className={`max-w-[82%] ${isUser ? 'message-user' : 'message-ai'} p-3.5`}>
-        {isUser ? (
-          <p className="text-white text-sm font-body leading-relaxed">{msg.content}</p>
-        ) : isStreaming ? (
-          // Plain text while streaming — no markdown/KaTeX parse overhead
-          <p className="text-sm font-body leading-relaxed text-white/90 whitespace-pre-wrap streaming-cursor">{msg.content}</p>
-        ) : (
-          <div className="text-sm font-body">
-            {parts?.map((part, i) =>
-              part.type === 'quiz' ? (
-                <QuizCard key={`quiz-${i}`} data={part.data} />
-              ) : part.type === 'youtube' ? (
-                <YouTubeCard key={`yt-${i}`} query={part.query} />
-              ) : (
-                <div key={`text-${i}`} className="markdown-content">
-                  <ReactMarkdown
-                    remarkPlugins={[remarkGfm, remarkMath]}
-                    rehypePlugins={[rehypeKatex]}
-                    components={{
-                      p: ({ children }) => (
-                        <p className="mb-2 last:mb-0 leading-relaxed">{children}</p>
-                      ),
-                      code: ({ inline, children }) => (
-                        inline
-                          ? <code className="bg-black/30 text-cyan-300 px-1 py-0.5 rounded text-xs">{children}</code>
-                          : <pre className="bg-black/30 text-cyan-300 p-3 rounded-xl text-xs overflow-x-auto my-2"><code>{children}</code></pre>
-                      ),
-                    }}
-                  >{part.content}</ReactMarkdown>
-                </div>
-              )
+      <div className={`max-w-[82%] flex flex-col gap-1.5`}>
+        <div className={`${isUser ? 'message-user' : 'message-ai'} p-3.5`}>
+          {isUser ? (
+            <p className="text-white text-sm font-body leading-relaxed">{msg.content}</p>
+          ) : isStreaming ? (
+            // Plain text while streaming — no markdown/KaTeX parse overhead
+            <p className="text-sm font-body leading-relaxed text-white/90 whitespace-pre-wrap streaming-cursor">{msg.content}</p>
+          ) : (
+            <div className="text-sm font-body">
+              {parts?.map((part, i) =>
+                part.type === 'quiz' ? (
+                  <QuizCard key={`quiz-${i}`} data={part.data} />
+                ) : part.type === 'youtube' ? (
+                  <YouTubeCard key={`yt-${i}`} query={part.query} />
+                ) : (
+                  <div key={`text-${i}`} className="markdown-content">
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm, remarkMath]}
+                      rehypePlugins={[rehypeKatex]}
+                      components={{
+                        p: ({ children }) => (
+                          <p className="mb-2 last:mb-0 leading-relaxed">{children}</p>
+                        ),
+                        code: ({ inline, children }) => (
+                          inline
+                            ? <code className="bg-black/30 text-cyan-300 px-1 py-0.5 rounded text-xs">{children}</code>
+                            : <pre className="bg-black/30 text-cyan-300 p-3 rounded-xl text-xs overflow-x-auto my-2"><code>{children}</code></pre>
+                        ),
+                      }}
+                    >{part.content}</ReactMarkdown>
+                  </div>
+                )
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Feedback & Detail row — only for finalised AI messages */}
+        {!isUser && !isStreaming && (
+          <div className="flex items-center gap-2 pl-1" data-testid="msg-actions">
+            {/* Thumbs Up */}
+            <button
+              data-testid="feedback-up-btn"
+              onClick={() => onFeedback(msg.message_id, 'up')}
+              disabled={!msg.message_id}
+              className={`p-1.5 rounded-lg transition-all text-xs flex items-center gap-1 ${
+                feedbackState === 'up'
+                  ? 'bg-green-500/20 text-green-400 border border-green-500/40'
+                  : 'text-zinc-600 hover:text-green-400 hover:bg-green-500/10 border border-transparent'
+              }`}
+            >
+              <ThumbsUp size={12} />
+            </button>
+
+            {/* Thumbs Down */}
+            <button
+              data-testid="feedback-down-btn"
+              onClick={() => onFeedback(msg.message_id, 'down')}
+              disabled={!msg.message_id}
+              className={`p-1.5 rounded-lg transition-all text-xs flex items-center gap-1 ${
+                feedbackState === 'down'
+                  ? 'bg-red-500/20 text-red-400 border border-red-500/40'
+                  : 'text-zinc-600 hover:text-red-400 hover:bg-red-500/10 border border-transparent'
+              }`}
+            >
+              <ThumbsDown size={12} />
+            </button>
+
+            {/* Explain in Detail — NIOS only */}
+            {isNios && (
+              <button
+                data-testid="explain-detail-btn"
+                onClick={() => onDetailRequest()}
+                className="ml-1 flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-body font-semibold text-violet-400 border border-violet-500/25 hover:bg-violet-500/10 hover:border-violet-500/40 transition-all"
+              >
+                <ChevronRight size={11} /> Explain in detail
+              </button>
             )}
           </div>
         )}
@@ -193,6 +239,7 @@ function MessageBubble({ msg, isStreaming }) {
 function SessionSetup({ onCreated, prefill }) {
   const { user } = useAuth();
   const userClass = user?.class_level || '9';
+  const isNios = user?.school === 'nios';
   const [subjects, setSubjects] = useState([]);
   const [chapters, setChapters] = useState([]);
   const [sel, setSel] = useState({ class: userClass, subject: '', chapterId: '', chapterName: '' });
@@ -283,7 +330,8 @@ function SessionSetup({ onCreated, prefill }) {
 
         {!prefill && <div className="space-y-3">
           <div className="px-4 py-3 rounded-xl border border-amber-400/30 bg-amber-500/10 text-amber-300 text-sm font-body font-semibold flex items-center gap-2" data-testid="chat-class-locked">
-            <Sparkles size={14} /> Class {userClass} — your active grade
+            <Sparkles size={14} />
+            {isNios ? 'Secondary Course — NIOS' : `Class ${userClass} — your active grade`}
           </div>
 
           {subjects.length > 0 && (
@@ -327,6 +375,7 @@ export default function ChatPage() {
   const { user } = useAuth();
   const { usage, plan, triggerUpgrade, refresh: refreshSub } = useSubscription();
   const { refresh: refreshCredits } = useCredits();
+  const isNios = user?.school === 'nios';
   const [session, setSession] = useState(null);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
@@ -335,12 +384,26 @@ export default function ChatPage() {
   const [sessions, setSessions] = useState([]);
   const [showSessions, setShowSessions] = useState(false);
   const [quizModal, setQuizModal] = useState(null); // {quizData}
+  const [feedbackMap, setFeedbackMap] = useState({}); // { [message_id]: 'up'|'down' }
   const bottomRef = useRef(null);
   const streamBufferRef = useRef('');
   const rafRef = useRef(null);
 
   // Cleanup RAF on unmount
   useEffect(() => () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); }, []);
+
+  const sendFeedback = useCallback(async (messageId, vote) => {
+    if (!messageId) return;
+    // Optimistic UI — update immediately
+    setFeedbackMap(p => ({ ...p, [messageId]: vote }));
+    try {
+      await axios.post(`${API}/chat/feedback`, { message_id: messageId, vote }, { withCredentials: true });
+    } catch (e) {
+      console.warn('[AceIt] feedback error:', e);
+      // Revert on failure
+      setFeedbackMap(p => { const n = { ...p }; delete n[messageId]; return n; });
+    }
+  }, []);
 
   const loadSession = useCallback(async (sid) => {
     try {
@@ -406,7 +469,7 @@ export default function ChatPage() {
             if (d.type === 'done') {
               // Flush any pending RAF before finalising
               if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
-              setMessages(p => [...p, { role: 'assistant', content: full, timestamp: new Date().toISOString() }]);
+              setMessages(p => [...p, { role: 'assistant', content: full, timestamp: new Date().toISOString(), message_id: d.message_id }]);
               setStreamingContent('');
               // Show accurate credit deduction
               if (d.credits_used) {
@@ -554,7 +617,9 @@ export default function ChatPage() {
         </button>
         <div className="flex-1 min-w-0">
           <h2 className="text-white font-heading font-bold text-sm truncate">{session?.subject}</h2>
-          <p className="text-zinc-500 text-xs font-body truncate">{session?.chapter} • Class {session?.class_level}</p>
+          <p className="text-zinc-500 text-xs font-body truncate">
+            {session?.chapter} • {isNios ? 'Secondary Course' : `Class ${session?.class_level}`}
+          </p>
         </div>
         <button onClick={() => { localStorage.removeItem('aceit_last_chat_session'); setSession(null); setMessages([]); nav('/chat', { replace: true }); }} data-testid="new-chat-btn"
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 text-sm font-body hover:bg-cyan-500/20 transition-all">
@@ -575,10 +640,25 @@ export default function ChatPage() {
           </motion.div>
         )}
         {messages.map((msg, i) => (
-          <MessageBubble key={msg.timestamp || i} msg={msg} isStreaming={false} />
+          <MessageBubble
+            key={msg.timestamp || i}
+            msg={msg}
+            isStreaming={false}
+            isNios={isNios}
+            feedbackState={feedbackMap[msg.message_id]}
+            onFeedback={sendFeedback}
+            onDetailRequest={() => sendMessage('Explain in detail')}
+          />
         ))}
         {streaming && streamingContent && (
-          <MessageBubble msg={{ role: 'assistant', content: streamingContent }} isStreaming={true} />
+          <MessageBubble
+            msg={{ role: 'assistant', content: streamingContent }}
+            isStreaming={true}
+            isNios={isNios}
+            feedbackState={undefined}
+            onFeedback={() => {}}
+            onDetailRequest={() => {}}
+          />
         )}
         {streaming && !streamingContent && (
           <div className="flex gap-3">

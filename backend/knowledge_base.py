@@ -43,6 +43,7 @@ async def find_kb_answer(
     class_level: str,
     subject: str,
     chapter_no: Optional[int] = None,
+    curriculum: Optional[str] = None,
 ) -> Optional[dict]:
     """Search the question bank for a matching answer.
 
@@ -61,6 +62,8 @@ async def find_kb_answer(
         }
         if chapter_no:
             base_filter["chapter_no"] = chapter_no
+        if curriculum:
+            base_filter["curriculum"] = curriculum  # e.g. "nios" — prevents cross-curriculum contamination
 
         # MongoDB full-text search
         text_filter = {**base_filter, "$text": {"$search": query}}

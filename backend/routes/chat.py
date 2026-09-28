@@ -8,11 +8,13 @@ Cost-optimised stack:
 
 import uuid
 import json
+import re
 import asyncio
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 
 from core import db, openai_client, logger, get_current_user
 from curriculum_engine import build_ai_chapter_manifest, get_verified_chapters
@@ -115,6 +117,122 @@ def _age_guidance(class_num: int) -> str:
     if class_num <= 9:
         return "Student is 13-14 yrs. Balance fun with substance. Use relatable examples."
     return "Student is 15-18 yrs. Be precise, conceptually deep, board-exam focused."
+
+
+_NIOS_DETAIL_RE = re.compile(
+    r'\b(explain\s*(in\s*)?(more\s*)?(detail|depth)|elaborate|expand\s+on|tell\s+me\s+more|more\s+detail)\b',
+    re.IGNORECASE,
+)
+
+
+def _build_nios_system_prompt(
+    session: dict, memory: dict, nios_kb_context: str, max_tokens: int, is_detail: bool = False
+) -> str:
+    """Short-by-default, NIOS-grounded system prompt for NIOS Secondary students."""
+    subject = session["subject"]
+    chapter = session["chapter"]
+    weak = ", ".join(memory.get("weak_topics", [])) or "none"
+
+    if max_tokens <= 150:
+        return (
+            f"You are a friendly NIOS Secondary Course tutor. {subject} | {chapter}. "
+            f"Answer in 2-3 simple sentences."
+        )
+
+    detail_rule = (
+        "Provide a thorough explanation: key concepts, definitions, examples, and exam tips."
+        if is_detail else
+        "RESPONSE LENGTH: KEEP IT SHORT — 3 to 5 sentences maximum. "
+        "The student will ask for more detail if they want it. "
+        "One clear concept per response. DO NOT write essays."
+    )
+
+    grounding_rule = (
+        f"NIOS TEXTBOOK CONTENT (use this as your PRIMARY source):\n{nios_kb_context}\n\n"
+        f"Answer STRICTLY from the above NIOS material. "
+        f"If the student's question is not covered in the provided content, say: "
+        f"'The NIOS Secondary material for \"{chapter}\" doesn't cover that specifically. "
+        f"I can help you with [suggest 1-2 related topics from this lesson].'"
+        if nios_kb_context else
+        f"GROUNDING RULE: Answer only from the official NIOS Secondary {subject} curriculum for \"{chapter}\". "
+        f"If you are unsure whether a fact is in the NIOS syllabus, say so clearly. "
+        f"Do NOT invent or substitute general knowledge."
+    )
+
+    return f"""You are AceIt AI Tutor for NIOS Secondary Course.
+
+LESSON: {subject} — {chapter}
+CURRICULUM: NIOS Secondary (National Institute of Open Schooling)
+
+{grounding_rule}
+
+{detail_rule}
+• Use simple, clear language a 16-year-old understands.
+• Avoid copying complicated textbook wording — always simplify.
+• Use real-life examples from everyday Indian life when helpful.
+• For definitions, start with "Simply put, ..."
+{"• Revisit topics the student found weak: " + weak if weak != "none" else ""}
+• End every reply with ONE of: Quick Check | Exam Tip | Try This
+
+MATH FORMAT: Use Unicode (½, ¼, x², H₂O). Use $...$ for inline equations."""
+
+
+async def _get_nios_kb_context(subject: str, chapter: str, query: str) -> str:
+    """Retrieve NIOS context from BOTH question_bank Q&As AND raw PDF chunks.
+
+    Search order:
+    1. question_bank — pre-generated Q&A pairs (concise, exam-ready)
+    2. nios_pdf_chunks — raw textbook pages (verbatim content grounding)
+
+    Returns a combined context string for use in the system prompt.
+    """
+    keywords = re.findall(r"\b\w{4,}\b", (query + " " + chapter).lower())
+    parts: list[str] = []
+
+    # ── 1. Q&A pairs ──────────────────────────────────────────────────────────
+    if keywords:
+        regex_filter = {
+            "curriculum": "nios",
+            "subject": {"$regex": subject, "$options": "i"},
+            "$or": [{"question": {"$regex": kw, "$options": "i"}} for kw in keywords[:6]],
+        }
+        qa_docs = await db.question_bank.find(
+            regex_filter, {"question": 1, "answer": 1, "chapter_title": 1, "_id": 0}
+        ).limit(3).to_list(3)
+        for d in qa_docs:
+            parts.append(
+                f"[Q&A — {d.get('chapter_title', chapter)}]\n"
+                f"Q: {d['question']}\nA: {d['answer']}"
+            )
+
+    # ── 2. Raw PDF text chunks ────────────────────────────────────────────────
+    try:
+        # Full-text search on PDF chunks
+        text_results = await db.nios_pdf_chunks.find(
+            {
+                "$text": {"$search": query},
+                "subject": {"$regex": subject, "$options": "i"},
+            },
+            {"score": {"$meta": "textScore"}, "text": 1, "_id": 0},
+        ).sort([("score", {"$meta": "textScore"})]).limit(2).to_list(2)
+
+        # Fallback: regex scan if text-search returns nothing
+        if not text_results and keywords:
+            text_results = await db.nios_pdf_chunks.find(
+                {
+                    "subject": {"$regex": subject, "$options": "i"},
+                    "$or": [{"text": {"$regex": kw, "$options": "i"}} for kw in keywords[:4]],
+                },
+                {"text": 1, "_id": 0},
+            ).limit(2).to_list(2)
+
+        for chunk in text_results:
+            snippet = chunk["text"][:800]  # cap chunk to 800 chars for prompt budget
+            parts.append(f"[PDF Textbook — {subject}]\n{snippet}")
+    except Exception:
+        pass  # PDF chunks not indexed yet — degrade gracefully
+
+    return "\n\n---\n\n".join(parts) if parts else ""
 
 
 def _build_system_prompt(session: dict, memory: dict, category: str, chapter_context: str, max_tokens: int) -> str:
@@ -264,6 +382,9 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
             headers={"Cache-Control":"no-cache","X-Accel-Buffering":"no"},
         )
 
+    # Detect NIOS user — all NIOS logic is gated behind this flag
+    is_nios = user.get("school") == "nios"
+
     # ── KB lookup (runs before any LLM call) ─────────────────────────────────
     ch_no = None
     for c in (get_verified_chapters(session["class_level"], session["subject"]) or []):
@@ -272,8 +393,12 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
             break
 
     # Parallelise independent DB calls to cut pre-LLM latency
+    # For NIOS: scope KB lookup to NIOS curriculum only (no cross-contamination)
     kb_match, profile = await asyncio.gather(
-        find_kb_answer(body.content, session["class_level"], session["subject"], chapter_no=ch_no),
+        find_kb_answer(
+            body.content, session["class_level"], session["subject"],
+            chapter_no=ch_no, curriculum="nios" if is_nios else None
+        ),
         get_student_profile(user["user_id"]),
     )
     memory = build_compact_memory(profile)
@@ -287,35 +412,52 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
     # Build AI messages
     if kb_match:
         # KB HIT — ultra-cheap rephrase: ~130 tokens total
+        if is_nios:
+            system_rephrase = (
+                f"You are a friendly NIOS Secondary Course tutor for {session['subject']}. "
+                f"The answer below comes from the NIOS textbook. "
+                f"Rephrase it in 2-3 simple, clear sentences a 16-year-old will understand. "
+                f"Keep it strictly factual. End with one encouraging line.\n\n"
+                f"NIOS TEXTBOOK ANSWER:\n{kb_match['answer']}"
+            )
+        else:
+            system_rephrase = (
+                f"You are a friendly CBSE tutor for Class {session['class_level']} "
+                f"{session['subject']}. Rephrase the answer below in 2-3 clear sentences. "
+                f"Keep it factually accurate. Add one encouraging line.\n\n"
+                f"ANSWER:\n{kb_match['answer']}"
+            )
         ai_messages = [
-            {
-                "role": "system",
-                "content": (
-                    f"You are a friendly CBSE tutor for Class {session['class_level']} "
-                    f"{session['subject']}. Rephrase the answer below in 2-3 clear sentences. "
-                    f"Keep it factually accurate. Add one encouraging line.\n\n"
-                    f"ANSWER:\n{kb_match['answer']}"
-                ),
-            },
+            {"role": "system", "content": system_rephrase},
             {"role": "user", "content": body.content},
         ]
         ai_model   = "deepseek/deepseek-v4-flash"
-        max_tokens = 180
+        max_tokens = 200
     else:
         # KB MISS — full generation, token-capped by budget tier
-        chapter_context = _retrieve_chapter_context(
-            session["class_level"], session["subject"], session["chapter"]
-        )
-        # Append school-specific chapter hint for non-NCERT schools
-        school_id = user.get("school") or ""
-        if school_id:
-            hint = get_chapter_context_hint(
-                school_id, session["class_level"], session["subject"], session["chapter"]
+        if is_nios:
+            # NIOS path: retrieve PDF chunks + Q&A context → strict grounding prompt
+            nios_kb_context = await _get_nios_kb_context(
+                session["subject"], session["chapter"], body.content
             )
-            if hint:
-                chapter_context = (hint + "\n\n" + chapter_context) if chapter_context else hint
+            is_detail = bool(_NIOS_DETAIL_RE.search(body.content))
+            system_prompt = _build_nios_system_prompt(
+                session, memory, nios_kb_context, max_tokens, is_detail
+            )
+        else:
+            # CBSE / BNPS path
+            chapter_context = _retrieve_chapter_context(
+                session["class_level"], session["subject"], session["chapter"]
+            )
+            school_id = user.get("school") or ""
+            if school_id:
+                hint = get_chapter_context_hint(
+                    school_id, session["class_level"], session["subject"], session["chapter"]
+                )
+                if hint:
+                    chapter_context = (hint + "\n\n" + chapter_context) if chapter_context else hint
+            system_prompt = _build_system_prompt(session, memory, category, chapter_context, max_tokens)
 
-        system_prompt = _build_system_prompt(session, memory, category, chapter_context, max_tokens)
         history = await db.messages.find(
             {"session_id": session_id}, {"_id": 0}
         ).sort("timestamp", -1).limit(6).to_list(6)
@@ -330,6 +472,7 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
         full_content = ""
         word_count = 0
         input_tokens_est = int(sum(len(m["content"].split()) * 1.3 for m in ai_messages))
+        msg_id = f"msg_{uuid.uuid4().hex[:12]}"
 
         # Reserve generous headroom so the model can always finish its response
         generation_tokens = max_tokens  # no artificial cap — trust the router limits
@@ -357,7 +500,8 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
 
         ts = datetime.now(timezone.utc).isoformat()
         await db.messages.insert_one(
-            {"session_id": session_id, "role": "assistant", "content": full_content, "timestamp": ts}
+            {"message_id": msg_id, "session_id": session_id, "role": "assistant",
+             "content": full_content, "timestamp": ts}
         )
         await db.chat_sessions.update_one(
             {"session_id": session_id},
@@ -397,7 +541,7 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
         await record_token_usage(user["user_id"], ai_model, input_tokens_est, output_tokens_est)
 
         credits_used = calculate_chat_credits(final_word_count)
-        yield f"data: {json.dumps({'type':'done','word_count':final_word_count,'credits_used':credits_used,'balance':credit_result.get('balance',0)})}\n\n"
+        yield f"data: {json.dumps({'type':'done','message_id':msg_id,'word_count':final_word_count,'credits_used':credits_used,'balance':credit_result.get('balance',0)})}\n\n"
 
     return StreamingResponse(
         generate(),
@@ -452,3 +596,30 @@ async def my_ai_analytics(request: Request):
 def _month_key() -> str:
     n = datetime.now(timezone.utc)
     return f"{n.year}-{n.month:02d}"
+
+
+# ── Message Feedback ──────────────────────────────────────────────────────────
+
+class _FeedbackBody(BaseModel):
+    message_id: str
+    vote: str  # "up" or "down"
+
+
+@router.post("/chat/feedback")
+async def submit_message_feedback(body: _FeedbackBody, request: Request):
+    """Record 👍 / 👎 on any AI message. Idempotent — updates if already voted."""
+    user = await get_current_user(request)
+    if body.vote not in ("up", "down"):
+        raise HTTPException(status_code=400, detail="vote must be 'up' or 'down'")
+
+    result = await db.messages.update_one(
+        {"message_id": body.message_id, "role": "assistant"},
+        {"$set": {
+            "feedback": body.vote,
+            "feedback_by": user["user_id"],
+            "feedback_at": datetime.now(timezone.utc).isoformat(),
+        }},
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Message not found")
+    return {"ok": True, "vote": body.vote}

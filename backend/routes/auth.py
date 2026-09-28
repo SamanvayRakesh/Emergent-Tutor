@@ -193,6 +193,22 @@ async def login(body: UserLogin, request: Request, response: Response):
         await db.users.update_one({"user_id": user["user_id"]}, {"$set": {"role": "admin"}})
         user["role"] = "admin"
 
+    # Grant admins a permanent pro subscription (free, no payment required)
+    if email in ADMIN_EMAILS:
+        far_future = (datetime.now(timezone.utc) + timedelta(days=36500)).isoformat()
+        await db.subscriptions.update_one(
+            {"user_id": user["user_id"]},
+            {"$set": {
+                "plan": "pro",
+                "status": "active",
+                "billing_cycle": "lifetime",
+                "expires_at": far_future,
+                "started_at": datetime.now(timezone.utc).isoformat(),
+                "user_id": user["user_id"],
+            }},
+            upsert=True,
+        )
+
     now    = datetime.now(timezone.utc)
     streak = user.get("streak", 0)
     last_active_str = user.get("last_active", "")

@@ -166,9 +166,10 @@ async def startup_event():
             {"$set": {"is_verified": True, "email_verified": True, "status": "active"}},
         )
 
-    # ── Seed BNPS test student (idempotent) ───────────────────────────────────
+    # ── Seed BNPS test student (always upsert — enforce class_level=8) ────────
     bnps_email = "bnps@student.edu"
-    if not await db.users.find_one({"email": bnps_email}):
+    existing_bnps = await db.users.find_one({"email": bnps_email})
+    if not existing_bnps:
         import bcrypt as _bcrypt
         import uuid as _uuid
         bnps_hash = _bcrypt.hashpw(b"Test@12345", _bcrypt.gensalt()).decode()
@@ -188,6 +189,12 @@ async def startup_event():
             "created_at":   datetime.now(timezone.utc).isoformat(),
         })
         logger.info("BNPS test student seeded: bnps@student.edu")
+    else:
+        # Always enforce correct class_level regardless of prior test mutations
+        await db.users.update_one(
+            {"email": bnps_email},
+            {"$set": {"class_level": "8", "school": "brooklyn_national", "status": "active", "is_verified": True}},
+        )
 
     # ── Background cleanup task ─────────────────────────────────────────────
     # NOTE: Cleanup intentionally disabled — email verification is not enforced,
