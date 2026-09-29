@@ -126,7 +126,9 @@ export default function Dashboard() {
           <div>
             <p className="text-zinc-400 text-sm font-body mb-1">{greeting},</p>
             <h1 className="text-2xl sm:text-3xl font-heading font-black text-white truncate max-w-[220px] sm:max-w-xs">{user?.name?.split(' ')[0] || 'Student'}</h1>
-            <p className="text-zinc-500 text-sm font-body mt-1">Class {user?.class_level || '9'} • Keep the momentum going!</p>
+            <p className="text-zinc-500 text-sm font-body mt-1">
+              {user?.school === 'nios' ? 'Secondary Course • NIOS' : `Class ${user?.class_level || '9'} • Keep the momentum going!`}
+            </p>
           </div>
           <div className="hidden sm:flex flex-col items-center gap-1">
             <div className="w-16 h-16 rounded-full bg-gradient-to-br from-cyan-400 to-violet-600 flex items-center justify-center text-black font-heading font-black text-2xl">

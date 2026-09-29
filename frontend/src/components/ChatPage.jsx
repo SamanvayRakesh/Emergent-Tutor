@@ -21,13 +21,24 @@ const SUBJECT_COLORS = {
   'Social Science': '#3b82f6', 'Computer Science': '#ef4444'
 };
 
+// Pre-process math: wrap bare LaTeX so KaTeX renders even if model forgot $ signs
+function fixMathDelimiters(text) {
+  return text
+    .replace(/(?<!\$)(\\frac\{[^{}]*\}\{[^{}]*\})(?!\$)/g, '$$$1$$')
+    .replace(/(?<!\$)(\\sqrt\{[^{}]*\})(?!\$)/g, '$$$1$$')
+    .replace(/(?<!\$)(\\(?:times|div|pm|leq|geq|neq|approx|cdot|infty|alpha|beta|gamma|theta|pi|sigma|delta|lambda|mu|omega))(?!\$|\w)/g, '$$$1$$')
+    // Fix C$D$ pattern — letter$letter is NOT math
+    .replace(/([A-Za-z])\$([A-Za-z])/g, '$1$2');
+}
+
 function parseQuizBlocks(content) {
+  const fixed = fixMathDelimiters(content);
   const parts = [];
   // Combined regex: matches either [QUIZ]...[/QUIZ] or [YOUTUBE]...[/YOUTUBE]
   const regex = /\[QUIZ\]([\s\S]*?)\[\/QUIZ\]|\[YOUTUBE\]([\s\S]*?)\[\/YOUTUBE\]/g;
   let lastIdx = 0, match;
-  while ((match = regex.exec(content)) !== null) {
-    if (match.index > lastIdx) parts.push({ type: 'text', content: content.slice(lastIdx, match.index) });
+  while ((match = regex.exec(fixed)) !== null) {
+    if (match.index > lastIdx) parts.push({ type: 'text', content: fixed.slice(lastIdx, match.index) });
     if (match[1] !== undefined) {
       try {
         const data = JSON.parse(match[1].trim());
@@ -41,7 +52,7 @@ function parseQuizBlocks(content) {
     }
     lastIdx = regex.lastIndex;
   }
-  if (lastIdx < content.length) parts.push({ type: 'text', content: content.slice(lastIdx) });
+  if (lastIdx < fixed.length) parts.push({ type: 'text', content: fixed.slice(lastIdx) });
   return parts;
 }
 

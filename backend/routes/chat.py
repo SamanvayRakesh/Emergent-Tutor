@@ -9,6 +9,7 @@ Cost-optimised stack:
 import uuid
 import json
 import re
+import time
 import asyncio
 from datetime import datetime, timezone
 
@@ -28,6 +29,10 @@ from adaptive_engine import (
 from ai_router import build_routing_decision
 from knowledge_base import find_kb_answer, get_kb_stats
 from school_curriculum import get_chapter_context_hint
+
+# ── Simple in-memory KB context cache (cuts repeat DB lookups for same chapter) ─
+_KB_CACHE: dict = {}          # key → (context_str, timestamp)
+_KB_CACHE_TTL: int = 300      # 5 minutes
 
 router = APIRouter()
 
@@ -176,18 +181,28 @@ CURRICULUM: NIOS Secondary (National Institute of Open Schooling)
 {"• Revisit topics the student found weak: " + weak if weak != "none" else ""}
 • End every reply with ONE of: Quick Check | Exam Tip | Try This
 
-MATH FORMAT: Use Unicode (½, ¼, x², H₂O). Use $...$ for inline equations."""
+MATH FORMAT RULES (CRITICAL):
+• ALWAYS wrap ALL equations and math in dollar signs: $x + y = z$
+• Fractions: write $\\frac{{a}}{{b}}$ — NEVER write \\frac{{a}}{{b}} without $ signs
+• Powers: write $x^2$ — NEVER x^2 without $ signs
+• Subscripts: write $H_2O$ — NEVER H_2O or H$_2$O
+• Display equations on own line: $$E = mc^2$$
+• NEVER split dollar signs across letters like C$D$ — always wrap the full expression"""
 
 
 async def _get_nios_kb_context(subject: str, chapter: str, query: str) -> str:
     """Retrieve NIOS context from BOTH question_bank Q&As AND raw PDF chunks.
 
-    Search order:
-    1. question_bank — pre-generated Q&A pairs (concise, exam-ready)
-    2. nios_pdf_chunks — raw textbook pages (verbatim content grounding)
-
-    Returns a combined context string for use in the system prompt.
+    Results are cached for 5 minutes per (subject, chapter) pair to cut
+    pre-LLM DB latency on repeat questions in the same session.
     """
+    # Cache lookup — key on subject+chapter (query varies but chapter is the main scope)
+    cache_key = f"{subject}::{chapter}"
+    if cache_key in _KB_CACHE:
+        ctx, ts = _KB_CACHE[cache_key]
+        if time.time() - ts < _KB_CACHE_TTL:
+            return ctx
+
     keywords = re.findall(r"\b\w{4,}\b", (query + " " + chapter).lower())
     parts: list[str] = []
 
@@ -209,32 +224,38 @@ async def _get_nios_kb_context(subject: str, chapter: str, query: str) -> str:
 
     # ── 2. Raw PDF text chunks ────────────────────────────────────────────────
     try:
-        # Full-text search on PDF chunks
         text_results = await db.nios_pdf_chunks.find(
             {
                 "$text": {"$search": query},
                 "subject": {"$regex": subject, "$options": "i"},
             },
             {"score": {"$meta": "textScore"}, "text": 1, "_id": 0},
-        ).sort([("score", {"$meta": "textScore"})]).limit(2).to_list(2)
+        ).sort([("score", {"$meta": "textScore"})]).limit(1).to_list(1)  # 1 chunk for speed
 
-        # Fallback: regex scan if text-search returns nothing
         if not text_results and keywords:
             text_results = await db.nios_pdf_chunks.find(
                 {
                     "subject": {"$regex": subject, "$options": "i"},
-                    "$or": [{"text": {"$regex": kw, "$options": "i"}} for kw in keywords[:4]],
+                    "$or": [{"text": {"$regex": kw, "$options": "i"}} for kw in keywords[:3]],
                 },
                 {"text": 1, "_id": 0},
-            ).limit(2).to_list(2)
+            ).limit(1).to_list(1)
 
         for chunk in text_results:
-            snippet = chunk["text"][:800]  # cap chunk to 800 chars for prompt budget
-            parts.append(f"[PDF Textbook — {subject}]\n{snippet}")
+            parts.append(f"[PDF Textbook — {subject}]\n{chunk['text'][:600]}")
     except Exception:
-        pass  # PDF chunks not indexed yet — degrade gracefully
+        pass
 
-    return "\n\n---\n\n".join(parts) if parts else ""
+    result = "\n\n---\n\n".join(parts) if parts else ""
+
+    # Store in cache
+    _KB_CACHE[cache_key] = (result, time.time())
+    # Evict old entries if cache grows large
+    if len(_KB_CACHE) > 200:
+        oldest = min(_KB_CACHE.items(), key=lambda x: x[1][1])[0]
+        del _KB_CACHE[oldest]
+
+    return result
 
 
 def _build_system_prompt(session: dict, memory: dict, category: str, chapter_context: str, max_tokens: int) -> str:
@@ -286,12 +307,11 @@ MATH FORMAT (mandatory):
 • Simple fractions: use Unicode symbols → ½ ¼ ¾ ⅓ ⅔ ⅕ ⅖ ⅗ ⅘ ⅙ ⅚ ⅛ ⅜ ⅝ ⅞
 • Powers and subscripts: write x² y³ H₂O CO₂ (not x^2 or H_2O)
 • Common symbols: π √ ∞ ≈ ≠ ≤ ≥ ± ∈ ∑ ∫ ∆ ∝ °C →
-• For multi-step or complex equations: wrap in $...$ for inline, $$...$$ for block
-• NEVER output raw LaTeX like \\frac{{}}{{}} — use ½ or (a/b) format for simple fractions
+• For complex equations: ALWAYS wrap in $...$ for inline, $$...$$ for display block
+• NEVER output raw LaTeX like \\frac{{1}}{{2}} outside of $...$
 • NEVER use ( \\formula ) parenthesis-wrapped notation — use $\\formula$ instead
+• NEVER write C$D$ or split dollar signs across text — wrap the full expression
 • NEVER use dollar signs ($) to represent currency in responses
-• Example: "The slope is ½" not "The slope is \\frac{{1}}{{2}}"
-• Example inline: "We know $a^2 + b^2 = c^2$" for Pythagoras
 
 RULES:
 • Build intuition before formulas. Short paragraphs (3 lines max).
