@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Mail, Lock, User, ArrowRight, Eye, EyeOff, CheckCircle2, AlertTriangle, Info, BookOpen } from 'lucide-react';
 import axios from 'axios';
@@ -16,7 +16,13 @@ const FALLBACK_SCHOOLS = [
 ];
 
 export default function AuthPage() {
-  const [tab, setTab]           = useState('login');
+  const [searchParams] = useSearchParams();
+
+const [tab, setTab] = useState(() => {
+  const requestedTab = searchParams.get('tab');
+
+  return requestedTab === 'register' ? 'register' : 'login';
+});
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState('');

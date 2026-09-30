@@ -468,7 +468,7 @@ async def submit_quiz(quiz_id: str, body: QuizSubmitRequest, request: Request):
             new_level = max(1, updated.get("xp", 0) // 500 + 1)
             if new_level > updated.get("level", 1):
                 await db.users.update_one(
-                    {"user_id": user["user_id"]}, {"$set": {"level": new_level}}
+                    {"user_id": user["user_id"]}, {"$set": {"level": new_level}
                 )
 
     await record_quiz_result(user["user_id"], quiz.get("topic", "General"), score_pct, correct_count, total)
