@@ -89,6 +89,12 @@ async def startup_event():
     await db.credit_analytics.create_index([("user_id", 1), ("timestamp", -1)])
     await db.student_profiles.create_index("user_id", unique=True)
 
+    await db.mock_exams.create_index(
+        "user_id", unique=True, name="one_generating_mock_per_user",
+        partialFilterExpression={"generation_status": "generating"},
+    )
+    app.state.mock_exam_worker = asyncio.create_task(mock_exam_routes.mock_exam_generation_worker())
+
     # ── Backfills ──────────────────────────────────────────────────────────────
     # Existing users without is_verified → mark as verified
     await db.users.update_many(
@@ -263,4 +269,12 @@ async def _cleanup_unverified_accounts():
 
 @app.on_event("shutdown")
 async def shutdown_event():
+    worker = getattr(app.state, "mock_exam_worker", None)
+    if worker:
+        worker.cancel()
+        try:
+            await worker
+        except asyncio.CancelledError:
+            pass
     mongo_client.close()
+
