@@ -12,6 +12,7 @@ from core import db, get_current_user, logger
 from credits import get_credits, CREDIT_COSTS, STARTER_CREDITS
 from models import OnboardingSubmit, SubscribeRequest
 from plan_gates import PLANS, get_user_plan, get_usage
+from routes.auth import get_signup_school_fields
 
 router = APIRouter()
 
@@ -241,11 +242,15 @@ async def submit_onboarding(body: OnboardingSubmit, request: Request):
     if body.learning_style not in {"visual", "quizzes", "explanations", "interactive", "balanced"}:
         raise HTTPException(status_code=400, detail="invalid learning_style")
 
+    if not user.get("school"):
+        raise HTTPException(status_code=409, detail="Please select your school first")
+    school_fields = get_signup_school_fields(user["school"], body.class_level)
+
     now = datetime.now(timezone.utc).isoformat()
     record = {
         "user_id": user["user_id"],
         "name": body.name.strip(),
-        "class_level": body.class_level,
+        "class_level": school_fields["class_level"],
         "exam_goal": body.exam_goal.strip(),
         "weak_subjects": body.weak_subjects,
         "learning_style": body.learning_style,
@@ -261,7 +266,7 @@ async def submit_onboarding(body: OnboardingSubmit, request: Request):
         {"user_id": user["user_id"]},
         {"$set": {
             "name": body.name.strip(),
-            "class_level": body.class_level,
+            "class_level": school_fields["class_level"],
             "exam_goal": body.exam_goal.strip(),
             "weak_subjects": body.weak_subjects,
             "learning_style": body.learning_style,
@@ -381,3 +386,4 @@ async def get_my_grade_appeal(request: Request):
         sort=[("created_at", -1)],
     )
     return {"request": req}
+
