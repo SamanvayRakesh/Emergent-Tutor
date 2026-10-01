@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException, Request
 
 from core import db, openai_client, get_current_user
+from credits import deduct_credits
 from plan_gates import check_limit, increment_usage
 from models import QuizGenerateRequest, QuizSubmitRequest
 from adaptive_engine import record_quiz_result, update_topic_performance, get_student_profile
@@ -318,7 +319,7 @@ Return ONLY valid JSON (no markdown, no extra text):
 
     # ── Only deduct credits AFTER the quiz is successfully generated ──────────
     if past_quiz_count > 0:
-        await db.users.update_one({"user_id": user["user_id"]}, {"$inc": {"credits": -QUIZ_COST}})
+        await deduct_credits(user["user_id"], "quiz_generate")
 
     quiz_id = f"quiz_{uuid.uuid4().hex[:12]}"
     now = datetime.now(timezone.utc).isoformat()
@@ -332,7 +333,8 @@ Return ONLY valid JSON (no markdown, no extra text):
     quiz_doc = {
         "quiz_id": quiz_id, "user_id": user["user_id"],
         "class_level": body.class_level, "subject": body.subject,
-        "topic": body.topic, "difficulty": body.difficulty,
+        "topic": body.topic, "chapter": body.chapter or body.topic,
+        "school": user.get("school"), "difficulty": body.difficulty,
         "questions": raw_questions,
         "title": quiz_data.get("title", f"Quiz: {body.topic}"),
         "completed": False, "score": None, "created_at": now,
@@ -349,29 +351,30 @@ async def get_quiz_history(request: Request):
     return await db.quizzes.find({"user_id": user["user_id"]}, {"_id": 0}).sort("created_at", -1).limit(20).to_list(20)
 
 
+async def measured_mastery(user: dict, topic: str, subject: str = "") -> dict:
+    """Use completed, server-scored quizzes; untested chapters start at zero."""
+    query = {"user_id": user["user_id"], "completed": True,
+             "class_level": user.get("class_level"),
+             "$or": [{"chapter": topic}, {"topic": topic},
+                     {"chapter": {"$exists": False}, "topic": {"$in": _get_subtopics(topic)}}]}
+    if subject:
+        query["subject"] = subject
+    if user.get("school"):
+        query["$and"] = [{"$or": [{"school": user["school"]}, {"school": {"$exists": False}}]}]
+    quizzes = await db.quizzes.find(query, {"_id": 0}).sort("completed_at", -1).limit(20).to_list(20)
+    correct = sum(q.get("correct_count", 0) for q in quizzes)
+    total = sum(q.get("total_questions", len(q.get("questions", []))) for q in quizzes)
+    ratio = correct / total if total else 0
+    difficulty = "easy" if ratio < .4 else "hard" if ratio >= .7 else "medium"
+    return {"topic": topic, "mastery": round(ratio, 3),
+            "mastery_pct": round(ratio * 100), "attempts": total,
+            "recommended_difficulty": difficulty}
+
+
 @router.get("/quiz/topic-mastery")
-async def get_topic_mastery(topic: str, request: Request):
-    """Return adaptive difficulty recommendation for a topic based on quiz history."""
+async def get_topic_mastery(topic: str, request: Request, subject: str = ""):
     user = await get_current_user(request)
-    profile = await db.student_profiles.find_one({"user_id": user["user_id"]}, {"_id": 0, "topics": 1})
-    if not profile:
-        return {"topic": topic, "mastery": 0.5, "mastery_pct": 50, "recommended_difficulty": "medium", "attempts": 0}
-    data = profile.get("topics", {}).get(topic, {})
-    mastery = data.get("mastery", 0.5)
-    attempts = data.get("attempts", 0)
-    if mastery < 0.4:
-        difficulty = "easy"
-    elif mastery < 0.7:
-        difficulty = "medium"
-    else:
-        difficulty = "hard"
-    return {
-        "topic": topic,
-        "mastery": round(mastery, 2),
-        "mastery_pct": int(mastery * 100),
-        "recommended_difficulty": difficulty,
-        "attempts": attempts,
-    }
+    return await measured_mastery(user, topic, subject)
 
 
 @router.post("/quiz/{quiz_id}/submit")
@@ -454,11 +457,13 @@ async def submit_quiz(quiz_id: str, body: QuizSubmitRequest, request: Request):
         total_xp = int(total_xp * multiplier)
 
     now_iso = datetime.now(timezone.utc).isoformat()
-    await db.quizzes.update_one(
-        {"quiz_id": quiz_id},
+    claimed = await db.quizzes.update_one(
+        {"quiz_id": quiz_id, "user_id": user["user_id"], "completed": {"$ne": True}},
         {"$set": {"completed": True, "score": score_pct, "correct_count": correct_count,
                   "total_questions": total, "completed_at": now_iso}},
     )
+    if not claimed.modified_count:
+        raise HTTPException(status_code=400, detail="This quiz has already been submitted.")
     if total_xp > 0:
         await db.users.update_one(
             {"user_id": user["user_id"]}, {"$inc": {"xp": total_xp}}
@@ -468,15 +473,26 @@ async def submit_quiz(quiz_id: str, body: QuizSubmitRequest, request: Request):
             new_level = max(1, updated.get("xp", 0) // 500 + 1)
             if new_level > updated.get("level", 1):
                 await db.users.update_one(
-                    {"user_id": user["user_id"]}, {"$set": {"level": new_level}
+                    {"user_id": user["user_id"]}, {"$set": {"level": new_level}}
                 )
 
     await record_quiz_result(user["user_id"], quiz.get("topic", "General"), score_pct, correct_count, total)
-    for i, q in enumerate(questions):
-        ua = body.answers.get(str(i))
-        is_correct = ua == q.get("correct")
-        topic_label = q.get("topic") or quiz.get("topic") or quiz.get("chapter") or "General"
-        await update_topic_performance(user["user_id"], topic_label, is_correct)
+    chapter = quiz.get("chapter") or quiz.get("topic", "")
+    mastery = await measured_mastery(user, chapter, quiz.get("subject", ""))
+    chapters = get_school_chapters(user.get("school", ""), quiz["class_level"], quiz["subject"]) if has_school_curriculum(user.get("school", ""), quiz["class_level"]) else []
+    if not chapters:
+        from curriculum_engine import get_verified_chapters
+        from cbse_data import get_chapters
+        chapters = get_verified_chapters(quiz["class_level"], quiz["subject"]) or get_chapters(quiz["class_level"], quiz["subject"]) or []
+    matched = next((c for c in chapters if c.get("name", "").casefold() == chapter.casefold()), None)
+    if matched:
+        await db.progress.update_one(
+            {"user_id": user["user_id"], "chapter_id": matched["id"]},
+            {"$set": {"school": user.get("school"), "class_level": quiz["class_level"],
+                      "subject": quiz["subject"], "chapter_name": chapter,
+                      "mastery": mastery["mastery_pct"], "updated_at": now_iso},
+             "$setOnInsert": {"created_at": now_iso}}, upsert=True,
+        )
 
     return {"score": score_pct, "correct_count": correct_count, "total_questions": total,
             "xp_earned": total_xp, "improvement_bonus": improvement_bonus,
