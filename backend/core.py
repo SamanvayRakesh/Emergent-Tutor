@@ -75,7 +75,7 @@ async def get_current_user(request: Request) -> dict:
                 user = await db.users.find_one({"user_id": payload["sub"]}, {"_id": 0})
                 if user:
                     user.pop("password_hash", None)
-                    return user
+                    return await enforce_feature_credits(user, request)
         except (jwt.ExpiredSignatureError, jwt.InvalidTokenError):
             pass
 
@@ -93,6 +93,27 @@ async def get_current_user(request: Request) -> dict:
                 user = await db.users.find_one({"user_id": session["user_id"]}, {"_id": 0})
                 if user:
                     user.pop("password_hash", None)
-                    return user
+                    return await enforce_feature_credits(user, request)
 
     raise HTTPException(status_code=401, detail="Not authenticated")
+
+
+
+async def enforce_feature_credits(user: dict, request: Request) -> dict:
+    """Block new learning work on an exhausted Free plan before any AI call."""
+    path = request.url.path.rstrip("/")
+    feature_request = request.method == "POST" and (
+        path in {"/api/chat/sessions", "/api/quiz/generate", "/api/mock-exam/generate", "/api/study-plan"}
+        or (path.startswith("/api/chat/sessions/") and path.endswith("/message"))
+        or (path.startswith("/api/mock-exam/") and path.endswith("/followup-quiz"))
+    )
+    if feature_request and user.get("role") != "admin" and int(user.get("credits") or 0) <= 0:
+        from plan_gates import get_user_plan
+        plan = await get_user_plan(user["user_id"])
+        if plan["id"] == "free":
+            raise HTTPException(status_code=402, detail={
+                "code": "INSUFFICIENT_CREDITS", "feature": "credits",
+                "balance": 0, "upgrade_to": "pro",
+                "message": "You've used all your free credits. Upgrade your plan to keep learning.",
+            })
+    return user
