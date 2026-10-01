@@ -128,7 +128,7 @@ Generate EXACTLY {sec_a} questions in Section A, {sec_b} in Section B, {sec_c} i
         raise HTTPException(status_code=502, detail=f"Mock exam generation failed. No credits were charged. ({type(e).__name__})")
 
     # Deduct credits AFTER successful generation
-    await db.users.update_one({"user_id": user["user_id"]}, {"$inc": {"credits": -EXAM_COST}})
+    await deduct_credits(user["user_id"], "mock_exam_generate")
 
     exam_id = f"exam_{uuid.uuid4().hex[:12]}"
     now = datetime.now(timezone.utc).isoformat()
