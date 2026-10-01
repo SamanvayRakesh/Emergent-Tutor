@@ -87,7 +87,7 @@ export default function QuizArena() {
     // Fetch adaptive difficulty hint
     try {
       const { data } = await axios.get(`${API}/quiz/topic-mastery`, {
-        params: { topic: chapter }, withCredentials: true,
+        params: { topic: chapter, subject: form.subject }, withCredentials: true,
       });
       setMastery(data);
       setForm(p => ({ ...p, difficulty: data.recommended_difficulty }));
@@ -129,7 +129,7 @@ export default function QuizArena() {
       axios.get(`${API}/quiz/history`, { withCredentials: true }).then(r => setHistory(r.data)).catch(() => {});
       // Refresh mastery hint
       if (form.topic) {
-        axios.get(`${API}/quiz/topic-mastery`, { params: { topic: form.topic }, withCredentials: true })
+        axios.get(`${API}/quiz/topic-mastery`, { params: { topic: quiz.chapter || quiz.topic, subject: quiz.subject }, withCredentials: true })
           .then(r => setMastery(r.data)).catch(() => {});
       }
     } catch { }
@@ -432,3 +432,4 @@ export default function QuizArena() {
     </div>
   );
 }
+
