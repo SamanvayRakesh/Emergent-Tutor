@@ -502,68 +502,98 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
         # Reserve generous headroom so the model can always finish its response
         generation_tokens = max_tokens  # no artificial cap — trust the router limits
 
+        stream = None
         try:
-            stream = await openai_client.chat.completions.create(
-                model=ai_model,
-                messages=ai_messages,
-                stream=True,
-                max_tokens=generation_tokens,
-                temperature=0.75,
-                extra_body={"include_reasoning": False},
+            stream = await asyncio.wait_for(
+                openai_client.chat.completions.create(
+                    model=ai_model, messages=ai_messages, stream=True,
+                    max_tokens=generation_tokens, temperature=0.75,
+                    extra_body={"include_reasoning": False},
+                ), timeout=45,
             )
-            async for chunk in stream:
+            iterator = stream.__aiter__()
+            while True:
+                try:
+                    chunk = await asyncio.wait_for(iterator.__anext__(), timeout=30)
+                except StopAsyncIteration:
+                    break
+                if not chunk.choices:
+                    continue
                 delta = chunk.choices[0].delta.content
                 if delta:
                     full_content += delta
                     word_count = len(full_content.split())
                     yield f"data: {json.dumps({'type':'chunk','content':delta})}\n\n"
-        except Exception as e:
-            logger.error(f"OpenAI error: {e}")
-            fallback = "Sorry, I encountered an issue. Please try again in a moment."
-            yield f"data: {json.dumps({'type':'chunk','content':fallback})}\n\n"
-            full_content = fallback
+            if not full_content.strip():
+                raise ValueError("AI provider returned an empty response")
+        except Exception:
+            logger.exception("Tutor generation failed for session %s", session_id)
+            yield f"data: {json.dumps({'type':'error','code':'GENERATION_FAILED','message':'The tutor could not finish this reply. No credits were charged. Please send your message again.'})}\n\n"
+            return
+        finally:
+            if stream is not None:
+                try:
+                    await stream.close()
+                except Exception:
+                    logger.warning("Could not close tutor stream", exc_info=True)
 
-        ts = datetime.now(timezone.utc).isoformat()
-        await db.messages.insert_one(
-            {"message_id": msg_id, "session_id": session_id, "role": "assistant",
-             "content": full_content, "timestamp": ts}
-        )
-        await db.chat_sessions.update_one(
-            {"session_id": session_id},
-            {"$set": {"updated_at": ts}, "$inc": {"message_count": 2}},
-        )
+        try:
+            ts = datetime.now(timezone.utc).isoformat()
+            await db.messages.insert_one(
+                {"message_id": msg_id, "session_id": session_id, "role": "assistant",
+                 "content": full_content, "timestamp": ts}
+            )
+            await db.chat_sessions.update_one(
+                {"session_id": session_id},
+                {"$set": {"updated_at": ts}, "$inc": {"message_count": 2}},
+            )
 
-        # XP: once per day only (not spammable) — encourages daily use without reward farming
-        today_str = datetime.now(timezone.utc).date().isoformat()
-        user_fresh = await db.users.find_one(
-            {"user_id": user["user_id"]},
-            {"_id": 0, "last_daily_chat_xp": 1, "xp": 1, "level": 1},
-        )
-        already_got_chat_xp = user_fresh.get("last_daily_chat_xp") == today_str
-        chat_xp = 0 if already_got_chat_xp else 10
+        except Exception:
+            logger.exception("Could not save tutor reply for session %s", session_id)
+            yield f"data: {json.dumps({'type':'error','code':'SAVE_FAILED','message':'The reply could not be saved. No credits were charged. Please reload this chat before trying again.'})}\n\n"
+            return
 
-        xp_update: dict = {"$set": {"last_active": ts}}
-        if chat_xp > 0:
-            xp_update["$inc"] = {"xp": chat_xp}
-            xp_update["$set"]["last_daily_chat_xp"] = today_str
-        await db.users.update_one({"user_id": user["user_id"]}, xp_update)
+        try:
+            # Variable credit deduction based on word count
+            final_word_count = len(full_content.split())
+            credit_result = await deduct_credits_for_chat(user["user_id"], final_word_count)
 
-        updated = await db.users.find_one({"user_id": user["user_id"]}, {"_id": 0})
-        if updated:
-            new_level = max(1, updated.get("xp", 0) // 500 + 1)
-            if new_level > updated.get("level", 1):
-                await db.users.update_one(
-                    {"user_id": user["user_id"]}, {"$set": {"level": new_level}}
-                )
+        except Exception:
+            logger.exception("Could not settle tutor credits for session %s", session_id)
+            yield f"data: {json.dumps({'type':'error','code':'CREDIT_UPDATE_FAILED','message':'The reply was saved, but the credit update failed. Please reload this chat before sending another message.'})}\n\n"
+            return
 
-        # Variable credit deduction based on word count
-        final_word_count = len(full_content.split())
-        credit_result = await deduct_credits_for_chat(user["user_id"], final_word_count)
+        try:
+            # XP: once per day only (not spammable) — encourages daily use without reward farming
+            today_str = datetime.now(timezone.utc).date().isoformat()
+            user_fresh = await db.users.find_one(
+                {"user_id": user["user_id"]},
+                {"_id": 0, "last_daily_chat_xp": 1, "xp": 1, "level": 1},
+            )
+            already_got_chat_xp = (user_fresh or {}).get("last_daily_chat_xp") == today_str
+            chat_xp = 0 if already_got_chat_xp else 10
 
-        # Usage + token tracking
-        await increment_usage(user["user_id"], "ai_messages", 1)
-        output_tokens_est = int(len(full_content.split()) * 1.3)
-        await record_token_usage(user["user_id"], ai_model, input_tokens_est, output_tokens_est)
+            xp_update: dict = {"$set": {"last_active": ts}}
+            if chat_xp > 0:
+                xp_update["$inc"] = {"xp": chat_xp}
+                xp_update["$set"]["last_daily_chat_xp"] = today_str
+            await db.users.update_one({"user_id": user["user_id"]}, xp_update)
+
+            updated = await db.users.find_one({"user_id": user["user_id"]}, {"_id": 0})
+            if updated:
+                new_level = max(1, updated.get("xp", 0) // 500 + 1)
+                if new_level > updated.get("level", 1):
+                    await db.users.update_one(
+                        {"user_id": user["user_id"]}, {"$set": {"level": new_level}}
+                    )
+
+            # Usage + token tracking
+            await increment_usage(user["user_id"], "ai_messages", 1)
+            output_tokens_est = int(len(full_content.split()) * 1.3)
+            await record_token_usage(user["user_id"], ai_model, input_tokens_est, output_tokens_est)
+
+        except Exception:
+            logger.exception("Tutor activity counters failed for session %s", session_id)
 
         credits_used = credit_result["deducted"]
         yield f"data: {json.dumps({'type':'done','message_id':msg_id,'word_count':final_word_count,'credits_used':credits_used,'balance':credit_result.get('balance',0)})}\n\n"
@@ -648,3 +678,4 @@ async def submit_message_feedback(body: _FeedbackBody, request: Request):
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Message not found")
     return {"ok": True, "vote": body.vote}
+
