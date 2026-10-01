@@ -117,7 +117,7 @@ async def get_subject_chapters(class_id: str, subject: str, request: Request):
 @router.get("/progress")
 async def get_progress(request: Request):
     user = await get_current_user(request)
-    records = await db.progress.find({"user_id": user["user_id"]}, {"_id": 0}).to_list(200)
+    records = await db.progress.find({"user_id": user["user_id"], "class_level": user.get("class_level")}, {"_id": 0}).to_list(200)
 
     subject_progress = {}
     for rec in records:
@@ -149,7 +149,7 @@ async def update_progress(body: ProgressUpdate, request: Request):
     )
     now = datetime.now(timezone.utc).isoformat()
     if existing:
-        new_mastery = min(100, existing.get("mastery", 0) + body.mastery_delta)
+        new_mastery = max(0, min(100, existing.get("mastery", 0) + body.mastery_delta))
         await db.progress.update_one(
             {"user_id": user["user_id"], "chapter_id": body.chapter_id},
             {"$set": {"mastery": new_mastery, "updated_at": now}},
@@ -159,7 +159,8 @@ async def update_progress(body: ProgressUpdate, request: Request):
             "user_id": user["user_id"],
             "class_level": body.class_level, "subject": body.subject,
             "chapter_id": body.chapter_id, "chapter_name": body.chapter_name,
-            "mastery": min(100, body.mastery_delta),
+            "mastery": max(0, min(100, body.mastery_delta)),
             "created_at": now, "updated_at": now,
         })
     return {"message": "Progress updated"}
+
