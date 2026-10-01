@@ -95,12 +95,16 @@ async def deduct_credits_for_chat(user_id: str, word_count: int) -> dict:
         return_document=ReturnDocument.AFTER,
     )
     if not result:
-        # Partial deduct: use whatever is left
-        balance = await get_credits(user_id)
-        if balance > 0:
-            await db.users.update_one({"user_id": user_id}, {"$inc": {"credits": -balance}})
-            return {"deducted": balance, "balance": 0, "cost": cost}
-        return {"deducted": 0, "balance": 0, "cost": cost}
+        previous = await db.users.find_one_and_update(
+            {"user_id": user_id, "credits": {"$gt": 0, "$lt": cost}},
+            {"$set": {"credits": 0, "last_credit_deduct": datetime.now(timezone.utc).isoformat()}},
+            projection={"_id": 0, "credits": 1},
+            return_document=ReturnDocument.BEFORE,
+        )
+        deducted = int((previous or {}).get("credits", 0))
+        if deducted:
+            await _record_credit_event(user_id, "chat", deducted, word_count)
+        return {"deducted": deducted, "balance": await get_credits(user_id), "cost": cost}
 
     # Record analytics
     await _record_credit_event(user_id, "chat", cost, word_count)
@@ -165,3 +169,4 @@ def _msg_for(kind: str, balance: int) -> str:
         "mock_exam_cached":   "Not enough credits.",
     }.get(kind, "Not enough credits.")
     return f"{pretty} You have {balance} credit{'s' if balance != 1 else ''} left."
+
