@@ -1,5 +1,4 @@
-import { useEffect, useRef, useCallback, useState } from 'react';
-import { motion } from 'framer-motion';
+import { useEffect, useRef, useCallback } from 'react';
 import { gsap } from 'gsap';
 import * as THREE from 'three';
 
@@ -9,7 +8,6 @@ const SUBJECT_COLORS = ['#22d3ee', '#10b981', '#8b5cf6'];
 export default function IntroScreen({ onComplete }) {
   const canvasRef = useRef(null);
   const completedRef = useRef(false);
-  const [currentSubject, setCurrentSubject] = useState(0);
 
   const handleComplete = useCallback(() => {
     if (completedRef.current) return;
@@ -19,38 +17,61 @@ export default function IntroScreen({ onComplete }) {
 
   useEffect(() => {
     if (!canvasRef.current) return;
+
     const scene = new THREE.Scene();
     const w = window.innerWidth, h = window.innerHeight;
     const camera = new THREE.PerspectiveCamera(60, w / h, 0.1, 100);
     camera.position.z = 15;
 
-    const renderer = new THREE.WebGLRenderer({ canvas: canvasRef.current, alpha: true, antialias: true });
+    const renderer = new THREE.WebGLRenderer({
+      canvas: canvasRef.current,
+      alpha: true,
+      antialias: true,
+    });
     renderer.setSize(w, h);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
     const count = 2500;
     const pos = new Float32Array(count * 3);
     const col = new Float32Array(count * 3);
-    const palette = [new THREE.Color('#22d3ee'), new THREE.Color('#8b5cf6'), new THREE.Color('#d946ef'), new THREE.Color('#ffffff')];
+    const palette = [
+      new THREE.Color('#22d3ee'),
+      new THREE.Color('#8b5cf6'),
+      new THREE.Color('#d946ef'),
+      new THREE.Color('#ffffff'),
+    ];
 
     for (let i = 0; i < count; i++) {
       pos[i * 3] = (Math.random() - 0.5) * 45;
       pos[i * 3 + 1] = (Math.random() - 0.5) * 45;
       pos[i * 3 + 2] = (Math.random() - 0.5) * 25;
+
       const c = palette[Math.floor(Math.random() * palette.length)];
-      col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
+      col[i * 3] = c.r;
+      col[i * 3 + 1] = c.g;
+      col[i * 3 + 2] = c.b;
     }
 
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
     geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
-    const mat = new THREE.PointsMaterial({ size: 0.07, vertexColors: true, transparent: true, opacity: 0 });
+
+    const mat = new THREE.PointsMaterial({
+      size: 0.07,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0,
+    });
+
     const points = new THREE.Points(geo, mat);
     scene.add(points);
     gsap.to(mat, { opacity: 0.75, duration: 2 });
 
     let mx = 0, my = 0;
-    const onMouse = (e) => { mx = (e.clientX / w - 0.5) * 2; my = -(e.clientY / h - 0.5) * 2; };
+    const onMouse = (e) => {
+      mx = (e.clientX / w - 0.5) * 2;
+      my = -(e.clientY / h - 0.5) * 2;
+    };
     window.addEventListener('mousemove', onMouse);
 
     let id;
@@ -73,7 +94,9 @@ export default function IntroScreen({ onComplete }) {
       cancelAnimationFrame(id);
       window.removeEventListener('mousemove', onMouse);
       window.removeEventListener('resize', onResize);
-      renderer.dispose(); geo.dispose(); mat.dispose();
+      renderer.dispose();
+      geo.dispose();
+      mat.dispose();
     };
   }, []);
 
@@ -88,19 +111,17 @@ export default function IntroScreen({ onComplete }) {
       .to('.i-skip', { opacity: 1, duration: 0.3 }, 1.2);
 
     const t = setTimeout(handleComplete, 5500);
-    return () => clearTimeout(t);
+    return () => { clearTimeout(t); tl.kill(); };
   }, [handleComplete]);
 
   return (
     <div className="intro-wrapper fixed inset-0 bg-zinc-950 z-50">
       <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
 
-      {/* Ambient glows */}
       <div className="absolute top-1/3 left-1/4 w-96 h-96 bg-violet-600/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
 
       <div className="absolute inset-0 flex flex-col items-center justify-center z-10 px-4">
-        {/* Orb */}
         <div className="i-orb opacity-0 scale-50 mb-4 relative">
           <img
             src="/aceit-logo.png"
@@ -109,38 +130,55 @@ export default function IntroScreen({ onComplete }) {
           />
         </div>
 
-        {/* Logo title */}
         <div className="i-logo opacity-0 translate-y-8 text-center mb-2">
-          <p className="text-zinc-400 text-sm font-body tracking-widest uppercase">Always Crush Exams</p>
+          <p className="text-zinc-400 text-sm font-body tracking-widest uppercase">
+            Always Crush Exams
+          </p>
         </div>
 
-        <p className="i-tag opacity-0 translate-y-4 text-zinc-400 text-base sm:text-lg font-body mb-8 text-center max-w-sm">
-          Your AI-powered exam prep tutor
-          <br /><span className="text-cyan-400 font-semibold">Learn. Think. Master.</span>
+        <p className="i-tag opacity-0 translate-y-4 text-zinc-400 text-base sm:text-lg font-body mb-8 text-center max-w-md">
+          <span className="text-cyan-400 font-semibold">
+            Ace-it adapts its explanations and practice to your pace and the topics you find difficult.
+          </span>
         </p>
 
-        {/* Subject pills */}
         <div className="flex flex-wrap gap-2 justify-center max-w-md mb-10">
           {SUBJECTS.map((s, i) => (
-            <div key={s} className="i-subj opacity-0 translate-y-3 px-3 py-1 rounded-full text-xs font-body font-semibold glass"
-              style={{ color: SUBJECT_COLORS[i], borderColor: SUBJECT_COLORS[i] + '50', border: `1px solid ${SUBJECT_COLORS[i]}50` }}>
+            <div
+              key={s}
+              className="i-subj opacity-0 translate-y-3 px-3 py-1 rounded-full text-xs font-body font-semibold glass"
+              style={{
+                color: SUBJECT_COLORS[i],
+                borderColor: SUBJECT_COLORS[i] + '50',
+                border: `1px solid ${SUBJECT_COLORS[i]}50`,
+              }}
+            >
               {s}
             </div>
           ))}
         </div>
 
-        {/* Progress bar */}
         <div className="i-prog opacity-0 w-56">
           <div className="h-1 bg-zinc-800 rounded-full overflow-hidden">
-            <div className="i-fill h-full w-0 rounded-full"
-              style={{ background: 'linear-gradient(90deg, #22d3ee, #8b5cf6, #d946ef)', boxShadow: '0 0 8px rgba(34,211,238,0.6)' }} />
+            <div
+              className="i-fill h-full w-0 rounded-full"
+              style={{
+                background: 'linear-gradient(90deg, #22d3ee, #8b5cf6, #d946ef)',
+                boxShadow: '0 0 8px rgba(34,211,238,0.6)',
+              }}
+            />
           </div>
-          <p className="text-zinc-600 text-xs text-center mt-2 font-body">Initializing AI Tutor...</p>
+          <p className="text-zinc-600 text-xs text-center mt-2 font-body">
+            Initializing AI Tutor...
+          </p>
         </div>
       </div>
 
-      <button onClick={handleComplete} data-testid="intro-skip-btn"
-        className="i-skip opacity-0 absolute bottom-6 right-6 text-zinc-500 hover:text-zinc-300 text-sm font-body border border-zinc-800 hover:border-zinc-600 rounded-full px-4 py-2 transition-all">
+      <button
+        onClick={handleComplete}
+        data-testid="intro-skip-btn"
+        className="i-skip opacity-0 absolute bottom-6 right-6 text-zinc-500 hover:text-zinc-300 text-sm font-body border border-zinc-800 hover:border-zinc-600 rounded-full px-4 py-2 transition-all"
+      >
         Skip
       </button>
     </div>
