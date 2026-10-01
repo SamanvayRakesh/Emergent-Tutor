@@ -48,24 +48,7 @@ export function CreditsProvider({ children }) {
       (response) => {
         const meta = routeMeta(response.config?.url, response.config?.method);
         if (meta) {
-          setCredits(prev => {
-            if (prev == null) return prev;
-            const next = Math.max(0, prev - meta.cost);
-            toast.success(`−${meta.cost} credit${meta.cost > 1 ? 's' : ''} used`, {
-              id: 'credit-deduct', duration: 1800,
-              style: { background: 'rgba(30,27,75,0.85)', color: '#fcd34d', border: '1px solid rgba(251,191,36,0.4)', backdropFilter: 'blur(14px)' },
-            });
-            if (next <= lowThreshold && !lowToastShown.current) {
-              lowToastShown.current = true;
-              toast(`⚡ Low credits remaining: ${next} left`, {
-                id: 'low-credits', duration: 4500,
-                style: { background: 'rgba(76,5,25,0.9)', color: '#fecaca', border: '1px solid rgba(244,63,94,0.5)' },
-              });
-              setTimeout(() => { lowToastShown.current = false; }, 60_000);
-            }
-            refresh();
-            return next;
-          });
+          refresh();
         }
         return response;
       },
@@ -95,3 +78,4 @@ export function CreditsProvider({ children }) {
 }
 
 export function useCredits() { return useContext(CreditsContext); }
+
