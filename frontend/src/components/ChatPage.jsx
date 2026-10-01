@@ -426,7 +426,7 @@ export default function ChatPage() {
       // Fetch chapter mastery (fire-and-forget, non-blocking)
       if (data.session?.chapter) {
         axios.get(`${API}/quiz/topic-mastery`, {
-          params: { topic: data.session.chapter }, withCredentials: true,
+          params: { topic: data.session.chapter, subject: data.session.subject }, withCredentials: true,
         }).then(r => setChapterMastery(r.data)).catch(() => {});
       }
     } catch {
@@ -444,7 +444,7 @@ export default function ChatPage() {
     nav(`/chat/${newSession.session_id}`, { replace: true, state: null });
     if (newSession?.chapter) {
       axios.get(`${API}/quiz/topic-mastery`, {
-        params: { topic: newSession.chapter }, withCredentials: true,
+        params: { topic: newSession.chapter, subject: newSession.subject }, withCredentials: true,
       }).then(r => setChapterMastery(r.data)).catch(() => {});
     }
   };
@@ -578,6 +578,7 @@ export default function ChatPage() {
       if (res.status === 402) {
         const body = await res.json().catch(() => ({}));
         const msg = body?.detail?.message || 'Not enough credits to send another AI message.';
+        triggerUpgrade?.({ feature: 'credits', message: msg, upgrade_to: 'pro' });
         toast.error(msg, {
           id: 'no-credits', duration: 5000,
           style: { background: 'rgba(76,5,25,0.92)', color: '#fee2e2', border: '1px solid rgba(244,63,94,0.6)' },
@@ -623,6 +624,8 @@ export default function ChatPage() {
           onClose={() => { setQuizModal(null); refreshCredits?.(); }}
           onComplete={(results) => {
             refreshCredits?.();
+            axios.get(`${API}/quiz/topic-mastery`, { params: { topic: session.chapter, subject: session.subject }, withCredentials: true })
+              .then(r => setChapterMastery(r.data)).catch(() => {});
             // Build a message that sends the quiz results to the AI tutor for validation
             const topic = session?.chapter || session?.subject || 'this topic';
             const wrongAnswers = results.results?.filter(r => !r.correct) || [];
@@ -762,3 +765,4 @@ export default function ChatPage() {
     </div>
   );
 }
+
