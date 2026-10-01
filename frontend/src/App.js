@@ -36,6 +36,7 @@ import StudyPlanPage from './components/StudyPlanPage';
 import PricingPage from './components/PricingPage';
 
 import OnboardingModal from './components/OnboardingModal';
+import SchoolSelectModal from './components/SchoolSelectModal';
 import UpgradePromptModal from './components/UpgradePromptModal';
 import GradeAccessGuard from './components/GradeAccessGuard';
 import NewUserTutorial from './components/NewUserTutorial';
@@ -63,7 +64,7 @@ function LoadingScreen({ message = 'Loading AceIt AI...' }) {
  * IMPORTANT ORDER:
  *
  * 1. No school yet
- *    -> Layout renders SchoolSelectModal
+ *    -> Existing SchoolSelectModal appears before app pages mount
  *
  * 2. School exists but onboarding is incomplete
  *    -> OnboardingModal
@@ -115,13 +116,13 @@ function ProtectedRoute({ children }) {
    *
    * DO NOT show onboarding yet.
    *
-   * Layout contains SchoolSelectModal.
+   * Reuse the existing modal before mounting Layout or any curriculum pages.
    */
   if (!user.school) {
     return (
-      <>
-        {children}
-      </>
+      <div className="min-h-screen bg-zinc-950">
+        <SchoolSelectModal />
+      </div>
     );
   }
 
@@ -130,15 +131,13 @@ function ProtectedRoute({ children }) {
    */
   if (!user.is_onboarded) {
     return (
-      <>
-        {children}
-
+      <div className="min-h-screen bg-zinc-950">
         <OnboardingModal
           onComplete={() => {
             refresh?.();
           }}
         />
-      </>
+      </div>
     );
   }
 
