@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import {
   BrowserRouter,
   Routes,
@@ -17,7 +17,6 @@ import { CreditsProvider } from './contexts/CreditsContext';
 import { Toaster } from 'sonner';
 
 import LandingPage from './components/LandingPage';
-import IntroScreen from './components/IntroScreen';
 import AuthPage from './components/AuthPage';
 import AuthCallback from './components/AuthCallback';
 import TermsPage from './components/TermsPage';
@@ -37,12 +36,12 @@ import StudyPlanPage from './components/StudyPlanPage';
 import PricingPage from './components/PricingPage';
 
 import OnboardingModal from './components/OnboardingModal';
+import SchoolSelectModal from './components/SchoolSelectModal';
 import UpgradePromptModal from './components/UpgradePromptModal';
 import GradeAccessGuard from './components/GradeAccessGuard';
 import NewUserTutorial from './components/NewUserTutorial';
 
 import AdminDashboard from './components/AdminDashboard';
-
 
 function LoadingScreen({ message = 'Loading AceIt AI...' }) {
   return (
@@ -57,34 +56,11 @@ function LoadingScreen({ message = 'Loading AceIt AI...' }) {
   );
 }
 
-
-/*
- * Handles authenticated users.
- *
- * IMPORTANT ORDER:
- *
- * 1. No school yet
- *    -> Layout renders SchoolSelectModal
- *
- * 2. School exists but onboarding is incomplete
- *    -> OnboardingModal
- *
- * 3. School + onboarding complete
- *    -> Normal app + tutorial if needed
- */
 function ProtectedRoute({ children }) {
   const { user, loading, refresh } = useAuth();
   const [showTutorial, setShowTutorial] = useState(false);
 
   useEffect(() => {
-    /*
-     * Tutorial can ONLY appear after:
-     *
-     * - the user exists
-     * - a school has been selected
-     * - onboarding is complete
-     * - tutorial hasn't been seen
-     */
     if (
       user &&
       user.school &&
@@ -101,51 +77,32 @@ function ProtectedRoute({ children }) {
     return <LoadingScreen />;
   }
 
-  /*
-   * User signed out.
-   *
-   * Normally RootGate handles this, but keeping this here
-   * makes the protected route itself safe too.
-   */
   if (!user) {
     return <Navigate to="/" replace />;
   }
 
-  /*
-   * New Google users start with no school.
-   *
-   * DO NOT show onboarding yet.
-   *
-   * Layout contains SchoolSelectModal.
-   */
+  // Reuse the existing school modal before mounting app pages.
   if (!user.school) {
     return (
-      <>
-        {children}
-      </>
+      <div className="min-h-screen bg-zinc-950">
+        <SchoolSelectModal />
+      </div>
     );
   }
 
-  /*
-   * School selected, but onboarding isn't complete yet.
-   */
+  // Complete onboarding before curriculum pages initialise.
   if (!user.is_onboarded) {
     return (
-      <>
-        {children}
-
+      <div className="min-h-screen bg-zinc-950">
         <OnboardingModal
           onComplete={() => {
             refresh?.();
           }}
         />
-      </>
+      </div>
     );
   }
 
-  /*
-   * Fully onboarded user.
-   */
   return (
     <>
       {children}
@@ -163,49 +120,17 @@ function ProtectedRoute({ children }) {
   );
 }
 
-
-/*
- * ROOT BEHAVIOR
- *
- * This is the important part of the remembering system.
- *
- * If the browser still has a valid authenticated session:
- *     -> show the main app
- *
- * If there is no authenticated session:
- *     -> show the Landing Page
- *
- * There is NO sessionStorage/localStorage decision here.
- * The backend auth cookie is the source of truth.
- */
 function RootGate() {
   const { user, loading } = useAuth();
-  const [introComplete, setIntroComplete] = useState(false);
-  const finishIntro = useCallback(() => setIntroComplete(true), []);
 
   if (loading) {
     return <LoadingScreen />;
   }
 
-  /*
-   * SIGNED OUT / FIRST VISIT
-   * -> Landing Page
-   */
   if (!user) {
-    return introComplete
-      ? <LandingPage />
-      : <IntroScreen onComplete={finishIntro} />;
+    return <LandingPage />;
   }
 
-  /*
-   * SIGNED IN
-   * -> Main application
-   *
-   * ProtectedRoute handles:
-   * School Select
-   * Onboarding
-   * Tutorial
-   */
   return (
     <ProtectedRoute>
       <Layout />
@@ -213,11 +138,6 @@ function RootGate() {
   );
 }
 
-
-/*
- * Authentication pages should not be shown to a user
- * who is already logged in.
- */
 function PublicAuthRoute({ children }) {
   const { user, loading } = useAuth();
 
@@ -232,19 +152,9 @@ function PublicAuthRoute({ children }) {
   return children;
 }
 
-
-/*
- * Handles OAuth callback.
- */
 function AppRouter() {
   const location = useLocation();
 
-  /*
-   * Support both:
-   *
-   * #session_id=...
-   * ?session_id=...
-   */
   const hasOAuth =
     location.hash?.includes('session_id=') ||
     location.search?.includes('session_id=');
@@ -255,8 +165,6 @@ function AppRouter() {
 
   return (
     <Routes>
-
-      {/* Login / Signup */}
       <Route
         path="/login"
         element={
@@ -266,18 +174,8 @@ function AppRouter() {
         }
       />
 
-      <Route path="/landing" element={<PublicAuthRoute><LandingPage /></PublicAuthRoute>} />
-
-      {/* Public legal pages */}
-      <Route
-        path="/terms"
-        element={<TermsPage />}
-      />
-
-      <Route
-        path="/privacy"
-        element={<PrivacyPage />}
-      />
+      <Route path="/terms" element={<TermsPage />} />
+      <Route path="/privacy" element={<PrivacyPage />} />
 
       <Route
         path="/verify-email"
@@ -289,31 +187,14 @@ function AppRouter() {
         element={<EmailVerificationPage />}
       />
 
-
-      {/*
-       * ROOT APPLICATION
-       *
-       * RootGate decides:
-       *
-       * signed out -> LandingPage
-       * signed in  -> ProtectedRoute -> Layout
-       */}
-      <Route
-        path="/"
-        element={<RootGate />}
-      >
-        {/* Main Dashboard */}
-        <Route
-          index
-          element={<Dashboard />}
-        />
+      <Route path="/" element={<RootGate />}>
+        <Route index element={<Dashboard />} />
 
         <Route
           path="dashboard"
           element={<Dashboard />}
         />
 
-        {/* AI Tutor */}
         <Route
           path="chat"
           element={<ChatPage />}
@@ -324,55 +205,46 @@ function AppRouter() {
           element={<ChatPage />}
         />
 
-        {/* Syllabus */}
         <Route
           path="syllabus"
           element={<SyllabusPage />}
         />
 
-        {/* Progress */}
         <Route
           path="progress"
           element={<ProgressPage />}
         />
 
-        {/* Quiz Arena */}
         <Route
           path="quiz"
           element={<QuizArena />}
         />
 
-        {/* Leaderboard */}
         <Route
           path="leaderboard"
           element={<LeaderboardPage />}
         />
 
-        {/* Mock Exams */}
         <Route
           path="mock-exams"
           element={<MockExamPage />}
         />
 
-        {/* Study Plan */}
         <Route
           path="study-plan"
           element={<StudyPlanPage />}
         />
 
-        {/* Upgrade */}
         <Route
           path="upgrade"
           element={<PricingPage />}
         />
 
-        {/* Profile */}
         <Route
           path="profile"
           element={<ProfilePage />}
         />
 
-        {/* Admin */}
         <Route
           path="/admin"
           element={
@@ -382,30 +254,22 @@ function AppRouter() {
           }
         />
 
-        {/* Unknown app routes */}
         <Route
           path="*"
           element={<Navigate to="/" replace />}
         />
       </Route>
-
     </Routes>
   );
 }
 
-
 function App() {
   return (
     <div className="App">
-
       <BrowserRouter>
-
         <AuthProvider>
-
           <SubscriptionProvider>
-
             <CreditsProvider>
-
               <AppRouter />
 
               <Toaster
@@ -414,18 +278,12 @@ function App() {
                 closeButton
                 richColors
               />
-
             </CreditsProvider>
-
           </SubscriptionProvider>
-
         </AuthProvider>
-
       </BrowserRouter>
-
     </div>
   );
 }
-
 
 export default App;

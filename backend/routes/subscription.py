@@ -12,11 +12,10 @@ from core import db, get_current_user, logger
 from credits import get_credits, CREDIT_COSTS, STARTER_CREDITS
 from models import OnboardingSubmit, SubscribeRequest
 from plan_gates import PLANS, get_user_plan, get_usage
+from routes.auth import get_signup_school_fields
 
 router = APIRouter()
 
-
-# ---- Razorpay client (lazy — only when keys configured) ----
 RZP_KEY = os.environ.get("RAZORPAY_KEY_ID", "").strip()
 RZP_SECRET = os.environ.get("RAZORPAY_KEY_SECRET", "").strip()
 _rzp_client = None
@@ -24,18 +23,21 @@ _rzp_client = None
 
 def _razorpay():
     global _rzp_client
+
     if not RZP_KEY or not RZP_SECRET:
         return None
+
     if _rzp_client is None:
         _rzp_client = razorpay.Client(auth=(RZP_KEY, RZP_SECRET))
+
     return _rzp_client
 
 
 @router.get("/credits")
 async def my_credits(request: Request):
-    """Current credit balance + cost catalog."""
     user = await get_current_user(request)
     balance = await get_credits(user["user_id"])
+
     return {
         "credits": balance,
         "starter_credits": STARTER_CREDITS,
@@ -44,25 +46,25 @@ async def my_credits(request: Request):
     }
 
 
-# ----- Plan catalog -----
 @router.get("/subscription/plans")
 async def list_plans():
-    """Public catalog of all plans — deduplicated by plan id."""
     seen = set()
     unique_plans = []
+
     for plan in PLANS.values():
         if plan["id"] not in seen:
             seen.add(plan["id"])
             unique_plans.append(plan)
+
     return {"plans": unique_plans}
 
 
 @router.get("/subscription/me")
 async def my_subscription(request: Request):
-    """Current user's plan + usage."""
     user = await get_current_user(request)
     plan_info = await get_user_plan(user["user_id"])
     usage = await get_usage(user["user_id"])
+
     return {
         "plan_id": plan_info["id"],
         "plan_name": plan_info["name"],
@@ -76,22 +78,36 @@ async def my_subscription(request: Request):
 
 
 @router.post("/subscription/create-order")
-async def create_order(body: SubscribeRequest, request: Request):
-    """Create a Razorpay order for the chosen plan. Returns order details + key_id.
-    If RAZORPAY_KEY_ID isn't configured, returns mock_mode=true so frontend can fall back."""
+async def create_order(
+    body: SubscribeRequest,
+    request: Request,
+):
     user = await get_current_user(request)
+
     if body.plan not in ("starter", "pro", "elite"):
-        raise HTTPException(status_code=400, detail="Plan must be 'starter', 'pro' or 'elite'")
+        raise HTTPException(
+            status_code=400,
+            detail="Plan must be 'starter', 'pro' or 'elite'",
+        )
+
     if body.billing_cycle not in ("monthly", "yearly"):
-        raise HTTPException(status_code=400, detail="billing_cycle must be 'monthly' or 'yearly'")
+        raise HTTPException(
+            status_code=400,
+            detail="billing_cycle must be 'monthly' or 'yearly'",
+        )
 
     plan = PLANS[body.plan]
-    amount_inr = plan["price_yearly"] if body.billing_cycle == "yearly" else plan["price_monthly"]
-    amount_paise = amount_inr * 100
 
-    rzp = _razorpay()
-    if not rzp:
-        # Mock fallback so the demo keeps working until you add real Razorpay keys
+    amount_inr = (
+        plan["price_yearly"]
+        if body.billing_cycle == "yearly"
+        else plan["price_monthly"]
+    )
+
+    amount_paise = amount_inr * 100
+    razorpay_client = _razorpay()
+
+    if not razorpay_client:
         return {
             "mock_mode": True,
             "amount_inr": amount_inr,
@@ -100,19 +116,31 @@ async def create_order(body: SubscribeRequest, request: Request):
         }
 
     try:
-        receipt = f"nl_{user['user_id'][-8:]}_{uuid.uuid4().hex[:8]}"[:40]
-        order = rzp.order.create({
-            "amount": amount_paise,
-            "currency": "INR",
-            "receipt": receipt,
-            "notes": {
-                "user_id": user["user_id"], "plan": body.plan,
-                "billing_cycle": body.billing_cycle, "email": user.get("email", ""),
-            },
-        })
-    except Exception as e:
-        logger.error(f"Razorpay create_order failed: {e}")
-        raise HTTPException(status_code=502, detail=f"Could not create payment order: {e}")
+        receipt = (
+            f"nl_{user['user_id'][-8:]}_{uuid.uuid4().hex[:8]}"
+        )[:40]
+
+        order = razorpay_client.order.create(
+            {
+                "amount": amount_paise,
+                "currency": "INR",
+                "receipt": receipt,
+                "notes": {
+                    "user_id": user["user_id"],
+                    "plan": body.plan,
+                    "billing_cycle": body.billing_cycle,
+                    "email": user.get("email", ""),
+                },
+            }
+        )
+
+    except Exception as error:
+        logger.error(f"Razorpay create_order failed: {error}")
+
+        raise HTTPException(
+            status_code=502,
+            detail=f"Could not create payment order: {error}",
+        )
 
     return {
         "mock_mode": False,
@@ -123,15 +151,20 @@ async def create_order(body: SubscribeRequest, request: Request):
         "key_id": RZP_KEY,
         "plan": body.plan,
         "billing_cycle": body.billing_cycle,
-        "prefill": {"name": user.get("name"), "email": user.get("email")},
+        "prefill": {
+            "name": user.get("name"),
+            "email": user.get("email"),
+        },
     }
 
 
 @router.post("/subscription/verify-payment")
-async def verify_payment(body: dict, request: Request):
-    """Verify Razorpay payment signature and activate subscription.
-    Expects: {razorpay_order_id, razorpay_payment_id, razorpay_signature, plan, billing_cycle}"""
+async def verify_payment(
+    body: dict,
+    request: Request,
+):
     user = await get_current_user(request)
+
     order_id = body.get("razorpay_order_id")
     payment_id = body.get("razorpay_payment_id")
     signature = body.get("razorpay_signature")
@@ -139,44 +172,91 @@ async def verify_payment(body: dict, request: Request):
     cycle = body.get("billing_cycle", "monthly")
 
     if not (order_id and payment_id and signature and plan_id):
-        raise HTTPException(status_code=400, detail="Missing payment fields")
-    if plan_id not in ("starter", "pro", "elite") or cycle not in ("monthly", "yearly"):
-        raise HTTPException(status_code=400, detail="Invalid plan/cycle")
+        raise HTTPException(
+            status_code=400,
+            detail="Missing payment fields",
+        )
 
-    # HMAC-SHA256 signature verification
+    if (
+        plan_id not in ("starter", "pro", "elite")
+        or cycle not in ("monthly", "yearly")
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid plan/cycle",
+        )
+
     expected = hmac.new(
-        RZP_SECRET.encode(), f"{order_id}|{payment_id}".encode(), hashlib.sha256,
+        RZP_SECRET.encode(),
+        f"{order_id}|{payment_id}".encode(),
+        hashlib.sha256,
     ).hexdigest()
+
     if not hmac.compare_digest(expected, signature):
-        raise HTTPException(status_code=400, detail="Payment signature verification failed")
+        raise HTTPException(
+            status_code=400,
+            detail="Payment signature verification failed",
+        )
 
-    return await _activate_subscription(user, plan_id, cycle, provider="razorpay",
-                                        order_id=order_id, payment_id=payment_id)
+    return await _activate_subscription(
+        user,
+        plan_id,
+        cycle,
+        provider="razorpay",
+        order_id=order_id,
+        payment_id=payment_id,
+    )
 
 
-async def _activate_subscription(user: dict, plan_id: str, cycle: str,
-                                  provider: str = "mock", order_id: str = None,
-                                  payment_id: str = None) -> dict:
+async def _activate_subscription(
+    user: dict,
+    plan_id: str,
+    cycle: str,
+    provider: str = "mock",
+    order_id: str = None,
+    payment_id: str = None,
+) -> dict:
     plan = PLANS[plan_id]
-    amount = plan["price_yearly"] if cycle == "yearly" else plan["price_monthly"]
+
+    amount = (
+        plan["price_yearly"]
+        if cycle == "yearly"
+        else plan["price_monthly"]
+    )
+
     days = 365 if cycle == "yearly" else 30
-    bonus_credits = {"starter": 500, "pro": 1000, "elite": 2000}.get(plan_id, 0)
+
+    bonus_credits = {
+        "starter": 500,
+        "pro": 1000,
+        "elite": 2000,
+    }.get(plan_id, 0)
+
     now = datetime.now(timezone.utc)
     expires = now + timedelta(days=days)
 
     await db.subscriptions.update_one(
         {"user_id": user["user_id"]},
-        {"$set": {
-            "user_id": user["user_id"], "plan": plan_id, "billing_cycle": cycle,
-            "status": "active", "amount_inr": amount,
-            "started_at": now.isoformat(), "expires_at": expires.isoformat(),
-            "payment_provider": provider,
-            "payment_order_id": order_id or f"mock_{uuid.uuid4().hex[:12]}",
-            "payment_id": payment_id,
-            "updated_at": now.isoformat(),
-        }}, upsert=True,
+        {
+            "$set": {
+                "user_id": user["user_id"],
+                "plan": plan_id,
+                "billing_cycle": cycle,
+                "status": "active",
+                "amount_inr": amount,
+                "started_at": now.isoformat(),
+                "expires_at": expires.isoformat(),
+                "payment_provider": provider,
+                "payment_order_id": (
+                    order_id or f"mock_{uuid.uuid4().hex[:12]}"
+                ),
+                "payment_id": payment_id,
+                "updated_at": now.isoformat(),
+            }
+        },
+        upsert=True,
     )
-    # Top up credits as part of subscription activation
+
     if bonus_credits:
         await db.users.update_one(
             {"user_id": user["user_id"]},
@@ -186,110 +266,200 @@ async def _activate_subscription(user: dict, plan_id: str, cycle: str,
     return {
         "success": True,
         "message": f"Welcome to NeuraLearn {plan['name']}!",
-        "plan": plan_id, "billing_cycle": cycle, "amount_inr": amount,
-        "expires_at": expires.isoformat(), "credits_added": bonus_credits,
+        "plan": plan_id,
+        "billing_cycle": cycle,
+        "amount_inr": amount,
+        "expires_at": expires.isoformat(),
+        "credits_added": bonus_credits,
         "provider": provider,
     }
 
 
 @router.post("/subscription/subscribe")
-async def subscribe(body: SubscribeRequest, request: Request):
-    """Disabled — direct subscription activation requires a real payment via PayU."""
-    await get_current_user(request)  # still require auth so unauthenticated gets 401
+async def subscribe(
+    body: SubscribeRequest,
+    request: Request,
+):
+    await get_current_user(request)
+
     raise HTTPException(
         status_code=403,
-        detail="Direct subscription activation is disabled. Please use the payment flow to upgrade your plan.",
+        detail=(
+            "Direct subscription activation is disabled. "
+            "Please use the payment flow to upgrade your plan."
+        ),
     )
 
 
 @router.post("/subscription/cancel")
 async def cancel_subscription(request: Request):
     user = await get_current_user(request)
-    sub = await db.subscriptions.find_one({"user_id": user["user_id"]}, {"_id": 0})
-    if not sub or sub.get("status") not in ("active",):
-        raise HTTPException(status_code=400, detail="No active subscription to cancel.")
 
-    expires_at = sub.get("expires_at")
+    subscription = await db.subscriptions.find_one(
+        {"user_id": user["user_id"]},
+        {"_id": 0},
+    )
+
+    if (
+        not subscription
+        or subscription.get("status") not in ("active",)
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="No active subscription to cancel.",
+        )
+
+    expires_at = subscription.get("expires_at")
+
     await db.subscriptions.update_one(
         {"user_id": user["user_id"]},
-        {"$set": {
-            "status": "cancelled",
-            "cancel_requested_at": datetime.now(timezone.utc).isoformat(),
-            # expires_at is intentionally NOT changed — access continues until end of period
-        }},
+        {
+            "$set": {
+                "status": "cancelled",
+                "cancel_requested_at": datetime.now(
+                    timezone.utc
+                ).isoformat(),
+            }
+        },
     )
+
     return {
         "success": True,
-        "message": "Subscription cancelled. You keep full access until your billing period ends.",
+        "message": (
+            "Subscription cancelled. You keep full access "
+            "until your billing period ends."
+        ),
         "access_until": expires_at,
     }
 
 
-# ----- Onboarding -----
 @router.get("/onboarding/status")
 async def onboarding_status(request: Request):
     user = await get_current_user(request)
-    data = await db.onboarding.find_one({"user_id": user["user_id"]}, {"_id": 0})
-    return {"completed": bool(data), "data": data}
+
+    data = await db.onboarding.find_one(
+        {"user_id": user["user_id"]},
+        {"_id": 0},
+    )
+
+    return {
+        "completed": bool(data),
+        "data": data,
+    }
 
 
 @router.post("/onboarding/submit")
-async def submit_onboarding(body: OnboardingSubmit, request: Request):
+async def submit_onboarding(
+    body: OnboardingSubmit,
+    request: Request,
+):
     user = await get_current_user(request)
-    if body.class_level not in [str(i) for i in range(6, 13)]:
-        raise HTTPException(status_code=400, detail="class_level must be between 6 and 12")
-    if body.learning_style not in {"visual", "quizzes", "explanations", "interactive", "balanced"}:
-        raise HTTPException(status_code=400, detail="invalid learning_style")
+
+    if body.class_level not in [str(number) for number in range(6, 13)]:
+        raise HTTPException(
+            status_code=400,
+            detail="class_level must be between 6 and 12",
+        )
+
+    if body.learning_style not in {
+        "visual",
+        "quizzes",
+        "explanations",
+        "interactive",
+        "balanced",
+    }:
+        raise HTTPException(
+            status_code=400,
+            detail="invalid learning_style",
+        )
+
+    if not user.get("school"):
+        raise HTTPException(
+            status_code=409,
+            detail="Please select your school first",
+        )
+
+    # Reuse the same school curriculum selection used during signup.
+    school_fields = get_signup_school_fields(
+        user["school"],
+        body.class_level,
+    )
 
     now = datetime.now(timezone.utc).isoformat()
+
     record = {
         "user_id": user["user_id"],
         "name": body.name.strip(),
-        "class_level": body.class_level,
+        "class_level": school_fields["class_level"],
         "exam_goal": body.exam_goal.strip(),
         "weak_subjects": body.weak_subjects,
         "learning_style": body.learning_style,
         "completed_at": now,
     }
+
     await db.onboarding.update_one(
         {"user_id": user["user_id"]},
         {"$set": record},
         upsert=True,
     )
-    # Lock user's class_level + flag onboarded
+
     await db.users.update_one(
         {"user_id": user["user_id"]},
-        {"$set": {
-            "name": body.name.strip(),
-            "class_level": body.class_level,
-            "exam_goal": body.exam_goal.strip(),
-            "weak_subjects": body.weak_subjects,
-            "learning_style": body.learning_style,
-            "is_onboarded": True,
-        }},
+        {
+            "$set": {
+                "name": body.name.strip(),
+                "class_level": school_fields["class_level"],
+                "exam_goal": body.exam_goal.strip(),
+                "weak_subjects": body.weak_subjects,
+                "learning_style": body.learning_style,
+                "is_onboarded": True,
+            }
+        },
     )
-    return {"success": True, "message": "Welcome aboard!", "data": record}
+
+    return {
+        "success": True,
+        "message": "Welcome aboard!",
+        "data": record,
+    }
 
 
 @router.put("/users/grade")
-async def update_user_grade(body: dict, request: Request):
-    """Submit a grade change request — goes to admin for approval."""
+async def update_user_grade(
+    body: dict,
+    request: Request,
+):
     user = await get_current_user(request)
     class_level = str(body.get("class_level", "")).strip()
+
     if class_level not in ["7", "8", "9"]:
-        raise HTTPException(status_code=400, detail="Only grades 7, 8 and 9 are supported.")
+        raise HTTPException(
+            status_code=400,
+            detail="Only grades 7, 8 and 9 are supported.",
+        )
 
     if class_level == user.get("class_level"):
-        return {"success": True, "class_level": class_level, "noop": True}
+        return {
+            "success": True,
+            "class_level": class_level,
+            "noop": True,
+        }
 
-    # Reject duplicate pending requests
     existing = await db.grade_change_requests.find_one(
-        {"user_id": user["user_id"], "status": "pending"}, {"_id": 0}
+        {
+            "user_id": user["user_id"],
+            "status": "pending",
+        },
+        {"_id": 0},
     )
+
     if existing:
         raise HTTPException(
             status_code=409,
-            detail="You already have a pending grade-change request. Please wait for admin review."
+            detail=(
+                "You already have a pending grade-change request. "
+                "Please wait for admin review."
+            ),
         )
 
     record = {
@@ -303,34 +473,46 @@ async def update_user_grade(body: dict, request: Request):
         "status": "pending",
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
+
     await db.grade_change_requests.insert_one(record)
     record.pop("_id", None)
+
     return {
         "success": True,
         "pending": True,
-        "message": "Grade change request submitted. An admin will review and approve it shortly.",
+        "message": (
+            "Grade change request submitted. An admin will "
+            "review and approve it shortly."
+        ),
         "request": record,
     }
 
 
 @router.get("/users/grade-status")
 async def grade_status(request: Request):
-    """Returns current class + cooldown info for the Profile UI."""
     user = await get_current_user(request)
     last_change = user.get("last_grade_change_at")
     days_remaining = 0
     can_change = True
+
     if last_change:
         try:
-            last_dt = datetime.fromisoformat(last_change)
-            if last_dt.tzinfo is None:
-                last_dt = last_dt.replace(tzinfo=timezone.utc)
-            days_since = (datetime.now(timezone.utc) - last_dt).days
+            last_date = datetime.fromisoformat(last_change)
+
+            if last_date.tzinfo is None:
+                last_date = last_date.replace(tzinfo=timezone.utc)
+
+            days_since = (
+                datetime.now(timezone.utc) - last_date
+            ).days
+
             if days_since < 30:
                 days_remaining = 30 - days_since
                 can_change = False
+
         except ValueError:
             pass
+
     return {
         "class_level": user.get("class_level"),
         "last_grade_change_at": last_change,
@@ -340,22 +522,42 @@ async def grade_status(request: Request):
 
 
 @router.post("/users/grade-appeal")
-async def grade_appeal(body: dict, request: Request):
-    """Submit an early grade change request (when cooldown is active)."""
+async def grade_appeal(
+    body: dict,
+    request: Request,
+):
     user = await get_current_user(request)
     desired_class = str(body.get("desired_class", "")).strip()
     reason = str(body.get("reason", "")).strip()
-    if desired_class not in ["7", "8", "9"]:
-        raise HTTPException(status_code=400, detail="Only grades 7, 8, and 9 are supported.")
-    if len(reason) < 10:
-        raise HTTPException(status_code=400, detail="Please share a brief reason (at least 10 characters)")
 
-    # Reject duplicate pending appeals
+    if desired_class not in ["7", "8", "9"]:
+        raise HTTPException(
+            status_code=400,
+            detail="Only grades 7, 8, and 9 are supported.",
+        )
+
+    if len(reason) < 10:
+        raise HTTPException(
+            status_code=400,
+            detail="Please share a brief reason (at least 10 characters)",
+        )
+
     existing = await db.grade_change_requests.find_one(
-        {"user_id": user["user_id"], "status": "pending"}, {"_id": 0}
+        {
+            "user_id": user["user_id"],
+            "status": "pending",
+        },
+        {"_id": 0},
     )
+
     if existing:
-        raise HTTPException(status_code=409, detail="You already have a pending grade-change request. Please wait for it to be reviewed.")
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                "You already have a pending grade-change request. "
+                "Please wait for it to be reviewed."
+            ),
+        )
 
     record = {
         "user_id": user["user_id"],
@@ -367,17 +569,28 @@ async def grade_appeal(body: dict, request: Request):
         "status": "pending",
         "submitted_at": datetime.now(timezone.utc).isoformat(),
     }
+
     await db.grade_change_requests.insert_one(record)
     record.pop("_id", None)
-    return {"success": True, "message": "Your request has been submitted to our team. You'll hear back within 48 hours.", "request": record}
+
+    return {
+        "success": True,
+        "message": (
+            "Your request has been submitted to our team. "
+            "You'll hear back within 48 hours."
+        ),
+        "request": record,
+    }
 
 
 @router.get("/users/grade-appeal")
 async def get_my_grade_appeal(request: Request):
-    """Returns the user's most recent grade-change request."""
     user = await get_current_user(request)
-    req = await db.grade_change_requests.find_one(
-        {"user_id": user["user_id"]}, {"_id": 0},
+
+    request_record = await db.grade_change_requests.find_one(
+        {"user_id": user["user_id"]},
+        {"_id": 0},
         sort=[("created_at", -1)],
     )
-    return {"request": req}
+
+    return {"request": request_record}
