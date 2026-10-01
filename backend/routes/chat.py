@@ -20,7 +20,7 @@ from pydantic import BaseModel
 from core import db, openai_client, logger, get_current_user
 from curriculum_engine import build_ai_chapter_manifest, get_verified_chapters
 from plan_gates import increment_usage, get_user_plan
-from credits import deduct_credits, deduct_credits_for_chat, calculate_chat_credits, CHAT_WORD_LIMIT
+from credits import ensure_credits, deduct_credits, deduct_credits_for_chat, calculate_chat_credits, CHAT_WORD_LIMIT
 from models import ChatSessionCreate, ChatMessageRequest
 from adaptive_engine import (
     get_student_profile, build_compact_memory,
@@ -339,6 +339,8 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
             detail="This chapter is outside your active grade. Change your grade in Profile.",
         )
 
+    await ensure_credits(user["user_id"], "ai_message")
+
     # Daily message limit check — REMOVED: no limit for AI tutor
 
     # Budget check — determines model + token ceiling
@@ -563,7 +565,7 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
         output_tokens_est = int(len(full_content.split()) * 1.3)
         await record_token_usage(user["user_id"], ai_model, input_tokens_est, output_tokens_est)
 
-        credits_used = calculate_chat_credits(final_word_count)
+        credits_used = credit_result["deducted"]
         yield f"data: {json.dumps({'type':'done','message_id':msg_id,'word_count':final_word_count,'credits_used':credits_used,'balance':credit_result.get('balance',0)})}\n\n"
 
     return StreamingResponse(
