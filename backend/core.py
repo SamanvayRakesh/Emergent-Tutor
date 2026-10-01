@@ -103,7 +103,7 @@ async def enforce_feature_credits(user: dict, request: Request) -> dict:
     """Block new learning work on an exhausted Free plan before any AI call."""
     path = request.url.path.rstrip("/")
     feature_request = request.method == "POST" and (
-        path in {"/api/chat/sessions", "/api/quiz/generate", "/api/mock-exam/generate", "/api/study-plan"}
+        path in {"/api/chat/sessions", "/api/quiz/generate", "/api/mock-exam/generate"}
         or (path.startswith("/api/chat/sessions/") and path.endswith("/message"))
         or (path.startswith("/api/mock-exam/") and path.endswith("/followup-quiz"))
     )
