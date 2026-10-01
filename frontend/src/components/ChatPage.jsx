@@ -463,49 +463,75 @@ export default function ChatPage() {
   }, [messages, streamingContent, streaming]);
 
   const processStream = async (res) => {
-    if (!res.ok) return;
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      const detail = body.detail;
+      throw new Error(typeof detail === 'string' ? detail : detail?.message ||
+        (res.status === 401 ? 'Your session expired. Please sign in again.' : 'The tutor request failed. Please try again.'));
+    }
+    if (!res.body) throw new Error('The tutor response was missing. Please try again.');
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
-    let buffer = '', full = '';
+    let buffer = '', full = '', finished = false;
 
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n\n');
-      buffer = lines.pop();
-      for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          try {
-            const d = JSON.parse(line.slice(6));
-            if (d.type === 'chunk') {
-              full += d.content;
-              streamBufferRef.current = full;
-              // RAF-batch: update state at most once per animation frame (~60fps)
-              if (!rafRef.current) {
-                rafRef.current = requestAnimationFrame(() => {
-                  setStreamingContent(streamBufferRef.current);
-                  rafRef.current = null;
-                });
-              }
-            }
-            if (d.type === 'done') {
-              // Flush any pending RAF before finalising
-              if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
-              setMessages(p => [...p, { role: 'assistant', content: full, timestamp: new Date().toISOString(), message_id: d.message_id }]);
-              setStreamingContent('');
-              // Show accurate credit deduction
-              if (d.credits_used) {
-                toast.success(`−${d.credits_used} credits (${d.word_count || 0} words)`, {
-                  id: 'credit-deduct', duration: 1800,
-                  style: { background: 'rgba(30,27,75,0.85)', color: '#fcd34d', border: '1px solid rgba(251,191,36,0.4)', fontSize: '13px' },
-                  icon: <Zap size={14} className="text-yellow-400" />,
-                });
-              }
-            }
-          } catch {}
+    const handleEvent = (event) => {
+      const payload = event.split('\n').filter(line => line.startsWith('data:'))
+        .map(line => line.slice(5).trimStart()).join('\n');
+      if (!payload) return;
+      let d;
+      try { d = JSON.parse(payload); }
+      catch { throw new Error('The tutor response was interrupted. Please try again.'); }
+      if (d.type === 'error') throw new Error(d.message || 'The tutor could not finish this reply. Please try again.');
+      if (d.type === 'chunk' && typeof d.content === 'string') {
+        full += d.content;
+        streamBufferRef.current = full;
+        if (!rafRef.current) {
+          rafRef.current = requestAnimationFrame(() => {
+            setStreamingContent(streamBufferRef.current);
+            rafRef.current = null;
+          });
         }
       }
+      if (d.type === 'done') {
+        if (!full.trim()) throw new Error('The tutor returned an empty reply. Please try again.');
+        if (finished) return;
+        finished = true;
+        if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
+        setMessages(p => [...p, { role: 'assistant', content: full,
+          timestamp: new Date().toISOString(), message_id: d.message_id }]);
+        setStreamingContent('');
+        if (d.credits_used) {
+          toast.success(`−${d.credits_used} credits (${d.word_count || 0} words)`, {
+            id: 'credit-deduct', duration: 1800,
+            style: { background: 'rgba(30,27,75,0.85)', color: '#fcd34d', border: '1px solid rgba(251,191,36,0.4)', fontSize: '13px' },
+            icon: <Zap size={14} className="text-yellow-400" />,
+          });
+        }
+      }
+    };
+
+    try {
+      while (!finished) {
+        const { value, done } = await reader.read();
+        buffer += done ? decoder.decode() : decoder.decode(value, { stream: true });
+        // Normalize only after accumulating; CRLF delimiters may span chunks.
+        buffer = buffer.replace(/\r\n/g, '\n');
+        let boundary;
+        while ((boundary = buffer.indexOf('\n\n')) !== -1) {
+          const event = buffer.slice(0, boundary);
+          buffer = buffer.slice(boundary + 2);
+          handleEvent(event);
+          if (finished) break;
+        }
+        if (done) {
+          if (!finished && buffer.trim()) handleEvent(buffer);
+          break;
+        }
+      }
+      if (!finished) throw new Error('The connection ended before the tutor finished. Please try again.');
+    } finally {
+      try { await reader.cancel(); } catch {}
+      reader.releaseLock();
     }
   };
 
@@ -529,7 +555,8 @@ export default function ChatPage() {
       return true;
     } catch (e) {
       toast.dismiss(toastId);
-      const msg = e?.response?.data?.detail || 'Could not generate quiz. Try again.';
+      const detail = e?.response?.data?.detail;
+      const msg = typeof detail === 'string' ? detail : detail?.message || 'Could not generate quiz. Try again.';
       toast.error(msg);
       return false;
     }
@@ -556,11 +583,14 @@ export default function ChatPage() {
     setMessages(p => [...p, { role: 'user', content: text, timestamp: new Date().toISOString() }]);
     setStreaming(true);
     setStreamingContent('');
+    streamBufferRef.current = '';
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 120000);
 
     try {
       const res = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/chat/sessions/${session.session_id}/message`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        credentials: 'include', body: JSON.stringify({ content: text })
+        credentials: 'include', signal: controller.signal, body: JSON.stringify({ content: text })
       });
       if (res.status === 429) {
         // Daily limit hit — trigger upgrade modal
@@ -592,8 +622,19 @@ export default function ChatPage() {
       await processStream(res);
       refreshSub?.();
       refreshCredits?.();
-    } catch (e) { console.error(e); setStreamingContent(''); }
-    setStreaming(false);
+    } catch (e) {
+      console.error(e);
+      setInput(text);
+      toast.error(e.name === 'AbortError' ? 'The tutor took too long to respond. Please try again.' :
+        e.message || 'The tutor could not reply. Please try again.', { id: 'tutor-error', duration: 6000 });
+    } finally {
+      clearTimeout(timeout);
+      if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
+      streamBufferRef.current = '';
+      setStreamingContent('');
+      setStreaming(false);
+      refreshCredits?.();
+    }
   };
 
   const SUGGESTIONS = ['Explain with a simple example', 'Give me a quick quiz', 'Why does this work?', 'Summarize key points'];
@@ -765,4 +806,5 @@ export default function ChatPage() {
     </div>
   );
 }
+
 
