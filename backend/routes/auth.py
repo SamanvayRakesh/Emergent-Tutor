@@ -158,6 +158,22 @@ def _strip_sensitive(user: dict) -> dict:
     return user
 
 
+def get_signup_school_fields(school_id, class_level=None):
+    """Use the same existing school/curriculum fields for both signup paths."""
+    if not school_id:
+        return {"school": None, "class_level": class_level}
+    school = SCHOOLS.get(school_id)
+    if not school:
+        raise HTTPException(status_code=400, detail="Invalid school selection")
+    grades = school.get("available_grades", [])
+    # These schools currently have one supported curriculum each.
+    # Read its existing key from the registry instead of using Google's default.
+    selected_level = str(grades[0]) if len(grades) == 1 else str(class_level or "")
+    if selected_level not in school.get("curriculum", {}):
+        raise HTTPException(status_code=400, detail="This school's curriculum is not available yet")
+    return {"school": school_id, "class_level": selected_level}
+
+
 # ── Register ──────────────────────────────────────────────────────────────────
 
 @router.post("/auth/register")
@@ -238,12 +254,7 @@ async def register(
         else "student"
     )
 
-    # NIOS is always Class 10.
-    class_level = (
-        "10"
-        if body.school == "nios"
-        else (body.class_level or "9")
-    )
+    school_fields = get_signup_school_fields(body.school, body.class_level or "9")
 
     user_doc = {
         "user_id": user_id,
@@ -260,8 +271,7 @@ async def register(
         "longest_streak": 0,
         "last_active": now.isoformat(),
 
-        "class_level": class_level,
-        "school": body.school or None,
+        **school_fields,
 
         "achievements": [],
         "created_at": now.isoformat(),
@@ -744,14 +754,10 @@ async def google_session(
             "role": role,
         }
 
-        # IMPORTANT:
-        # If this Google account is already NIOS,
-        # force Class 10 even if an older record
-        # was accidentally left at Class 9.
-        if existing.get("school") == "nios":
-            update_data[
-                "class_level"
-            ] = "10"
+        if existing.get("school"):
+            update_data.update(get_signup_school_fields(
+                existing["school"], existing.get("class_level")
+            ))
 
         await db.users.update_one(
             {
@@ -771,11 +777,7 @@ async def google_session(
             timezone.utc
         ).isoformat()
 
-        # New Google users start without a school.
-        # The school-select modal will ask them.
-        # Until then, Class 9 is only a temporary
-        # default. Selecting NIOS will immediately
-        # switch it to Class 10.
+        # The existing school modal completes the school part of signup.
         await db.users.insert_one(
             {
                 "user_id": user_id,
@@ -794,8 +796,9 @@ async def google_session(
                 "longest_streak": 1,
                 "last_active": now_iso,
 
-                "class_level": "9",
+                "class_level": None,
                 "school": None,
+                "is_onboarded": False,
 
                 "achievements": [],
                 "created_at": now_iso,
@@ -954,100 +957,17 @@ async def update_class(
 # ── School update ─────────────────────────────────────────────────────────────
 
 @router.put("/users/school")
-async def update_school(
-    request: Request,
-    body: dict,
-):
-    """
-    Set or update the school for a user.
-
-    IMPORTANT:
-    School and class must stay in sync.
-
-    NIOS -> Class 10
-    Brooklyn National -> Class 8
-    """
-    user = await get_current_user(
-        request
-    )
-
-    school_id = (
-        body.get("school")
-        or ""
-    ).strip()
-
+async def update_school(request: Request, body: dict):
+    user = await get_current_user(request)
+    school_id = str(body.get("school") or "").strip()
     if not school_id:
-        raise HTTPException(
-            status_code=400,
-            detail="School is required",
-        )
-
-    if school_id not in SCHOOLS:
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid school selection",
-        )
-
-    school_config = SCHOOLS[
-        school_id
-    ]
-
-    available_grades = (
-        school_config.get(
-            "available_grades",
-            [],
-        )
-    )
-
-    update_fields = {
-        "school": school_id
-    }
-
-    # NIOS only has Secondary Class 10.
-    if school_id == "nios":
-        update_fields[
-            "class_level"
-        ] = "10"
-
-    # Brooklyn National currently has Class 8.
-    elif school_id == "brooklyn_national":
-        update_fields[
-            "class_level"
-        ] = "8"
-
-    # Generic protection for future schools.
-    elif len(available_grades) == 1:
-        update_fields[
-            "class_level"
-        ] = str(
-            available_grades[0]
-        )
-
+        raise HTTPException(status_code=400, detail="School is required")
+    school_fields = get_signup_school_fields(school_id, user.get("class_level"))
     await db.users.update_one(
-        {
-            "user_id": user[
-                "user_id"
-            ]
-        },
-        {
-            "$set":
-                update_fields
-        },
+        {"user_id": user["user_id"]},
+        {"$set": school_fields},
     )
-
-    return {
-        "message":
-            "School and class updated",
-        "school":
-            school_id,
-        "class_level":
-            update_fields.get(
-                "class_level",
-                user.get(
-                    "class_level"
-                ),
-            ),
-    }
+    return {"message": "School and curriculum updated", **school_fields}
 
 
 # ── Tutorial ──────────────────────────────────────────────────────────────────
