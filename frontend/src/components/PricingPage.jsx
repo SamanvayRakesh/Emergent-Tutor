@@ -14,6 +14,8 @@ import {
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
+const MONTHLY_ORIGINAL_PRICES = { starter: 499, pro: 999 };
+
 const PLAN_VISUALS = {
   free:    { gradient: 'from-slate-700 to-slate-900',             glow: '#64748b', icon: Sparkles, accent: '#94a3b8' },
   starter: { gradient: 'from-blue-600 via-indigo-700 to-blue-900', glow: '#2563eb', icon: Zap,      accent: '#3b82f6' },
@@ -150,6 +152,8 @@ export default function PricingPage() {
           const isPopular = p.badge === 'MOST POPULAR';
           const price = priceOf(p);
           const monthlyEq = monthlyEquivalent(p);
+          const originalPrice = billing === 'monthly' ? MONTHLY_ORIGINAL_PRICES[p.id] : null;
+          const hasOffer = originalPrice > price;
 
           return (
             <motion.div key={p.id}
@@ -179,6 +183,14 @@ export default function PricingPage() {
                   </div>
                   <p className="text-white/70 text-sm font-body mb-4">{p.tagline}</p>
 
+                  {hasOffer && (
+                    <div className="flex items-center gap-2 mb-1" data-testid={`plan-offer-${p.id}`}>
+                      <del className="text-white/60 text-xl font-body decoration-2">₹{originalPrice}</del>
+                      <span className="rounded-full bg-white/15 px-2 py-0.5 text-xs font-body font-semibold text-white">
+                        Save ₹{originalPrice - price}/mo
+                      </span>
+                    </div>
+                  )}
                   <div className="flex items-baseline gap-1">
                     <span className="text-white text-4xl font-heading font-black">₹{price}</span>
                     <span className="text-white/60 text-sm font-body">/{billing === 'yearly' ? 'yr' : 'mo'}</span>
