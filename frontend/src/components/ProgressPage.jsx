@@ -47,15 +47,21 @@ export default function ProgressPage() {
   const [loading, setLoading]         = useState(true);
 
   useEffect(() => {
-    Promise.all([
+    let alive = true;
+    const refresh = () => Promise.all([
       axios.get(`${API}/progress`, { withCredentials: true }),
       axios.get(`${API}/gamification/stats`, { withCredentials: true }),
       axios.get(`${API}/quiz/history`, { withCredentials: true }).catch(() => ({ data: [] })),
     ]).then(([pRes, gRes, qRes]) => {
+      if (!alive) return;
       setProgress(pRes.data);
       setGamification(gRes.data);
       setQuizHistory(Array.isArray(qRes.data) ? qRes.data.filter(q => q.completed) : []);
-    }).catch(() => {}).finally(() => setLoading(false));
+    }).catch(() => {}).finally(() => { if (alive) setLoading(false); });
+    refresh();
+    window.addEventListener('aceit-learning-updated', refresh);
+    window.addEventListener('focus', refresh);
+    return () => { alive = false; window.removeEventListener('aceit-learning-updated', refresh); window.removeEventListener('focus', refresh); };
   }, []);
 
   if (loading) return (
@@ -108,7 +114,7 @@ export default function ProgressPage() {
       {/* ── Core stats ───────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatCard label="Overall Mastery" value={`${progress?.overall_mastery || 0}%`} icon={Target} color="#22d3ee" delay={0} />
-        <StatCard label="Chapters Studied" value={progress?.total_chapters_studied || 0} icon={BookOpen} color="#8b5cf6" delay={0.05} />
+        <StatCard label="Chapters Assessed" value={progress?.total_chapters_studied || 0} icon={BookOpen} color="#8b5cf6" delay={0.05} />
         <StatCard label="Total XP" value={gamification?.xp || 0} icon={Zap} color="#f59e0b" delay={0.1} />
         <StatCard label="Quiz Accuracy" value={`${avgAccuracy}%`} icon={Trophy} color="#10b981" delay={0.15} />
       </div>
@@ -178,7 +184,7 @@ export default function ProgressPage() {
           className="text-center py-12 glass-surface rounded-2xl border border-white/5">
           <BookOpen size={40} className="text-zinc-700 mx-auto mb-3" />
           <p className="text-zinc-400 font-body">No progress tracked yet</p>
-          <p className="text-zinc-600 text-sm font-body mt-1">Start AI tutoring sessions to see your mastery here</p>
+          <p className="text-zinc-600 text-sm font-body mt-1">Answer tutor checks or complete quizzes to see your mastery here</p>
         </motion.div>
       )}
 
@@ -275,3 +281,4 @@ export default function ProgressPage() {
     </div>
   );
 }
+

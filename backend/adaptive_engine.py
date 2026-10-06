@@ -175,6 +175,8 @@ async def record_quiz_result(user_id: str, topic: str, score_pct: int, correct: 
         {"user_id": user_id},
         {"$set": {
             f"topics.{topic}": entry,
+            "total_questions_answered": profile.get("total_questions_answered", 0) + total,
+            "total_correct": profile.get("total_correct", 0) + correct,
             "quiz_history": history,
             "difficulty": difficulty,
             "preferred_style": preferred_style,
@@ -256,3 +258,4 @@ async def check_budget(user_id: str, plan_id: str) -> dict:
         "near_budget":  pct >= 70,
         "normal":       pct < 70,
     }
+

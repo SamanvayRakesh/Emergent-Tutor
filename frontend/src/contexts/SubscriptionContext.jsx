@@ -27,6 +27,18 @@ export function SubscriptionProvider({ children }) {
   const triggerUpgrade = useCallback((opts) => setUpgradePrompt(opts), []);
   const dismissUpgrade = useCallback(() => setUpgradePrompt(null), []);
 
+  useEffect(() => {
+    const id = axios.interceptors.response.use(response => response, error => {
+      const detail = error.response?.data?.detail;
+      if (error.response?.status === 402 && detail?.code === 'INSUFFICIENT_CREDITS') {
+        triggerUpgrade({ feature: detail.feature || 'credits', message: detail.message,
+          upgrade_to: detail.upgrade_to || 'pro' });
+      }
+      return Promise.reject(error);
+    });
+    return () => axios.interceptors.response.eject(id);
+  }, [triggerUpgrade]);
+
   // Helper: check if user has a feature
   const hasFeature = (key) => !!plan?.limits?.[key];
   const isPaid = plan?.plan_id && plan.plan_id !== 'free';
@@ -45,3 +57,4 @@ export function SubscriptionProvider({ children }) {
 export function useSubscription() {
   return useContext(SubscriptionContext) || {};
 }
+

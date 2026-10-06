@@ -2,11 +2,13 @@
 import uuid
 import json
 import asyncio
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from fastapi import APIRouter, HTTPException, Request
 
-from core import db, openai_client, get_current_user
+from core import db, openai_client, get_current_user, logger
+from pymongo import ReturnDocument
+from pymongo.errors import DuplicateKeyError
 from plan_gates import check_limit, increment_usage, has_feature
 from credits import deduct_credits
 from models import MockExamRequest, QuizSubmitRequest
@@ -15,38 +17,136 @@ from school_curriculum import get_school_chapters, has_school_curriculum
 router = APIRouter()
 
 
-@router.post("/mock-exam/generate")
+EXAM_COST = 30
+JOB_LEASE_SECONDS = 150
+JOB_DEADLINE_SECONDS = 360
+_generation_tasks = set()
+
+
+def _public_job(job):
+    if not job:
+        return None
+    public = {k: v for k, v in job.items() if k not in {
+        "_id", "generation_request", "generation_parts", "lease_token", "lease_until",
+        "generation_attempts", "generation_phase",
+    }}
+    if job.get("generation_status") == "generating":
+        public["generation_progress"] = max(job.get("generation_progress", 0), min(90, job.get("sections_completed", 0) * 30))
+    return public
+
+
+def _section_counts(total):
+    a = total // 2
+    b = total // 4
+    return [a, b, total - a - b]
+
+
+@router.post("/mock-exam/generate", status_code=202)
 async def generate_mock_exam(body: MockExamRequest, request: Request):
     user = await get_current_user(request)
-    # Grade lock
     if body.class_level != user.get("class_level"):
-        raise HTTPException(status_code=403, detail="Mock exams must match your active grade. Change grade in Profile.")
-    # Plan gate: weekly mock exam limit
+        raise HTTPException(status_code=403, detail="Mock exams must match your active grade.")
+    if body.num_questions not in (10, 15, 20, 30) or not 10 <= body.duration_minutes <= 180:
+        raise HTTPException(status_code=400, detail="Choose 10, 15, 20 or 30 questions and a duration from 10 to 180 minutes.")
+    existing = await db.mock_exams.find_one({"user_id": user["user_id"], "generation_status": "generating"}, {"_id": 0})
+    if existing:
+        return {**_public_job(existing), "status": "generating"}
     allowed, info = await check_limit(user["user_id"], "mock_exam")
     if not allowed:
-        raise HTTPException(
-            status_code=429,
-            detail={
-                "code": "WEEKLY_LIMIT_REACHED", "feature": "mock_exam",
-                "message": f"You've used your {info['limit']} mock exam(s) this week on the Free plan.",
-                "limit_info": info, "upgrade_to": "pro",
-            },
-        )
-
-    # Credit gate: check balance upfront but deduct ONLY after successful generation
-    # so users are NEVER charged for a failed or timed-out mock exam.
-    EXAM_COST = 30
+        raise HTTPException(status_code=429, detail={
+            "code": "WEEKLY_LIMIT_REACHED", "feature": "mock_exam",
+            "message": "You've reached your mock-exam limit. Upgrade to continue.",
+            "limit_info": info, "upgrade_to": "pro",
+        })
     if user.get("credits", 0) < EXAM_COST:
-        raise HTTPException(
-            status_code=402,
-            detail={"code": "INSUFFICIENT_CREDITS", "message": "Not enough credits for a mock exam.", "required": EXAM_COST, "current": user.get("credits", 0)},
-        )
+        raise HTTPException(status_code=402, detail={
+            "code": "INSUFFICIENT_CREDITS", "feature": "mock_exam_generate",
+            "message": "Not enough credits for a mock exam (30 credits).", "upgrade_to": "pro",
+            "required": EXAM_COST, "current": user.get("credits", 0),
+        })
+    school = user.get("school", "")
+    if has_school_curriculum(school, body.class_level):
+        chapters = get_school_chapters(school, body.class_level, body.subject)
+        if not chapters:
+            raise HTTPException(status_code=400, detail="Choose a subject from your school's syllabus.")
+        names = {c["name"] for c in chapters}
+        selected = body.chapters or ([body.chapter] if body.chapter else [])
+        if len(selected) > 7 or any(c not in names for c in selected):
+            raise HTTPException(status_code=400, detail="Choose up to seven chapters from your school's syllabus.")
+    now = datetime.now(timezone.utc)
+    job = {
+        "exam_id": f"exam_{uuid.uuid4().hex[:12]}", "user_id": user["user_id"],
+        "school": school, "class_level": body.class_level, "subject": body.subject,
+        "duration_minutes": body.duration_minutes,
+        "title": f"{body.subject} Mock Exam", "sections": [], "completed": False, "score": None,
+        "created_at": now.isoformat(), "started_at": now.isoformat(),
+        "deadline_at": (now + timedelta(seconds=JOB_DEADLINE_SECONDS)).isoformat(),
+        "generation_status": "generating", "generation_phase": "queued",
+        "generation_message": "Your exam is queued.", "sections_completed": 0,
+        "generation_progress": 0, "estimated_seconds": 60,
+        "generation_request": body.model_dump() if hasattr(body, "model_dump") else body.dict(),
+    }
+    try:
+        await db.mock_exams.insert_one(job)
+    except DuplicateKeyError:
+        existing = await db.mock_exams.find_one({"user_id": user["user_id"], "generation_status": "generating"})
+        if not existing:
+            raise
+        return {**_public_job(existing), "status": "generating"}
+    return {**_public_job(job), "status": "generating"}
 
-    is_board = body.class_level in ["10", "12"]
-    sec_a = max(4, body.num_questions // 2)
-    sec_b = max(3, body.num_questions // 4)
-    sec_c = body.num_questions - sec_a - sec_b
 
+@router.get("/mock-exam/jobs/active")
+async def active_mock_exam_job(request: Request):
+    user = await get_current_user(request)
+    job = await db.mock_exams.find_one(
+        {"user_id": user["user_id"], "generation_status": {"$in": ["generating", "ready"]}, "completed": False}, {"_id": 0},
+        sort=[("created_at", -1)],
+    )
+    return {"job": _public_job(job)}
+
+
+@router.get("/mock-exam/jobs/{exam_id}")
+async def mock_exam_job(exam_id: str, request: Request):
+    user = await get_current_user(request)
+    job = await db.mock_exams.find_one({"exam_id": exam_id, "user_id": user["user_id"]}, {"_id": 0})
+    if not job:
+        raise HTTPException(status_code=404, detail="Mock exam not found")
+    return {"job": _public_job(job)}
+
+
+def _validate_section(raw, letter, count, marks):
+    questions = raw.get("questions") if isinstance(raw, dict) else None
+    if not isinstance(questions, list) or len(questions) != count:
+        raise ValueError("Incorrect number of exam questions")
+    clean = []
+    for index, q in enumerate(questions, 1):
+        if not isinstance(q, dict) or not isinstance(q.get("question"), str) or not q["question"].strip():
+            raise ValueError("Missing exam question")
+        options = q.get("options")
+        correct = str(q.get("correct", "")).strip().upper()
+        if len(correct) > 1 and correct[1:2] in (".", ")", ":"):
+            correct = correct[0]
+        if not isinstance(options, list) or len(options) != 4 or correct not in "ABCD" or len(correct) != 1:
+            raise ValueError("Invalid multiple choice answers")
+        normalized = []
+        for i, option in enumerate(options):
+            if not isinstance(option, str) or not option.strip():
+                raise ValueError("Empty answer option")
+            text = option.strip()
+            if len(text) > 2 and text[0].upper() == "ABCD"[i] and text[1] in ".):":
+                text = text[2:].strip()
+            if not text:
+                raise ValueError("Empty answer option")
+            normalized.append(f"{'ABCD'[i]}. {text}")
+        clean.append({**q, "id": f"{letter}{index}", "options": normalized, "correct": correct, "marks": marks})
+    titles = {"A": "Multiple Choice Questions", "B": "Short Answer (MCQ Format)", "C": "Application Based Questions"}
+    return {"section": letter, "title": titles[letter], "marks_per_question": marks, "questions": clean}
+
+
+async def _generate_exam_sections(job, owned):
+    body = MockExamRequest(**job["generation_request"])
+    user = {"school": job.get("school", "")}
     # Resolve chapters — multi-chapter takes priority over single-chapter legacy field
     selected_chapters: list[str] = body.chapters[:7] if body.chapters else (
         [body.chapter] if body.chapter else []
@@ -83,74 +183,145 @@ async def generate_mock_exam(body: MockExamRequest, request: Request):
     chapter_label = f" — {', '.join(selected_chapters[:3])}{'…' if len(selected_chapters) > 3 else ''}" if selected_chapters else ""
     exam_title_default = f"{'NIOS Secondary Course' if school == 'nios' else f'Class {body.class_level}'} {body.subject}{chapter_label} Mock Exam"
 
-    prompt = f"""Generate a {exam_label} {body.subject} mock exam paper with {body.num_questions} questions total.{school_context}
-Structure: Section A ({sec_a} MCQs, 1 mark each), Section B ({sec_b} questions, 2 marks each), Section C ({sec_c} questions, 3 marks each).
-{"Focus on board exam patterns with HOTS questions." if is_board else "Cover fundamental concepts suitable for internal assessments."}
 
-Return ONLY valid JSON:
-{{
-  "title": "{exam_title_default}",
-  "duration_minutes": {body.duration_minutes},
-  "sections": [
-    {{
-      "section": "A", "title": "Multiple Choice Questions", "marks_per_question": 1,
-      "questions": [{{"id":"A1","question":"...","options":["A. ...","B. ...","C. ...","D. ..."],"correct":"A","marks":1,"difficulty":"easy","topic":"...","explanation":"..."}}]
-    }},
-    {{
-      "section": "B", "title": "Short Answer (MCQ Format)", "marks_per_question": 2,
-      "questions": [{{"id":"B1","question":"...","options":["A. ...","B. ...","C. ...","D. ..."],"correct":"A","marks":2,"difficulty":"medium","topic":"...","explanation":"..."}}]
-    }},
-    {{
-      "section": "C", "title": "Application Based Questions", "marks_per_question": 3,
-      "questions": [{{"id":"C1","question":"...","options":["A. ...","B. ...","C. ...","D. ..."],"correct":"A","marks":3,"difficulty":"hard","topic":"...","explanation":"..."}}]
-    }}
-  ]
-}}
-Generate EXACTLY {sec_a} questions in Section A, {sec_b} in Section B, {sec_c} in Section C.{"" if selected_chapters else " Cover different chapters."}"""
-
+    counts = _section_counts(body.num_questions)
+    async def build(index):
+        letter = "ABC"[index]
+        marks = index + 1
+        cached = job.get("generation_parts", {}).get(letter)
+        if cached:
+            return _validate_section(cached, letter, counts[index], marks)
+        prompt = f"""Create exactly {counts[index]} {exam_label} {body.subject} MCQs for section {letter}.
+{school_context}
+Difficulty: {['easy', 'medium', 'hard'][index]}. Each question carries {marks} mark(s).
+Return JSON only: {{"questions":[{{"question":"...","options":["A. ...","B. ...","C. ...","D. ..."],"correct":"A","topic":"chapter/topic","explanation":"One short sentence."}}]}}
+Keep wording concise, answers unambiguous and all questions distinct."""
+        for attempt in range(2):
+            try:
+                response = await asyncio.wait_for(openai_client.chat.completions.create(
+                    model="deepseek/deepseek-v4-flash", messages=[
+                        {"role": "system", "content": "Expert question paper setter. Follow only the specified school's curriculum. Return valid JSON."},
+                        {"role": "user", "content": prompt},
+                    ], response_format={"type": "json_object"}, temperature=0.6,
+                    max_tokens=min(4800, counts[index] * 230 + 400),
+                    extra_body={"include_reasoning": False},
+                ), timeout=45)
+                section = _validate_section(json.loads(response.choices[0].message.content), letter, counts[index], marks)
+                updated = await db.mock_exams.update_one(owned, {
+                    "$set": {f"generation_parts.{letter}": section},
+                    "$inc": {"sections_completed": 1},
+                })
+                if not updated.modified_count:
+                    raise RuntimeError("Exam job ownership changed")
+                return section
+            except (asyncio.TimeoutError, ValueError, IndexError, TypeError):
+                if attempt:
+                    raise
+        raise ValueError("Exam section generation failed")
+    tasks = [asyncio.create_task(build(i)) for i in range(3)]
     try:
-        response = await asyncio.wait_for(
-            openai_client.chat.completions.create(
-                model="deepseek/deepseek-v4-flash",
-                messages=[
-                    {"role": "system", "content": "Expert NIOS Secondary question paper setter. Use NIOS curriculum only." if school == "nios" else "Expert CBSE question paper setter."},
-                    {"role": "user", "content": prompt},
-                ],
-                response_format={"type": "json_object"}, temperature=0.7, max_tokens=4000,
-                extra_body={"include_reasoning": False},
-            ),
-            timeout=50.0,
+        sections = await asyncio.gather(*tasks)
+        return sections, exam_title_default
+    finally:
+        for task in tasks:
+            if not task.done():
+                task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+
+async def _finish_exam_job(job):
+    owned = {"exam_id": job["exam_id"], "generation_status": "generating", "lease_token": job["lease_token"]}
+    try:
+        if not job.get("sections"):
+            if job.get("generation_attempts", 0) > 2 or job["deadline_at"] < datetime.now(timezone.utc).isoformat():
+                raise asyncio.TimeoutError()
+            sections, title = await asyncio.wait_for(_generate_exam_sections(job, owned), timeout=110)
+            saved = await db.mock_exams.update_one(owned, {"$set": {
+                "sections": sections, "title": title, "generation_phase": "settling",
+                "generation_message": "Saving your exam.", "generation_progress": 95,
+            }})
+            if not saved.modified_count:
+                return
+        # The debit and its exam marker are written together in one atomic user update.
+        # A recovered job can therefore finish without charging twice.
+        debited = await db.users.find_one_and_update(
+            {"user_id": job["user_id"], "credits": {"$gte": EXAM_COST},
+             "mock_exam_debits": {"$ne": job["exam_id"]}},
+            {"$inc": {"credits": -EXAM_COST}, "$addToSet": {"mock_exam_debits": job["exam_id"]}},
+            return_document=ReturnDocument.AFTER, projection={"_id": 0, "credits": 1},
         )
-        exam_data = json.loads(response.choices[0].message.content)
-    except asyncio.TimeoutError:
-        raise HTTPException(status_code=504, detail="Mock exam generation timed out. No credits were charged. Please try again.")
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Mock exam generation failed. No credits were charged. ({type(e).__name__})")
+        if not debited:
+            previously_paid = await db.users.find_one({"user_id": job["user_id"], "mock_exam_debits": job["exam_id"]})
+            if not previously_paid:
+                await db.mock_exams.update_one(owned, {"$set": {
+                    "generation_status": "error", "generation_message": "Your balance fell below 30 credits while the exam was generating. No credits were charged for this exam.",
+                }})
+                return
+        await db.mock_exams.update_one(owned, {"$set": {
+            "generation_status": "ready", "generation_phase": "complete",
+            "generation_message": "Your exam is ready.", "generation_progress": 100,
+            "ready_at": datetime.now(timezone.utc).isoformat(), "credits_used": EXAM_COST,
+        }, "$unset": {"generation_parts": "", "lease_token": "", "lease_until": ""}})
+        if debited:
+            try:
+                await increment_usage(job["user_id"], "mocks", 1)
+                from credits import _record_credit_event
+                await _record_credit_event(job["user_id"], "mock_exam_generate", EXAM_COST)
+            except Exception:
+                logger.exception("Mock exam usage counters failed")
+    except asyncio.CancelledError:
+        raise  # The lease expires, allowing the next worker to resume saved sections.
+    except (asyncio.TimeoutError, ValueError, IndexError, TypeError):
+        logger.exception("Mock exam generation failed: %s", job["exam_id"])
+        await db.mock_exams.update_one(owned, {"$set": {
+            "generation_status": "error", "generation_message": "The exam could not be generated in time or returned incomplete questions. No credits were charged. Please try again.",
+        }})
+    except Exception:
+        # Leave the persisted job recoverable if saving or billing was interrupted.
+        logger.exception("Mock exam job interrupted: %s", job["exam_id"])
 
-    # Deduct credits AFTER successful generation
-    await db.users.update_one({"user_id": user["user_id"]}, {"$inc": {"credits": -EXAM_COST}})
 
-    exam_id = f"exam_{uuid.uuid4().hex[:12]}"
-    now = datetime.now(timezone.utc).isoformat()
-    exam_doc = {
-        "exam_id": exam_id, "user_id": user["user_id"],
-        "class_level": body.class_level, "subject": body.subject,
-        "duration_minutes": body.duration_minutes,
-        "title": exam_data.get("title", exam_title_default),
-        "sections": exam_data.get("sections", []),
-        "completed": False, "score": None, "created_at": now,
-    }
-    await db.mock_exams.insert_one(exam_doc)
-    await increment_usage(user["user_id"], "mocks", 1)
-    exam_doc.pop("_id", None)
-    return exam_doc
+async def mock_exam_generation_worker():
+    """Claim persisted work with leases; continue independently of browser requests."""
+    try:
+        while True:
+            try:
+                _generation_tasks.difference_update(t for t in tuple(_generation_tasks) if t.done())
+                if len(_generation_tasks) < 2:
+                    now = datetime.now(timezone.utc)
+                    job = await db.mock_exams.find_one_and_update(
+                        {"generation_status": "generating", "$or": [
+                            {"generation_phase": "queued"}, {"lease_until": {"$lt": now.isoformat()}},
+                        ]},
+                        {"$set": {"generation_phase": "working", "lease_token": uuid.uuid4().hex,
+                                  "lease_until": (now + timedelta(seconds=JOB_LEASE_SECONDS)).isoformat(),
+                                  "generation_message": "Building your exam sections."},
+                         "$inc": {"generation_attempts": 1}},
+                        sort=[("created_at", 1)], return_document=ReturnDocument.AFTER,
+                    )
+                    if job:
+                        task = asyncio.create_task(_finish_exam_job(job))
+                        _generation_tasks.add(task)
+                        continue
+                await asyncio.sleep(2)
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                logger.exception("Mock exam worker temporarily unavailable")
+                await asyncio.sleep(5)
+    finally:
+        tasks = list(_generation_tasks)
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+        _generation_tasks.clear()
 
 
 @router.get("/mock-exam/history")
 async def get_mock_exam_history(request: Request):
     user = await get_current_user(request)
     return await db.mock_exams.find(
-        {"user_id": user["user_id"]}, {"_id": 0, "sections": 0}
+        {"user_id": user["user_id"], "$or": [{"generation_status": "ready"}, {"generation_status": {"$exists": False}}]}, {"_id": 0, "sections": 0, "generation_request": 0}
     ).sort("created_at", -1).limit(10).to_list(10)
 
 
@@ -160,6 +331,8 @@ async def submit_mock_exam(exam_id: str, body: QuizSubmitRequest, request: Reque
     exam = await db.mock_exams.find_one({"exam_id": exam_id, "user_id": user["user_id"]}, {"_id": 0})
     if not exam:
         raise HTTPException(status_code=404, detail="Exam not found")
+    if exam.get("generation_status") in ("generating", "error"):
+        raise HTTPException(status_code=409, detail="This exam is not ready to submit.")
     if exam.get("completed"):
         raise HTTPException(status_code=400, detail="This exam has already been submitted. Start a new exam to earn more XP.")
 
@@ -332,3 +505,4 @@ async def get_weak_areas(request: Request):
         "adaptive_weak": adaptive_weak[:8],
         "exam_count": len(recent),
     }
+

@@ -20,7 +20,7 @@ from pydantic import BaseModel
 from core import db, openai_client, logger, get_current_user
 from curriculum_engine import build_ai_chapter_manifest, get_verified_chapters
 from plan_gates import increment_usage, get_user_plan
-from credits import deduct_credits, deduct_credits_for_chat, calculate_chat_credits, CHAT_WORD_LIMIT
+from credits import ensure_credits, deduct_credits, deduct_credits_for_chat, calculate_chat_credits, CHAT_WORD_LIMIT
 from models import ChatSessionCreate, ChatMessageRequest
 from adaptive_engine import (
     get_student_profile, build_compact_memory,
@@ -29,6 +29,8 @@ from adaptive_engine import (
 from ai_router import build_routing_decision
 from knowledge_base import find_kb_answer, get_kb_stats
 from school_curriculum import get_chapter_context_hint
+from learning_evidence import learning_memory, chapter_mastery, learning_scope
+from tutor_blocks import extract_cards
 
 # ── Simple in-memory KB context cache (cuts repeat DB lookups for same chapter) ─
 _KB_CACHE: dict = {}          # key → (context_str, timestamp)
@@ -62,6 +64,8 @@ async def create_chat_session(body: ChatSessionCreate, request: Request):
         "chapter": body.chapter, "chapter_id": body.chapter_id,
         "title": f"{body.subject} - {body.chapter}",
         "message_count": 0, "created_at": now, "updated_at": now,
+        "school": user.get("school"),
+        **({"course_id": user["course_id"]} if user.get("course_id") else {}),
     }
     await db.chat_sessions.insert_one(doc)
     doc.pop("_id", None)
@@ -87,6 +91,10 @@ async def get_chat_session(session_id: str, request: Request):
     messages = await db.messages.find(
         {"session_id": session_id}, {"_id": 0}
     ).sort("timestamp", 1).to_list(200)
+    for message in messages:
+        if message.get("check_ids"):
+            checks = await db.tutor_checks.find({"check_id": {"$in": message["check_ids"]}, **learning_scope(user)}, {"_id": 0}).to_list(2)
+            message["checks"] = [public_check(c) for c in checks]
     return {"session": session, "messages": messages}
 
 
@@ -333,11 +341,15 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
     )
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
+    if session.get("school") is not None and session.get("school") != user.get("school") or session.get("course_id") != user.get("course_id"):
+        raise HTTPException(status_code=403, detail="Start a new chat for your active school and course.")
     if session.get("class_level") != user.get("class_level"):
         raise HTTPException(
             status_code=403,
             detail="This chapter is outside your active grade. Change your grade in Profile.",
         )
+
+    await ensure_credits(user["user_id"], "ai_message")
 
     # Daily message limit check — REMOVED: no limit for AI tutor
 
@@ -416,14 +428,13 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
 
     # Parallelise independent DB calls to cut pre-LLM latency
     # For NIOS: scope KB lookup to NIOS curriculum only (no cross-contamination)
-    kb_match, profile = await asyncio.gather(
+    kb_match, memory = await asyncio.gather(
         find_kb_answer(
             body.content, session["class_level"], session["subject"],
             chapter_no=ch_no, curriculum="nios" if is_nios else None
         ),
-        get_student_profile(user["user_id"]),
+        learning_memory(user, session["subject"]),
     )
-    memory = build_compact_memory(profile)
 
     # Persist user message
     now = datetime.now(timezone.utc).isoformat()
@@ -490,6 +501,24 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
             ai_messages.append({"role": msg["role"], "content": msg["content"]})
         ai_messages.append({"role": "user", "content": body.content})
 
+    # Apply valid math formatting to every model path, including KB rephrasing.
+    ai_messages[0]["content"] += (
+        "\nUse valid LaTeX: $...$ inline and $$...$$ for display math. "
+        r"Fractions: $\frac{1}{2}$; roots: $\sqrt{x}$; powers: $x^{2}$. "
+        "Balance curly braces. Never use {frac}[1}{2} or bare LaTeX commands. "
+        "Finish each expression and keep the answer concise and complete."
+    )
+
+    ai_messages[0]["content"] += (
+        "\nMeasured learning memory: " + json.dumps(memory) +
+        " Use this evidence to revisit weak topics and choose suitable difficulty; do not claim unassessed mastery. "
+        "\nWhen useful, append ONE short curriculum-based MCQ understanding check after the explanation. "
+        'Use [CHECK]{"question":"...","options":["...","...","...","..."],"correct":"A","explanation":"..."}[/CHECK]. '
+        "Do not reveal the check answer in the explanation before the student answers. "
+        "Reading alone never proves mastery. Include valid JSON and closing tags."
+
+    )
+
     # ── Stream response ───────────────────────────────────────────────────────
     async def generate():
         full_content = ""
@@ -500,71 +529,130 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
         # Reserve generous headroom so the model can always finish its response
         generation_tokens = max_tokens  # no artificial cap — trust the router limits
 
-        try:
-            stream = await openai_client.chat.completions.create(
-                model=ai_model,
-                messages=ai_messages,
-                stream=True,
-                max_tokens=generation_tokens,
-                temperature=0.75,
-                extra_body={"include_reasoning": False},
-            )
-            async for chunk in stream:
-                delta = chunk.choices[0].delta.content
-                if delta:
-                    full_content += delta
-                    word_count = len(full_content.split())
-                    yield f"data: {json.dumps({'type':'chunk','content':delta})}\n\n"
-        except Exception as e:
-            logger.error(f"OpenAI error: {e}")
-            fallback = "Sorry, I encountered an issue. Please try again in a moment."
-            yield f"data: {json.dumps({'type':'chunk','content':fallback})}\n\n"
-            full_content = fallback
-
-        ts = datetime.now(timezone.utc).isoformat()
-        await db.messages.insert_one(
-            {"message_id": msg_id, "session_id": session_id, "role": "assistant",
-             "content": full_content, "timestamp": ts}
-        )
-        await db.chat_sessions.update_one(
-            {"session_id": session_id},
-            {"$set": {"updated_at": ts}, "$inc": {"message_count": 2}},
-        )
-
-        # XP: once per day only (not spammable) — encourages daily use without reward farming
-        today_str = datetime.now(timezone.utc).date().isoformat()
-        user_fresh = await db.users.find_one(
-            {"user_id": user["user_id"]},
-            {"_id": 0, "last_daily_chat_xp": 1, "xp": 1, "level": 1},
-        )
-        already_got_chat_xp = user_fresh.get("last_daily_chat_xp") == today_str
-        chat_xp = 0 if already_got_chat_xp else 10
-
-        xp_update: dict = {"$set": {"last_active": ts}}
-        if chat_xp > 0:
-            xp_update["$inc"] = {"xp": chat_xp}
-            xp_update["$set"]["last_daily_chat_xp"] = today_str
-        await db.users.update_one({"user_id": user["user_id"]}, xp_update)
-
-        updated = await db.users.find_one({"user_id": user["user_id"]}, {"_id": 0})
-        if updated:
-            new_level = max(1, updated.get("xp", 0) // 500 + 1)
-            if new_level > updated.get("level", 1):
-                await db.users.update_one(
-                    {"user_id": user["user_id"]}, {"$set": {"level": new_level}}
+        deadline = asyncio.get_running_loop().time() + 85
+        for attempt in range(2):
+            full_content = ""
+            stream = None
+            try:
+                stream = await asyncio.wait_for(
+                    openai_client.chat.completions.create(
+                        model=ai_model, messages=ai_messages, stream=True,
+                        max_tokens=generation_tokens, temperature=0.75,
+                        extra_body={"include_reasoning": False},
+                    ), timeout=min(25, max(0.01, deadline - asyncio.get_running_loop().time())),
                 )
+                iterator = stream.__aiter__()
+                while True:
+                    if asyncio.get_running_loop().time() >= deadline:
+                        raise asyncio.TimeoutError()
+                    try:
+                        chunk = await asyncio.wait_for(iterator.__anext__(), timeout=min(20, max(0.01, deadline - asyncio.get_running_loop().time())))
+                    except StopAsyncIteration:
+                        break
+                    if not chunk.choices:
+                        continue
+                    delta = chunk.choices[0].delta.content
+                    if isinstance(delta, str) and delta:
+                        full_content += delta
+                        word_count = len(full_content.split())
+                        yield f"data: {json.dumps({'type':'chunk','content':delta})}\n\n"
+                if not full_content.strip():
+                    raise ValueError("AI provider returned an empty response")
+                break
+            except Exception as exc:
+                logger.exception("Tutor generation attempt %s failed for session %s", attempt + 1, session_id)
+                status = getattr(exc, "status_code", None)
+                retryable = status is None or status in (408, 429) or status >= 500
+                if attempt == 0 and retryable and asyncio.get_running_loop().time() < deadline:
+                    yield f"data: {json.dumps({'type':'reset'})}\n\n"
+                    continue
+                yield f"data: {json.dumps({'type':'error','code':'GENERATION_FAILED','message':'The tutor could not finish this reply. No credits were charged. Please retry your question.'})}\n\n"
+                return
+            finally:
+                if stream is not None:
+                    try:
+                        await asyncio.wait_for(stream.close(), timeout=2)
+                    except Exception:
+                        logger.warning("Could not close tutor stream", exc_info=True)
+        raw_output_content = full_content
+        full_content, check_data = extract_cards(full_content)
+        if not full_content:
+            full_content = "Try this learning check below."
+        checks = []
+        try:
+            for check in check_data:
+                doc = {**check, **{k: v for k, v in learning_scope(user).items() if k != "course_id"},
+                       **({"course_id": user["course_id"]} if user.get("course_id") else {}),
+                       "check_id": f"check_{uuid.uuid4().hex[:16]}", "session_id": session_id,
+                       "subject": session["subject"], "chapter": session["chapter"], "completed": False,
+                       "created_at": datetime.now(timezone.utc).isoformat()}
+                await db.tutor_checks.insert_one(doc)
+                checks.append(public_check(doc))
+        except Exception:
+            logger.exception("Could not save tutor check for session %s", session_id)
+            checks = []  # Explanation still works when the optional check cannot be saved.
 
-        # Variable credit deduction based on word count
-        final_word_count = len(full_content.split())
-        credit_result = await deduct_credits_for_chat(user["user_id"], final_word_count)
+        try:
+            ts = datetime.now(timezone.utc).isoformat()
+            await db.messages.insert_one(
+                {"message_id": msg_id, "session_id": session_id, "role": "assistant",
+                 "content": full_content, "timestamp": ts,
+                 "check_ids": [c["check_id"] for c in checks]}
+            )
+            await db.chat_sessions.update_one(
+                {"session_id": session_id},
+                {"$set": {"updated_at": ts}, "$inc": {"message_count": 2}},
+            )
 
-        # Usage + token tracking
-        await increment_usage(user["user_id"], "ai_messages", 1)
-        output_tokens_est = int(len(full_content.split()) * 1.3)
-        await record_token_usage(user["user_id"], ai_model, input_tokens_est, output_tokens_est)
+        except Exception:
+            logger.exception("Could not save tutor reply for session %s", session_id)
+            yield f"data: {json.dumps({'type':'error','code':'SAVE_FAILED','message':'The reply could not be saved. No credits were charged. Please reload this chat before trying again.'})}\n\n"
+            return
 
-        credits_used = calculate_chat_credits(final_word_count)
-        yield f"data: {json.dumps({'type':'done','message_id':msg_id,'word_count':final_word_count,'credits_used':credits_used,'balance':credit_result.get('balance',0)})}\n\n"
+        try:
+            # Variable credit deduction based on word count
+            final_word_count = len(full_content.split())
+            credit_result = await deduct_credits_for_chat(user["user_id"], final_word_count)
+
+        except Exception:
+            logger.exception("Could not settle tutor credits for session %s", session_id)
+            yield f"data: {json.dumps({'type':'error','code':'CREDIT_UPDATE_FAILED','message':'The reply was saved, but the credit update failed. Please reload this chat before sending another message.'})}\n\n"
+            return
+
+        try:
+            # XP: once per day only (not spammable) — encourages daily use without reward farming
+            today_str = datetime.now(timezone.utc).date().isoformat()
+            user_fresh = await db.users.find_one(
+                {"user_id": user["user_id"]},
+                {"_id": 0, "last_daily_chat_xp": 1, "xp": 1, "level": 1},
+            )
+            already_got_chat_xp = (user_fresh or {}).get("last_daily_chat_xp") == today_str
+            chat_xp = 0 if already_got_chat_xp else 10
+
+            xp_update: dict = {"$set": {"last_active": ts}}
+            if chat_xp > 0:
+                xp_update["$inc"] = {"xp": chat_xp}
+                xp_update["$set"]["last_daily_chat_xp"] = today_str
+            await db.users.update_one({"user_id": user["user_id"]}, xp_update)
+
+            updated = await db.users.find_one({"user_id": user["user_id"]}, {"_id": 0})
+            if updated:
+                new_level = max(1, updated.get("xp", 0) // 500 + 1)
+                if new_level > updated.get("level", 1):
+                    await db.users.update_one(
+                        {"user_id": user["user_id"]}, {"$set": {"level": new_level}}
+                    )
+
+            # Usage + token tracking
+            await increment_usage(user["user_id"], "ai_messages", 1)
+            output_tokens_est = int(len(raw_output_content.split()) * 1.3)
+            await record_token_usage(user["user_id"], ai_model, input_tokens_est, output_tokens_est)
+
+        except Exception:
+            logger.exception("Tutor activity counters failed for session %s", session_id)
+
+        credits_used = credit_result["deducted"]
+        yield f"data: {json.dumps({'type':'done','content':full_content,'checks':checks,'message_id':msg_id,'word_count':final_word_count,'credits_used':credits_used,'balance':credit_result.get('balance',0)})}\n\n"
 
     return StreamingResponse(
         generate(),
@@ -582,7 +670,7 @@ async def my_ai_analytics(request: Request):
     plan_info = await get_user_plan(uid)
     budget    = await check_budget(uid, plan_info["id"])
     profile   = await get_student_profile(uid)
-    memory    = build_compact_memory(profile)
+    memory    = await learning_memory(user)
 
     month = _month_key()
     budget_doc  = await db.token_budgets.find_one({"user_id": uid}, {"_id": 0}) or {}
@@ -607,10 +695,10 @@ async def my_ai_analytics(request: Request):
             "normal"
         ),
         "adaptive_profile": {
-            "difficulty":     profile.get("difficulty", "medium"),
+            "difficulty":     memory["difficulty"],
             "weak_topics":    memory["weak_topics"],
             "strong_topics":  memory["strong_topics"],
-            "topics_tracked": len(profile.get("topics", {})),
+            "topics_tracked": memory["topics_tracked"],
         },
         "knowledge_base": await get_kb_stats(),
     }
@@ -646,3 +734,38 @@ async def submit_message_feedback(body: _FeedbackBody, request: Request):
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Message not found")
     return {"ok": True, "vote": body.vote}
+
+
+
+
+
+def public_check(doc):
+    result = {k: doc[k] for k in ("check_id", "question", "options", "completed")}
+    if doc.get("completed"):
+        result.update(selected=doc.get("selected"), is_correct=doc.get("is_correct"),
+                      correct=doc["correct"], explanation=doc.get("explanation", ""))
+    return result
+
+
+class TutorCheckAnswer(BaseModel):
+    answer: str
+
+
+@router.post("/chat/checks/{check_id}/answer")
+async def answer_tutor_check(check_id: str, body: TutorCheckAnswer, request: Request):
+    user = await get_current_user(request)
+    if body.answer not in ("A", "B", "C", "D"):
+        raise HTTPException(status_code=422, detail="Choose one of the four options.")
+    scope = {"check_id": check_id, **learning_scope(user)}
+    check = await db.tutor_checks.find_one(scope, {"_id": 0})
+    if not check:
+        raise HTTPException(status_code=404, detail="Learning check not found in your active course.")
+    if not check.get("completed"):
+        await db.tutor_checks.update_one({**scope, "completed": False}, {"$set": {
+            "completed": True, "selected": body.answer, "is_correct": body.answer == check["correct"],
+            "completed_at": datetime.now(timezone.utc).isoformat(),
+        }})
+        check = await db.tutor_checks.find_one(scope, {"_id": 0})
+    # Repeat requests return the first scored answer and never add new evidence.
+    mastery = await chapter_mastery(user, check["chapter"], check["subject"])
+    return {"check": public_check(check), "mastery": mastery}

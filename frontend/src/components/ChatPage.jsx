@@ -5,13 +5,15 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
-import { Send, Plus, BookOpen, ChevronDown, Trash2, Sparkles, CheckCircle, XCircle, MessageSquare, Brain, ArrowLeft, Youtube, ExternalLink, Zap, ThumbsUp, ThumbsDown, ChevronRight } from 'lucide-react';
+import 'katex/dist/katex.min.css';
+import { Send, Square, Plus, BookOpen, ChevronDown, Trash2, Sparkles, CheckCircle, XCircle, MessageSquare, Brain, ArrowLeft, Youtube, ExternalLink, Zap, ThumbsUp, ThumbsDown, ChevronRight } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../contexts/AuthContext';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { useCredits } from '../contexts/CreditsContext';
 import { toast } from 'sonner';
 import InteractiveQuizModal from './InteractiveQuizModal';
+import { TutorCheck } from './TutorLearningCards';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -21,24 +23,27 @@ const SUBJECT_COLORS = {
   'Social Science': '#3b82f6', 'Computer Science': '#ef4444'
 };
 
-// Pre-process math: wrap bare LaTeX so KaTeX renders even if model forgot $ signs
-function fixMathDelimiters(text) {
-  return text
-    .replace(/(?<!\$)(\\frac\{[^{}]*\}\{[^{}]*\})(?!\$)/g, '$$$1$$')
-    .replace(/(?<!\$)(\\sqrt\{[^{}]*\})(?!\$)/g, '$$$1$$')
-    .replace(/(?<!\$)(\\(?:times|div|pm|leq|geq|neq|approx|cdot|infty|alpha|beta|gamma|theta|pi|sigma|delta|lambda|mu|omega))(?!\$|\w)/g, '$$$1$$')
-    // Fix C$D$ pattern — letter$letter is NOT math
-    .replace(/([A-Za-z])\$([A-Za-z])/g, '$1$2');
+// Normalize known malformed model math without changing existing math or code.
+function fixMathDelimiters(text = '') {
+  const repair = value => value.replace(/\{frac\}\s*[\[{]([^{}\[\]\n]+)[}\]]\s*[\[{]([^{}\[\]\n]+)[}\]]/g,
+    (_, a, b) => `\\frac{${a}}{${b}}`);
+  return String(text).split(/(```[\s\S]*?```|`[^`\n]*`|\$\$[\s\S]*?\$\$|\$(?:\\.|[^$\n])+\$|\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\))/g).map(part => {
+    if (part.startsWith('`')) return part;
+    if (part.startsWith('\\[')) return `\n\n$$\n${repair(part.slice(2,-2))}\n$$\n\n`;
+    if (part.startsWith('\\(')) return `$${repair(part.slice(2,-2))}$`;
+    if (part.startsWith('$')) return repair(part);
+    return repair(part).replace(/\\(?:dfrac|tfrac|frac)\s*\{(?:[^{}]|\{[^{}]*\})*\}\s*\{(?:[^{}]|\{[^{}]*\})*\}|\\sqrt(?:\[[^\]\n]*\])?\s*\{(?:[^{}]|\{[^{}]*\})*\}|\\(?:times|div|pm|leq|geq|neq|approx|cdot|infty|alpha|beta|gamma|theta|pi|sigma|delta|lambda|mu|omega)\b/g, formula => `$${formula}$`);
+  }).join('');
 }
 
 function parseQuizBlocks(content) {
-  const fixed = fixMathDelimiters(content);
+  const fixed = content;
   const parts = [];
   // Combined regex: matches either [QUIZ]...[/QUIZ] or [YOUTUBE]...[/YOUTUBE]
   const regex = /\[QUIZ\]([\s\S]*?)\[\/QUIZ\]|\[YOUTUBE\]([\s\S]*?)\[\/YOUTUBE\]/g;
   let lastIdx = 0, match;
   while ((match = regex.exec(fixed)) !== null) {
-    if (match.index > lastIdx) parts.push({ type: 'text', content: fixed.slice(lastIdx, match.index) });
+    if (match.index > lastIdx) parts.push({ type: 'text', content: fixMathDelimiters(fixed.slice(lastIdx, match.index)) });
     if (match[1] !== undefined) {
       try {
         const data = JSON.parse(match[1].trim());
@@ -52,7 +57,7 @@ function parseQuizBlocks(content) {
     }
     lastIdx = regex.lastIndex;
   }
-  if (lastIdx < fixed.length) parts.push({ type: 'text', content: fixed.slice(lastIdx) });
+  if (lastIdx < fixed.length) parts.push({ type: 'text', content: fixMathDelimiters(fixed.slice(lastIdx)) });
   return parts;
 }
 
@@ -149,9 +154,9 @@ function QuizCard({ data }) {
   );
 }
 
-function MessageBubble({ msg, isStreaming, isNios, feedbackState, onFeedback, onDetailRequest }) {
+function MessageBubble({ msg, isStreaming, isNios, feedbackState, onFeedback, onDetailRequest, onScored }) {
   const isUser = msg.role === 'user';
-  // Skip expensive parse+render while streaming — plain text only
+  // Structured blocks are parsed after the reply completes.
   const parts = (!isUser && !isStreaming) ? parseQuizBlocks(msg.content) : null;
 
   return (
@@ -167,8 +172,12 @@ function MessageBubble({ msg, isStreaming, isNios, feedbackState, onFeedback, on
           {isUser ? (
             <p className="text-white text-sm font-body leading-relaxed">{msg.content}</p>
           ) : isStreaming ? (
-            // Plain text while streaming — no markdown/KaTeX parse overhead
-            <p className="text-sm font-body leading-relaxed text-white/90 whitespace-pre-wrap streaming-cursor">{msg.content}</p>
+            <div className="markdown-content text-sm font-body streaming-cursor">
+              <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]}
+                rehypePlugins={[[rehypeKatex, { strict: false, trust: false }]]}>
+                {fixMathDelimiters(msg.content.replace(/\[CHECK\][\s\S]*$/, ''))}
+              </ReactMarkdown>
+            </div>
           ) : (
             <div className="text-sm font-body">
               {parts?.map((part, i) =>
@@ -180,7 +189,7 @@ function MessageBubble({ msg, isStreaming, isNios, feedbackState, onFeedback, on
                   <div key={`text-${i}`} className="markdown-content">
                     <ReactMarkdown
                       remarkPlugins={[remarkGfm, remarkMath]}
-                      rehypePlugins={[rehypeKatex]}
+                      rehypePlugins={[[rehypeKatex, { strict: false, trust: false }]]}
                       components={{
                         p: ({ children }) => (
                           <p className="mb-2 last:mb-0 leading-relaxed">{children}</p>
@@ -199,6 +208,8 @@ function MessageBubble({ msg, isStreaming, isNios, feedbackState, onFeedback, on
           )}
         </div>
 
+        {!isStreaming && (msg.checks || []).map(check => <TutorCheck key={check.check_id} check={check} onScored={onScored} />)}
+        {msg.stopped && <span className="text-xs text-zinc-500">Response stopped</span>}
         {/* Feedback & Detail row — only for finalised AI messages */}
         {!isUser && !isStreaming && (
           <div className="flex items-center gap-2 pl-1" data-testid="msg-actions">
@@ -400,6 +411,10 @@ export default function ChatPage() {
   const bottomRef = useRef(null);
   const streamBufferRef = useRef('');
   const rafRef = useRef(null);
+  const sendingRef = useRef(false);
+  const activeRequestRef = useRef(null);
+  const stoppedRef = useRef(false);
+  const [replyError, setReplyError] = useState('');
 
   // Cleanup RAF on unmount
   useEffect(() => () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); }, []);
@@ -426,7 +441,7 @@ export default function ChatPage() {
       // Fetch chapter mastery (fire-and-forget, non-blocking)
       if (data.session?.chapter) {
         axios.get(`${API}/quiz/topic-mastery`, {
-          params: { topic: data.session.chapter }, withCredentials: true,
+          params: { topic: data.session.chapter, subject: data.session.subject }, withCredentials: true,
         }).then(r => setChapterMastery(r.data)).catch(() => {});
       }
     } catch {
@@ -434,6 +449,17 @@ export default function ChatPage() {
       nav('/chat', { replace: true });
     }
   }, [nav]);
+
+  useEffect(() => {
+    const refreshMastery = () => {
+      if (!session?.chapter) return;
+      axios.get(`${API}/quiz/topic-mastery`, { params: { topic: session.chapter, subject: session.subject }, withCredentials: true })
+        .then(r => setChapterMastery(r.data)).catch(() => {});
+    };
+    window.addEventListener('aceit-learning-updated', refreshMastery);
+    window.addEventListener('focus', refreshMastery);
+    return () => { window.removeEventListener('aceit-learning-updated', refreshMastery); window.removeEventListener('focus', refreshMastery); };
+  }, [session?.chapter, session?.subject]);
 
   const handleCreated = (newSession) => {
     setSessions(p => [newSession, ...p]);
@@ -444,7 +470,7 @@ export default function ChatPage() {
     nav(`/chat/${newSession.session_id}`, { replace: true, state: null });
     if (newSession?.chapter) {
       axios.get(`${API}/quiz/topic-mastery`, {
-        params: { topic: newSession.chapter }, withCredentials: true,
+        params: { topic: newSession.chapter, subject: newSession.subject }, withCredentials: true,
       }).then(r => setChapterMastery(r.data)).catch(() => {});
     }
   };
@@ -463,49 +489,79 @@ export default function ChatPage() {
   }, [messages, streamingContent, streaming]);
 
   const processStream = async (res) => {
-    if (!res.ok) return;
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      const detail = body.detail;
+      throw new Error(typeof detail === 'string' ? detail : detail?.message ||
+        (res.status === 401 ? 'Your session expired. Please sign in again.' : 'The tutor request failed. Please try again.'));
+    }
+    if (!res.body) throw new Error('The tutor response was missing. Please try again.');
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
-    let buffer = '', full = '';
+    let buffer = '', full = '', finished = false;
 
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n\n');
-      buffer = lines.pop();
-      for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          try {
-            const d = JSON.parse(line.slice(6));
-            if (d.type === 'chunk') {
-              full += d.content;
-              streamBufferRef.current = full;
-              // RAF-batch: update state at most once per animation frame (~60fps)
-              if (!rafRef.current) {
-                rafRef.current = requestAnimationFrame(() => {
-                  setStreamingContent(streamBufferRef.current);
-                  rafRef.current = null;
-                });
-              }
-            }
-            if (d.type === 'done') {
-              // Flush any pending RAF before finalising
-              if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
-              setMessages(p => [...p, { role: 'assistant', content: full, timestamp: new Date().toISOString(), message_id: d.message_id }]);
-              setStreamingContent('');
-              // Show accurate credit deduction
-              if (d.credits_used) {
-                toast.success(`−${d.credits_used} credits (${d.word_count || 0} words)`, {
-                  id: 'credit-deduct', duration: 1800,
-                  style: { background: 'rgba(30,27,75,0.85)', color: '#fcd34d', border: '1px solid rgba(251,191,36,0.4)', fontSize: '13px' },
-                  icon: <Zap size={14} className="text-yellow-400" />,
-                });
-              }
-            }
-          } catch {}
+    const handleEvent = (event) => {
+      const payload = event.split('\n').filter(line => line.startsWith('data:'))
+        .map(line => line.slice(5).trimStart()).join('\n');
+      if (!payload) return;
+      let d;
+      try { d = JSON.parse(payload); }
+      catch { throw new Error('The tutor response was interrupted. Please try again.'); }
+      if (d.type === 'reset') {
+        full = ''; streamBufferRef.current = ''; setStreamingContent(''); return;
+      }
+      if (d.type === 'error') throw new Error(d.message || 'The tutor could not finish this reply. Please try again.');
+      if (d.type === 'chunk' && typeof d.content === 'string') {
+        full += d.content;
+        streamBufferRef.current = full;
+        if (!rafRef.current) {
+          rafRef.current = requestAnimationFrame(() => {
+            setStreamingContent(streamBufferRef.current);
+            rafRef.current = null;
+          });
         }
       }
+      if (d.type === 'done') {
+        if (typeof d.content === 'string') full = d.content;
+        if (!full.trim()) throw new Error('The tutor returned an empty reply. Please try again.');
+        if (finished) return;
+        finished = true;
+        if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
+        setMessages(p => [...p, { role: 'assistant', content: full,
+          timestamp: new Date().toISOString(), message_id: d.message_id, checks: d.checks || [] }]);
+        setStreamingContent('');
+        if (d.credits_used) {
+          toast.success(`−${d.credits_used} credits (${d.word_count || 0} words)`, {
+            id: 'credit-deduct', duration: 1800,
+            style: { background: 'rgba(30,27,75,0.85)', color: '#fcd34d', border: '1px solid rgba(251,191,36,0.4)', fontSize: '13px' },
+            icon: <Zap size={14} className="text-yellow-400" />,
+          });
+        }
+      }
+    };
+
+    try {
+      while (!finished) {
+        const { value, done } = await reader.read();
+        buffer += done ? decoder.decode() : decoder.decode(value, { stream: true });
+        // Normalize only after accumulating; CRLF delimiters may span chunks.
+        buffer = buffer.replace(/\r\n/g, '\n');
+        let boundary;
+        while ((boundary = buffer.indexOf('\n\n')) !== -1) {
+          const event = buffer.slice(0, boundary);
+          buffer = buffer.slice(boundary + 2);
+          handleEvent(event);
+          if (finished) break;
+        }
+        if (done) {
+          if (!finished && buffer.trim()) handleEvent(buffer);
+          break;
+        }
+      }
+      if (!finished) throw new Error('The connection ended before the tutor finished. Please try again.');
+    } finally {
+      try { await reader.cancel(); } catch {}
+      reader.releaseLock();
     }
   };
 
@@ -529,15 +585,27 @@ export default function ChatPage() {
       return true;
     } catch (e) {
       toast.dismiss(toastId);
-      const msg = e?.response?.data?.detail || 'Could not generate quiz. Try again.';
+      const detail = e?.response?.data?.detail;
+      const msg = typeof detail === 'string' ? detail : detail?.message || 'Could not generate quiz. Try again.';
       toast.error(msg);
       return false;
     }
   }, [session]);
 
+  const stopReply = () => {
+    if (!activeRequestRef.current || stoppedRef.current) return;
+    stoppedRef.current = true;
+    activeRequestRef.current.abort();
+  };
+
+  useEffect(() => () => activeRequestRef.current?.abort(), []);
+
   const sendMessage = async (forced) => {
     const text = (forced !== undefined ? forced : input).trim();
-    if (!text || streaming || !session) return;
+    if (!text || streaming || sendingRef.current || !session) return;
+    stoppedRef.current = false;
+    sendingRef.current = true;
+    setReplyError('');
     if (forced === undefined) setInput('');
 
     // Detect quiz intent → open quiz modal
@@ -545,9 +613,9 @@ export default function ChatPage() {
       const opened = await openQuizModal();
       if (opened) {
         // Only add the user message if quiz actually opened
-        await axios.post(`${API}/chat/sessions/${session.session_id}/message`,
-          { content: text }, { withCredentials: true }).catch(() => {});
+        // Quiz generation already ran: avoid an unconsumed, charged tutor request.
         setMessages(p => [...p, { role: 'user', content: text, timestamp: new Date().toISOString() }]);
+        sendingRef.current = false;
         return;
       }
       // Fallback: quiz failed — continue as normal chat message
@@ -556,11 +624,15 @@ export default function ChatPage() {
     setMessages(p => [...p, { role: 'user', content: text, timestamp: new Date().toISOString() }]);
     setStreaming(true);
     setStreamingContent('');
+    streamBufferRef.current = '';
+    const controller = new AbortController();
+    activeRequestRef.current = controller;
+    const timeout = setTimeout(() => controller.abort(), 120000);
 
     try {
       const res = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/chat/sessions/${session.session_id}/message`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        credentials: 'include', body: JSON.stringify({ content: text })
+        credentials: 'include', signal: controller.signal, body: JSON.stringify({ content: text })
       });
       if (res.status === 429) {
         // Daily limit hit — trigger upgrade modal
@@ -578,6 +650,7 @@ export default function ChatPage() {
       if (res.status === 402) {
         const body = await res.json().catch(() => ({}));
         const msg = body?.detail?.message || 'Not enough credits to send another AI message.';
+        triggerUpgrade?.({ feature: 'credits', message: msg, upgrade_to: 'pro' });
         toast.error(msg, {
           id: 'no-credits', duration: 5000,
           style: { background: 'rgba(76,5,25,0.92)', color: '#fee2e2', border: '1px solid rgba(244,63,94,0.6)' },
@@ -591,8 +664,30 @@ export default function ChatPage() {
       await processStream(res);
       refreshSub?.();
       refreshCredits?.();
-    } catch (e) { console.error(e); setStreamingContent(''); }
-    setStreaming(false);
+    } catch (e) {
+      if (stoppedRef.current) {
+        const partial = streamBufferRef.current.replace(/\[CHECK\][\s\S]*$/, '');
+        if (partial.trim()) setMessages(p => [...p, {
+          role: 'assistant', content: partial, timestamp: new Date().toISOString(), stopped: true,
+        }]);
+        toast.info('Reply stopped');
+        return;
+      }
+      console.error(e);
+      setInput(text);
+      setReplyError(e.name === 'AbortError' ? 'The tutor timed out. Retry your question.' : e.message || 'The tutor could not reply.');
+      toast.error(e.name === 'AbortError' ? 'The tutor took too long to respond. Please try again.' :
+        e.message || 'The tutor could not reply. Please try again.', { id: 'tutor-error', duration: 6000 });
+    } finally {
+      activeRequestRef.current = null;
+      sendingRef.current = false;
+      clearTimeout(timeout);
+      if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
+      streamBufferRef.current = '';
+      setStreamingContent('');
+      setStreaming(false);
+      refreshCredits?.();
+    }
   };
 
   const SUGGESTIONS = ['Explain with a simple example', 'Give me a quick quiz', 'Why does this work?', 'Summarize key points'];
@@ -623,6 +718,8 @@ export default function ChatPage() {
           onClose={() => { setQuizModal(null); refreshCredits?.(); }}
           onComplete={(results) => {
             refreshCredits?.();
+            axios.get(`${API}/quiz/topic-mastery`, { params: { topic: session.chapter, subject: session.subject }, withCredentials: true })
+              .then(r => setChapterMastery(r.data)).catch(() => {});
             // Build a message that sends the quiz results to the AI tutor for validation
             const topic = session?.chapter || session?.subject || 'this topic';
             const wrongAnswers = results.results?.filter(r => !r.correct) || [];
@@ -666,7 +763,7 @@ export default function ChatPage() {
                 ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
                 : 'bg-zinc-700/50 text-zinc-400 border-zinc-600/40'
             }`}
-            title={`Chapter mastery: ${chapterMastery.mastery_pct}%`}
+            title={`Chapter mastery: ${chapterMastery.mastery_pct}% from ${chapterMastery.attempts || 0} assessed answers. ${chapterMastery.attempts < 10 ? 'More practice gives stronger evidence.' : ''}`}
           >
             <span className="w-1.5 h-1.5 rounded-full bg-current" />
             {chapterMastery.mastery_pct}% mastery
@@ -699,6 +796,7 @@ export default function ChatPage() {
             feedbackState={feedbackMap[msg.message_id]}
             onFeedback={sendFeedback}
             onDetailRequest={() => sendMessage('Explain in detail')}
+            onScored={mastery => setChapterMastery(mastery)}
           />
         ))}
         {streaming && streamingContent && (
@@ -740,6 +838,9 @@ export default function ChatPage() {
         </div>
       )}
 
+      {replyError && <div role="alert" className="mx-4 mb-2 rounded-xl border border-amber-400/30 p-3 text-sm text-amber-200">
+        {replyError} <button onClick={() => sendMessage()} disabled={streaming} className="ml-2 underline">Retry question</button>
+      </div>}
       {/* Input */}
       <div className="p-4 border-t border-white/5 glass">
         <div className="flex gap-3 items-end">
@@ -753,12 +854,24 @@ export default function ChatPage() {
               style={{ minHeight: '44px', maxHeight: '120px' }}
             />
           </div>
-          <button onClick={() => sendMessage()} disabled={!input.trim() || streaming} data-testid="send-message-btn"
+          {streaming ? (
+            <button onClick={stopReply} data-testid="stop-response-btn" aria-label="Stop generating response" title="Stop response"
+              className="w-11 h-11 rounded-xl bg-rose-500 hover:bg-rose-400 flex items-center justify-center transition-all flex-shrink-0">
+              <Square size={16} fill="currentColor" className="text-white" />
+            </button>
+          ) : (
+          <button onClick={() => sendMessage()} disabled={!input.trim()} data-testid="send-message-btn"
             className="w-11 h-11 rounded-xl bg-cyan-500 hover:bg-cyan-400 disabled:opacity-40 flex items-center justify-center transition-all flex-shrink-0">
             <Send size={18} className="text-black" />
           </button>
+          )}
         </div>
       </div>
     </div>
   );
 }
+
+
+
+
+

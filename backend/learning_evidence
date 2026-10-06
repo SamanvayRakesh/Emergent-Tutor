@@ -1,0 +1,73 @@
+"""One curriculum-scoped source of mastery from server-scored learning evidence."""
+from collections import defaultdict
+import asyncio
+from core import db
+
+
+def learning_scope(user):
+    scope = {'user_id': user['user_id'], 'school': user.get('school'),
+             'class_level': user.get('class_level')}
+    # Old documents without course_id belong only to the existing grade-based course.
+    course = user.get('course_id')
+    scope['course_id'] = course if course else {'$exists': False}
+    return scope
+
+
+def summarize(topic, samples):
+    samples = sorted(samples, key=lambda s: s['date'], reverse=True)[:100]
+    total = sum(s['total'] for s in samples)
+    correct = sum(s['correct'] for s in samples)
+    ratio = correct / total if total else 0
+    return {'topic': topic, 'mastery': round(ratio, 3), 'mastery_pct': round(100 * ratio),
+            'attempts': total, 'correct': correct, 'confidence': min(1, total / 10),
+            'recommended_difficulty': 'easy' if ratio < .4 or total < 3 else 'hard' if ratio >= .7 else 'medium',
+            'updated_at': samples[0]['date'] if samples else None}
+
+
+async def evidence_records(user):
+    scope = learning_scope(user)
+    quizzes, checks = await asyncio.gather(
+        db.quizzes.find({**scope, 'completed': True}, {'_id': 0, 'subject': 1, 'chapter': 1, 'topic': 1, 'total_questions': 1, 'correct_count': 1, 'completed_at': 1, 'created_at': 1}).to_list(None),
+        db.tutor_checks.find({**scope, 'completed': True}, {'_id': 0, 'subject': 1, 'chapter': 1, 'is_correct': 1, 'completed_at': 1}).to_list(None),
+    )
+    groups = defaultdict(list)
+    for q in quizzes:
+        chapter = q.get('chapter') or q.get('topic')
+        total = int(q.get('total_questions', len(q.get('questions', []))) or 0)
+        if not chapter or total <= 0:
+            continue
+        groups[(q.get('subject', ''), chapter)].append({'correct': max(0, min(total, int(q.get('correct_count', 0)))),
+            'total': total, 'date': q.get('completed_at') or q.get('created_at', '')})
+    for c in checks:
+        groups[(c['subject'], c['chapter'])].append({'correct': int(bool(c.get('is_correct'))),
+            'total': 1, 'date': c.get('completed_at', '')})
+    records = []
+    for (subject, chapter), samples in groups.items():
+        measured = summarize(chapter, samples)
+        records.append({**measured, 'subject': subject, 'chapter_name': chapter,
+                        'mastery': measured['mastery_pct'], 'class_level': user.get('class_level'), 'school': user.get('school')})
+    return sorted(records, key=lambda r: r.get('updated_at') or '')
+
+
+async def chapter_mastery(user, chapter, subject=''):
+    records = await evidence_records(user)
+    matches = [r for r in records if r['topic'] == chapter and (not subject or r['subject'] == subject)]
+    if matches:
+        r = matches[0]
+        return {**r, 'mastery': r['mastery_pct'] / 100}
+    return summarize(chapter, [])
+
+
+async def learning_memory(user, subject=''):
+    records = [r for r in await evidence_records(user) if not subject or r['subject'] == subject]
+    weak = sorted([r for r in records if r['mastery_pct'] < 45], key=lambda r: r['mastery_pct'])
+    strong = sorted([r for r in records if r['mastery_pct'] >= 75 and r['attempts'] >= 3], key=lambda r: -r['mastery_pct'])
+    total = sum(r['attempts'] for r in records)
+    correct = sum(r['correct'] for r in records)
+    avg = correct / total if total else None
+    # Explicit preferences survive; measured weaknesses adjust guidance rather than inventing learning styles.
+    profile = await db.student_profiles.find_one({'user_id': user['user_id']}, {'_id': 0}) or {}
+    return {'weak_topics': [r['topic'] for r in weak[:5]], 'strong_topics': [r['topic'] for r in strong[:5]],
+            'difficulty': 'easy' if avg is not None and avg < .4 else 'hard' if avg is not None and avg >= .75 and total >= 3 else 'medium',
+            'style': profile.get('preferred_style', 'balanced'), 'learning_pace': 'normal',
+            'recent_quiz_avg': round(avg * 100) if avg is not None else None, 'topics_tracked': len(records)}

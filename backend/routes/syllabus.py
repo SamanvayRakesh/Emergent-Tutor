@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException, Request
 
 from core import db, get_current_user
 from models import ProgressUpdate
+from learning_evidence import evidence_records, chapter_mastery, learning_scope
 from cbse_data import get_classes, get_subjects, get_chapters, get_subject_meta
 from curriculum_engine import (
     get_curriculum_meta, get_verified_chapters, get_verified_book_sources,
@@ -117,7 +118,7 @@ async def get_subject_chapters(class_id: str, subject: str, request: Request):
 @router.get("/progress")
 async def get_progress(request: Request):
     user = await get_current_user(request)
-    records = await db.progress.find({"user_id": user["user_id"]}, {"_id": 0}).to_list(200)
+    records = await evidence_records(user)
 
     subject_progress = {}
     for rec in records:
@@ -144,22 +145,16 @@ async def get_progress(request: Request):
 @router.post("/progress/update")
 async def update_progress(body: ProgressUpdate, request: Request):
     user = await get_current_user(request)
-    existing = await db.progress.find_one(
-        {"user_id": user["user_id"], "chapter_id": body.chapter_id}, {"_id": 0}
-    )
+    if body.class_level != user.get("class_level"):
+        raise HTTPException(status_code=403, detail="This chapter is outside your active course.")
+    # Visiting a chapter records activity, never awards unassessed mastery.
     now = datetime.now(timezone.utc).isoformat()
-    if existing:
-        new_mastery = min(100, existing.get("mastery", 0) + body.mastery_delta)
-        await db.progress.update_one(
-            {"user_id": user["user_id"], "chapter_id": body.chapter_id},
-            {"$set": {"mastery": new_mastery, "updated_at": now}},
-        )
-    else:
-        await db.progress.insert_one({
-            "user_id": user["user_id"],
-            "class_level": body.class_level, "subject": body.subject,
-            "chapter_id": body.chapter_id, "chapter_name": body.chapter_name,
-            "mastery": min(100, body.mastery_delta),
-            "created_at": now, "updated_at": now,
-        })
-    return {"message": "Progress updated"}
+    measured = await chapter_mastery(user, body.chapter_name, body.subject)
+    scope = learning_scope(user)
+    await db.progress.update_one(
+        {**scope, "chapter_id": body.chapter_id},
+        {"$set": {"subject": body.subject, "chapter_name": body.chapter_name,
+                  "mastery": measured["mastery_pct"], "updated_at": now},
+         "$setOnInsert": {"created_at": now}}, upsert=True,
+    )
+    return {"message": "Progress updated", "mastery": measured["mastery_pct"]}

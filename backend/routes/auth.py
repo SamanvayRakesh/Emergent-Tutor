@@ -1,4 +1,12 @@
-"""Auth: JWT register/login + Google OAuth session."""
+"""Auth: JWT register/login + Google OAuth session.
+
+Production features:
+- Email quality validation (format, disposable domain, MX records)
+- Cryptographically secure token hashing (SHA-256)
+- In-memory rate limiting (per IP)
+- Password: min 6 chars + at least one special character
+- Welcome email on registration (no verification gate)
+"""
 import hashlib
 import time
 import uuid
@@ -12,28 +20,18 @@ import jwt
 from fastapi import APIRouter, HTTPException, Request, Response
 
 from core import (
-    db,
-    logger,
-    JWT_SECRET,
-    JWT_ALGORITHM,
-    hash_password,
-    verify_password,
-    create_access_token,
-    create_refresh_token,
+    db, logger, JWT_SECRET, JWT_ALGORITHM,
+    hash_password, verify_password, create_access_token, create_refresh_token,
     get_current_user,
 )
-from models import (
-    UserRegister,
-    UserLogin,
-    GoogleSessionRequest,
-    UpdateClassRequest,
-)
+from models import UserRegister, UserLogin, GoogleSessionRequest, UpdateClassRequest
 from cbse_data import get_classes
 from email_service import send_welcome_email, validate_email_quality
 from school_curriculum import SCHOOL_LIST, SCHOOLS
 
 router = APIRouter()
 
+# ── Admin email list ───────────────────────────────────────────────────────────
 ADMIN_EMAILS = {
     "taniknpoojari@gmail.com",
     "truecursemahito28@gmail.com",
@@ -43,8 +41,11 @@ ADMIN_EMAILS = {
 
 @router.get("/auth/schools")
 async def list_schools():
+    """Public endpoint — returns all schools for the signup dropdown."""
     return {"schools": SCHOOL_LIST}
 
+
+# ── Password validation ────────────────────────────────────────────────────────
 
 SPECIAL_CHARS = r"[!@#$%^&*()_+\-=\[\]{};':\"\\|,.<>\/?`~]"
 
@@ -54,14 +55,15 @@ def validate_password(password: str) -> tuple[bool, str]:
         return False, "Password must be at least 6 characters long."
 
     if not re.search(SPECIAL_CHARS, password):
-        return (
-            False,
+        return False, (
             "Password must contain at least one special character "
-            "(e.g. @, #, !, $).",
+            "(e.g. @, #, !, $)."
         )
 
     return True, ""
 
+
+# ── In-memory rate limiter ─────────────────────────────────────────────────────
 
 _rate_store: dict = defaultdict(list)
 
@@ -75,9 +77,8 @@ def _check_rate_limit(
     cutoff = now - window_seconds
 
     _rate_store[key] = [
-        timestamp
-        for timestamp in _rate_store[key]
-        if timestamp > cutoff
+        t for t in _rate_store[key]
+        if t > cutoff
     ]
 
     if len(_rate_store[key]) >= max_calls:
@@ -88,26 +89,41 @@ def _check_rate_limit(
 
 
 def _get_client_ip(request: Request) -> str:
-    forwarded = request.headers.get("X-Forwarded-For", "")
+    forwarded = request.headers.get(
+        "X-Forwarded-For",
+        "",
+    )
 
     if forwarded:
         return forwarded.split(",")[0].strip()
 
-    return request.client.host if request.client else "unknown"
+    return (
+        request.client.host
+        if request.client
+        else "unknown"
+    )
 
+
+# ── Token helpers ─────────────────────────────────────────────────────────────
 
 def _hash_token(token: str) -> str:
-    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+    return hashlib.sha256(
+        token.encode("utf-8")
+    ).hexdigest()
 
+
+# ── Cookie / user helpers ─────────────────────────────────────────────────────
 
 def _set_auth_cookies(
     response: Response,
     user_id: str,
     email: str,
 ):
+    access_token = create_access_token(user_id, email)
+    refresh_token = create_refresh_token(user_id)
     response.set_cookie(
         "access_token",
-        create_access_token(user_id, email),
+        access_token,
         httponly=True,
         secure=False,
         samesite="lax",
@@ -117,13 +133,16 @@ def _set_auth_cookies(
 
     response.set_cookie(
         "refresh_token",
-        create_refresh_token(user_id),
+        refresh_token,
         httponly=True,
         secure=False,
         samesite="lax",
         max_age=604800,
         path="/",
     )
+
+    response.headers["X-Auth-Token"] = access_token
+    response.headers["X-Refresh-Token"] = refresh_token
 
 
 def _strip_sensitive(user: dict) -> dict:
@@ -140,40 +159,22 @@ def _strip_sensitive(user: dict) -> dict:
 
 
 def get_signup_school_fields(school_id, class_level=None):
-    """Shared school-saving logic for email signup and the existing modal."""
+    """Use the same existing school/curriculum fields for both signup paths."""
     if not school_id:
-        return {
-            "school": None,
-            "class_level": class_level,
-        }
-
+        return {"school": None, "class_level": class_level}
     school = SCHOOLS.get(school_id)
-
     if not school:
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid school selection",
-        )
-
+        raise HTTPException(status_code=400, detail="Invalid school selection")
     grades = school.get("available_grades", [])
-
-    selected_level = (
-        str(grades[0])
-        if len(grades) == 1
-        else str(class_level or "")
-    )
-
+    # These schools currently have one supported curriculum each.
+    # Read its existing key from the registry instead of using Google's default.
+    selected_level = str(grades[0]) if len(grades) == 1 else str(class_level or "")
     if selected_level not in school.get("curriculum", {}):
-        raise HTTPException(
-            status_code=400,
-            detail="This school's curriculum is not available yet",
-        )
+        raise HTTPException(status_code=400, detail="This school's curriculum is not available yet")
+    return {"school": school_id, "class_level": selected_level}
 
-    return {
-        "school": school_id,
-        "class_level": selected_level,
-    }
 
+# ── Register ──────────────────────────────────────────────────────────────────
 
 @router.post("/auth/register")
 async def register(
@@ -182,52 +183,86 @@ async def register(
     response: Response,
 ):
     client_ip = _get_client_ip(request)
+
     email = body.email.lower().strip()
 
-    is_valid, reason = await validate_email_quality(email)
+    # Email quality validation
+    is_valid, reason = await validate_email_quality(
+        email
+    )
 
     if not is_valid:
-        raise HTTPException(status_code=422, detail=reason)
+        raise HTTPException(
+            status_code=422,
+            detail=reason,
+        )
 
-    pw_ok, pw_reason = validate_password(body.password)
+    # Password strength check
+    pw_ok, pw_reason = validate_password(
+        body.password
+    )
 
     if not pw_ok:
-        raise HTTPException(status_code=422, detail=pw_reason)
+        raise HTTPException(
+            status_code=422,
+            detail=pw_reason,
+        )
 
-    if not _check_rate_limit(f"register:{client_ip}", 5, 3600):
+    # Rate limit
+    if not _check_rate_limit(
+        f"register:{client_ip}",
+        5,
+        3600,
+    ):
         raise HTTPException(
             status_code=429,
             detail=(
-                "Too many registration attempts from this IP. "
-                "Please try again later."
+                "Too many registration attempts "
+                "from this IP. Please try again later."
             ),
         )
 
+    # Duplicate check
     existing = await db.users.find_one(
-        {"email": email},
-        {"_id": 0, "user_id": 1},
+        {
+            "email": email
+        },
+        {
+            "_id": 0,
+            "user_id": 1,
+        },
     )
 
     if existing:
         raise HTTPException(
             status_code=400,
-            detail="An account with this email already exists.",
+            detail=(
+                "An account with this email "
+                "already exists."
+            ),
         )
 
-    user_id = f"user_{uuid.uuid4().hex[:12]}"
-    now = datetime.now(timezone.utc)
-    role = "admin" if email in ADMIN_EMAILS else "student"
-
-    school_fields = get_signup_school_fields(
-        body.school,
-        body.class_level or "9",
+    user_id = (
+        f"user_{uuid.uuid4().hex[:12]}"
     )
+
+    now = datetime.now(timezone.utc)
+
+    role = (
+        "admin"
+        if email in ADMIN_EMAILS
+        else "student"
+    )
+
+    school_fields = get_signup_school_fields(body.school, body.class_level or "9")
 
     user_doc = {
         "user_id": user_id,
         "email": email,
         "name": body.name,
-        "password_hash": hash_password(body.password),
+        "password_hash": hash_password(
+            body.password
+        ),
         "role": role,
         "avatar": None,
         "xp": 0,
@@ -235,7 +270,9 @@ async def register(
         "streak": 0,
         "longest_streak": 0,
         "last_active": now.isoformat(),
+
         **school_fields,
+
         "achievements": [],
         "created_at": now.isoformat(),
         "auth_type": "jwt",
@@ -247,20 +284,40 @@ async def register(
         "is_tutorial_seen": False,
     }
 
-    await db.users.insert_one(user_doc)
+    await db.users.insert_one(
+        user_doc
+    )
 
+    # Send welcome email
     import asyncio
 
-    asyncio.create_task(send_welcome_email(email, body.name))
+    asyncio.create_task(
+        send_welcome_email(
+            email,
+            body.name,
+        )
+    )
 
-    _set_auth_cookies(response, user_id, email)
-    user_doc = _strip_sensitive(user_doc)
+    _set_auth_cookies(
+        response,
+        user_id,
+        email,
+    )
+
+    user_doc = _strip_sensitive(
+        user_doc
+    )
 
     return {
         **user_doc,
-        "message": "Account created successfully! Welcome to AceIt AI.",
+        "message": (
+            "Account created successfully! "
+            "Welcome to AceIt AI."
+        ),
     }
 
+
+# ── Login ─────────────────────────────────────────────────────────────────────
 
 @router.post("/auth/login")
 async def login(
@@ -270,17 +327,28 @@ async def login(
 ):
     client_ip = _get_client_ip(request)
 
-    if not _check_rate_limit(f"login:{client_ip}", 10, 3600):
+    if not _check_rate_limit(
+        f"login:{client_ip}",
+        10,
+        3600,
+    ):
         raise HTTPException(
             status_code=429,
-            detail="Too many login attempts. Please try again later.",
+            detail=(
+                "Too many login attempts. "
+                "Please try again later."
+            ),
         )
 
     email = body.email.lower().strip()
 
     user = await db.users.find_one(
-        {"email": email},
-        {"_id": 0},
+        {
+            "email": email
+        },
+        {
+            "_id": 0
+        },
     )
 
     if not user:
@@ -289,6 +357,7 @@ async def login(
             detail="Invalid email or password",
         )
 
+    # Google-only accounts
     if (
         not user.get("password_hash")
         and user.get("auth_type") == "google"
@@ -296,8 +365,10 @@ async def login(
         raise HTTPException(
             status_code=401,
             detail=(
-                "This account was created with Google Sign-In. "
-                "Please use the 'Continue with Google' button to log in."
+                "This account was created with "
+                "Google Sign-In. Please use the "
+                "'Continue with Google' button "
+                "to log in."
             ),
         )
 
@@ -313,65 +384,107 @@ async def login(
             detail="Invalid email or password",
         )
 
-    if email in ADMIN_EMAILS and user.get("role") != "admin":
+    # Ensure admin status is up-to-date
+    if (
+        email in ADMIN_EMAILS
+        and user.get("role") != "admin"
+    ):
         await db.users.update_one(
-            {"user_id": user["user_id"]},
-            {"$set": {"role": "admin"}},
+            {
+                "user_id": user["user_id"]
+            },
+            {
+                "$set": {
+                    "role": "admin"
+                }
+            },
         )
+
         user["role"] = "admin"
 
+    # Admin lifetime Pro
     if email in ADMIN_EMAILS:
         far_future = (
-            datetime.now(timezone.utc) + timedelta(days=36500)
+            datetime.now(timezone.utc)
+            + timedelta(days=36500)
         ).isoformat()
 
         await db.subscriptions.update_one(
-            {"user_id": user["user_id"]},
+            {
+                "user_id": user["user_id"]
+            },
             {
                 "$set": {
                     "plan": "pro",
                     "status": "active",
                     "billing_cycle": "lifetime",
                     "expires_at": far_future,
-                    "started_at": datetime.now(timezone.utc).isoformat(),
+                    "started_at": datetime.now(
+                        timezone.utc
+                    ).isoformat(),
                     "user_id": user["user_id"],
                 }
             },
             upsert=True,
         )
 
-    now = datetime.now(timezone.utc)
-    streak = user.get("streak", 0)
-    last_active_str = user.get("last_active", "")
+    now = datetime.now(
+        timezone.utc
+    )
+
+    streak = user.get(
+        "streak",
+        0,
+    )
+
+    last_active_str = user.get(
+        "last_active",
+        "",
+    )
 
     if last_active_str:
         try:
-            last_active = datetime.fromisoformat(last_active_str)
+            la = datetime.fromisoformat(
+                last_active_str
+            )
 
-            if last_active.tzinfo is None:
-                last_active = last_active.replace(tzinfo=timezone.utc)
+            if la.tzinfo is None:
+                la = la.replace(
+                    tzinfo=timezone.utc
+                )
 
-            difference = (now.date() - last_active.date()).days
+            diff = (
+                now.date()
+                - la.date()
+            ).days
 
             streak = (
                 streak + 1
-                if difference == 1
-                else 1
-                if difference > 1
-                else streak
+                if diff == 1
+                else (
+                    1
+                    if diff > 1
+                    else streak
+                )
             )
+
         except Exception:
             streak = 1
 
     await db.users.update_one(
-        {"user_id": user["user_id"]},
+        {
+            "user_id": user["user_id"]
+        },
         {
             "$set": {
                 "last_active": now.isoformat(),
                 "streak": streak,
                 "longest_streak": max(
                     streak,
-                    user.get("longest_streak", 0),
+                    user.get(
+                        "longest_streak",
+                        0,
+                    ),
                 ),
                 "is_verified": True,
                 "status": "active",
@@ -379,41 +492,85 @@ async def login(
         },
     )
 
+    # Safety normalization:
+    # Any NIOS user is always Class 10.
     if user.get("school") == "nios":
-        if str(user.get("class_level")) != "10":
+        if str(
+            user.get("class_level")
+        ) != "10":
             await db.users.update_one(
-                {"user_id": user["user_id"]},
-                {"$set": {"class_level": "10"}},
+                {
+                    "user_id": user["user_id"]
+                },
+                {
+                    "$set": {
+                        "class_level": "10"
+                    }
+                },
             )
+
             user["class_level"] = "10"
 
-    _set_auth_cookies(response, user["user_id"], email)
-    user = _strip_sensitive(user)
+    _set_auth_cookies(
+        response,
+        user["user_id"],
+        email,
+    )
+
+    user = _strip_sensitive(
+        user
+    )
+
     user["streak"] = streak
 
     return user
 
 
+# ── Verify email ──────────────────────────────────────────────────────────────
+
 @router.get("/auth/verify-email")
-async def verify_email(token: str):
+async def verify_email(
+    token: str,
+):
     return {
         "success": True,
-        "message": "Account is active. Please log in.",
+        "message": (
+            "Account is active. "
+            "Please log in."
+        ),
     }
 
 
-@router.post("/auth/logout")
-async def logout(response: Response):
-    response.delete_cookie("access_token")
-    response.delete_cookie("refresh_token")
-    response.delete_cookie("session_token")
+# ── Standard auth ─────────────────────────────────────────────────────────────
 
-    return {"message": "Logged out successfully"}
+@router.post("/auth/logout")
+async def logout(
+    response: Response,
+):
+    response.delete_cookie(
+        "access_token"
+    )
+
+    response.delete_cookie(
+        "refresh_token"
+    )
+
+    response.delete_cookie(
+        "session_token"
+    )
+
+    return {
+        "message": "Logged out successfully"
+    }
 
 
 @router.get("/auth/me")
-async def get_me(request: Request):
-    return await get_current_user(request)
+async def get_me(
+    request: Request,
+):
+    return await get_current_user(
+        request
+    )
 
 
 @router.post("/auth/refresh")
@@ -421,7 +578,9 @@ async def refresh_token(
     request: Request,
     response: Response,
 ):
-    token = request.cookies.get("refresh_token")
+    token = request.cookies.get(
+        "refresh_token"
+    )
 
     if not token:
         raise HTTPException(
@@ -433,7 +592,9 @@ async def refresh_token(
         payload = jwt.decode(
             token,
             JWT_SECRET,
-            algorithms=[JWT_ALGORITHM],
+            algorithms=[
+                JWT_ALGORITHM
+            ],
         )
 
         if payload.get("type") != "refresh":
@@ -443,8 +604,12 @@ async def refresh_token(
             )
 
         user = await db.users.find_one(
-            {"user_id": payload["sub"]},
-            {"_id": 0},
+            {
+                "user_id": payload["sub"]
+            },
+            {
+                "_id": 0
+            },
         )
 
         if not user:
@@ -453,9 +618,10 @@ async def refresh_token(
                 detail="User not found",
             )
 
+        access_token = create_access_token(payload["sub"], user["email"])
         response.set_cookie(
             "access_token",
-            create_access_token(payload["sub"], user["email"]),
+            access_token,
             httponly=True,
             secure=False,
             samesite="lax",
@@ -463,7 +629,12 @@ async def refresh_token(
             path="/",
         )
 
-        return {"message": "Token refreshed"}
+        response.headers["X-Auth-Token"] = access_token
+        response.headers["X-Refresh-Token"] = token
+
+        return {
+            "message": "Token refreshed"
+        }
 
     except jwt.ExpiredSignatureError:
         raise HTTPException(
@@ -472,62 +643,111 @@ async def refresh_token(
         )
 
 
+# ── Google OAuth ──────────────────────────────────────────────────────────────
+
 @router.post("/google-auth/session")
 async def google_session(
     body: GoogleSessionRequest,
     response: Response,
 ):
-    async with httpx.AsyncClient() as client:
-        result = await client.get(
-            "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data",
-            headers={"X-Session-ID": body.session_id},
-        )
-
-        if result.status_code != 200:
-            raise HTTPException(
-                status_code=400,
-                detail="Invalid session",
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(12.0, connect=5.0)) as client:
+            resp = await client.get(
+                "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data",
+                headers={"X-Session-ID": body.session_id},
             )
+            if resp.status_code >= 500:
+                raise HTTPException(status_code=503, detail="Google sign-in service is temporarily unavailable")
+            if resp.status_code != 200:
+                raise HTTPException(status_code=400, detail="Invalid or expired Google session. Please sign in again.")
+            data = resp.json()
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=504, detail="Google sign-in service timed out. Please sign in again.")
+    except (httpx.RequestError, ValueError):
+        raise HTTPException(status_code=502, detail="Google sign-in service could not be reached")
+    if not isinstance(data, dict) or not isinstance(data.get("email"), str) or not data["email"].strip():
+        raise HTTPException(status_code=502, detail="Google sign-in service returned an invalid account")
 
-        data = result.json()
-
-    email = data.get("email", "").lower().strip()
-
-    existing = await db.users.find_one(
-        {"email": email},
-        {"_id": 0},
+    email = (
+        data.get("email", "")
+        .lower()
+        .strip()
     )
 
-    role = "admin" if email in ADMIN_EMAILS else "student"
+    existing = await db.users.find_one(
+        {
+            "email": email
+        },
+        {
+            "_id": 0
+        },
+    )
+
+    role = (
+        "admin"
+        if email in ADMIN_EMAILS
+        else "student"
+    )
 
     if existing:
-        user_id = existing["user_id"]
-        now = datetime.now(timezone.utc)
-        streak = existing.get("streak", 0)
-        last_active_str = existing.get("last_active", "")
+        user_id = existing[
+            "user_id"
+        ]
+
+        now = datetime.now(
+            timezone.utc
+        )
+
+        streak = existing.get(
+            "streak",
+            0,
+        )
+
+        last_active_str = existing.get(
+            "last_active",
+            "",
+        )
 
         if last_active_str:
             try:
-                last_active = datetime.fromisoformat(last_active_str)
+                la = datetime.fromisoformat(
+                    last_active_str
+                )
 
-                if last_active.tzinfo is None:
-                    last_active = last_active.replace(tzinfo=timezone.utc)
+                if la.tzinfo is None:
+                    la = la.replace(
+                        tzinfo=timezone.utc
+                    )
 
-                difference = (now.date() - last_active.date()).days
+                diff = (
+                    now.date()
+                    - la.date()
+                ).days
 
                 streak = (
                     streak + 1
-                    if difference == 1
-                    else 1
-                    if difference > 1
-                    else streak
+                    if diff == 1
+                    else (
+                        1
+                        if diff > 1
+                        else streak
+                    )
                 )
+
             except Exception:
                 pass
 
         update_data = {
-            "name": data.get("name", existing.get("name", email)),
-            "avatar": data.get("picture"),
+            "name": data.get(
+                "name",
+                existing.get(
+                    "name",
+                    email,
+                ),
+            ),
+            "avatar": data.get(
+                "picture"
+            ),
             "last_active": now.isoformat(),
             "streak": streak,
             "is_verified": True,
@@ -537,38 +757,51 @@ async def google_session(
         }
 
         if existing.get("school"):
-            update_data.update(
-                get_signup_school_fields(
-                    existing["school"],
-                    existing.get("class_level"),
-                )
-            )
+            update_data.update(get_signup_school_fields(
+                existing["school"], existing.get("class_level")
+            ))
 
         await db.users.update_one(
-            {"user_id": user_id},
-            {"$set": update_data},
+            {
+                "user_id": user_id
+            },
+            {
+                "$set": update_data
+            },
         )
 
     else:
-        user_id = f"user_{uuid.uuid4().hex[:12]}"
-        now_iso = datetime.now(timezone.utc).isoformat()
+        user_id = (
+            f"user_{uuid.uuid4().hex[:12]}"
+        )
 
-        # The existing school modal completes school selection.
+        now_iso = datetime.now(
+            timezone.utc
+        ).isoformat()
+
+        # The existing school modal completes the school part of signup.
         await db.users.insert_one(
             {
                 "user_id": user_id,
                 "email": email,
-                "name": data.get("name", email),
-                "avatar": data.get("picture"),
+                "name": data.get(
+                    "name",
+                    email,
+                ),
+                "avatar": data.get(
+                    "picture"
+                ),
                 "role": role,
                 "xp": 0,
                 "level": 1,
                 "streak": 1,
                 "longest_streak": 1,
                 "last_active": now_iso,
+
                 "class_level": None,
                 "school": None,
                 "is_onboarded": False,
+
                 "achievements": [],
                 "created_at": now_iso,
                 "auth_type": "google",
@@ -581,15 +814,23 @@ async def google_session(
             }
         )
 
-    session_token = secrets.token_urlsafe(32)
-    expires_at = datetime.now(timezone.utc) + timedelta(days=7)
+    session_token = secrets.token_urlsafe(
+        32
+    )
+
+    expires_at = (
+        datetime.now(timezone.utc)
+        + timedelta(days=7)
+    )
 
     await db.user_sessions.insert_one(
         {
             "user_id": user_id,
             "session_token": session_token,
             "expires_at": expires_at.isoformat(),
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(
+                timezone.utc
+            ).isoformat(),
         }
     )
 
@@ -603,39 +844,70 @@ async def google_session(
         path="/",
     )
 
+    # Native clients receive JWTs; the existing Google session cookie stays intact.
+    response.headers["X-Auth-Token"] = create_access_token(user_id, email)
+    response.headers["X-Refresh-Token"] = create_refresh_token(user_id)
+
     user = await db.users.find_one(
-        {"user_id": user_id},
-        {"_id": 0},
+        {
+            "user_id": user_id
+        },
+        {
+            "_id": 0
+        },
     )
 
-    return _strip_sensitive(user)
+    return _strip_sensitive(
+        user
+    )
 
+
+# ── Google logout ─────────────────────────────────────────────────────────────
 
 @router.post("/google-auth/logout")
 async def google_logout(
     request: Request,
     response: Response,
 ):
-    session_token = request.cookies.get("session_token")
+    session_token = request.cookies.get(
+        "session_token"
+    )
 
     if session_token:
         await db.user_sessions.delete_one(
-            {"session_token": session_token}
+            {
+                "session_token":
+                    session_token
+            }
         )
 
-    response.delete_cookie("session_token")
-    response.delete_cookie("access_token")
-    response.delete_cookie("refresh_token")
+    response.delete_cookie(
+        "session_token"
+    )
 
-    return {"message": "Logged out"}
+    response.delete_cookie(
+        "access_token"
+    )
 
+    response.delete_cookie(
+        "refresh_token"
+    )
+
+    return {
+        "message": "Logged out"
+    }
+
+
+# ── Class update ──────────────────────────────────────────────────────────────
 
 @router.put("/users/class")
 async def update_class(
     body: UpdateClassRequest,
     request: Request,
 ):
-    user = await get_current_user(request)
+    user = await get_current_user(
+        request
+    )
 
     if body.class_level not in get_classes():
         raise HTTPException(
@@ -645,126 +917,190 @@ async def update_class(
 
     await db.grade_change_requests.insert_one(
         {
-            "request_id": f"gcr_{uuid.uuid4().hex[:10]}",
+            "request_id": (
+                f"gcr_{uuid.uuid4().hex[:10]}"
+            ),
             "user_id": user["user_id"],
-            "user_name": user.get("name", ""),
-            "user_email": user.get("email", ""),
-            "old_class": user.get("class_level", ""),
+            "user_name": user.get(
+                "name",
+                "",
+            ),
+            "user_email": user.get(
+                "email",
+                "",
+            ),
+            "old_class": user.get(
+                "class_level",
+                "",
+            ),
             "new_class": body.class_level,
             "status": "approved",
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(
+                timezone.utc
+            ).isoformat(),
         }
     )
 
     await db.users.update_one(
-        {"user_id": user["user_id"]},
-        {"$set": {"class_level": body.class_level}},
+        {
+            "user_id": user["user_id"]
+        },
+        {
+            "$set": {
+                "class_level":
+                    body.class_level
+            }
+        },
     )
 
     return {
         "message": "Class updated",
-        "class_level": body.class_level,
+        "class_level":
+            body.class_level,
     }
 
 
+# ── School update ─────────────────────────────────────────────────────────────
+
 @router.put("/users/school")
-async def update_school(
-    request: Request,
-    body: dict,
-):
+async def update_school(request: Request, body: dict):
     user = await get_current_user(request)
     school_id = str(body.get("school") or "").strip()
-
     if not school_id:
-        raise HTTPException(
-            status_code=400,
-            detail="School is required",
-        )
-
-    school_fields = get_signup_school_fields(
-        school_id,
-        user.get("class_level"),
-    )
-
+        raise HTTPException(status_code=400, detail="School is required")
+    school_fields = get_signup_school_fields(school_id, user.get("class_level"))
     await db.users.update_one(
         {"user_id": user["user_id"]},
         {"$set": school_fields},
     )
+    return {"message": "School and curriculum updated", **school_fields}
+
+
+# ── Tutorial ──────────────────────────────────────────────────────────────────
+
+@router.patch("/auth/tutorial/seen")
+async def mark_tutorial_seen(
+    request: Request,
+):
+    """Mark tutorial as seen in DB."""
+    user = await get_current_user(
+        request
+    )
+
+    await db.users.update_one(
+        {
+            "user_id":
+                user["user_id"]
+        },
+        {
+            "$set": {
+                "is_tutorial_seen":
+                    True
+            }
+        },
+    )
 
     return {
-        "message": "School and curriculum updated",
-        **school_fields,
+        "success": True
     }
 
 
-@router.patch("/auth/tutorial/seen")
-async def mark_tutorial_seen(request: Request):
-    user = await get_current_user(request)
-
-    await db.users.update_one(
-        {"user_id": user["user_id"]},
-        {"$set": {"is_tutorial_seen": True}},
-    )
-
-    return {"success": True}
-
+# ── Update display name ───────────────────────────────────────────────────────
 
 @router.put("/auth/update-name")
-async def update_display_name(request: Request):
-    user = await get_current_user(request)
-    body = await request.json()
-    new_name = (body.get("name") or "").strip()
+async def update_display_name(
+    request: Request,
+):
+    user = await get_current_user(
+        request
+    )
 
-    if not new_name or len(new_name) < 2:
+    body = await request.json()
+
+    new_name = (
+        body.get("name")
+        or ""
+    ).strip()
+
+    if not new_name or len(
+        new_name
+    ) < 2:
         raise HTTPException(
             status_code=400,
-            detail="Name must be at least 2 characters.",
+            detail=(
+                "Name must be at least "
+                "2 characters."
+            ),
         )
 
     if len(new_name) > 40:
         raise HTTPException(
             status_code=400,
-            detail="Name must be 40 characters or fewer.",
+            detail=(
+                "Name must be 40 characters "
+                "or fewer."
+            ),
         )
 
-    document = await db.users.find_one(
-        {"user_id": user["user_id"]},
-        {"name_changed_at": 1, "_id": 0},
+    doc = await db.users.find_one(
+        {
+            "user_id":
+                user["user_id"]
+        },
+        {
+            "name_changed_at": 1,
+            "_id": 0,
+        },
     )
 
-    if document and document.get("name_changed_at"):
+    if doc and doc.get(
+        "name_changed_at"
+    ):
         try:
-            last_change = datetime.fromisoformat(
-                document["name_changed_at"]
+            last = datetime.fromisoformat(
+                doc["name_changed_at"]
             )
 
-            if last_change.tzinfo is None:
-                last_change = last_change.replace(tzinfo=timezone.utc)
+            if last.tzinfo is None:
+                last = last.replace(
+                    tzinfo=timezone.utc
+                )
 
-            difference = datetime.now(timezone.utc) - last_change
+            delta = (
+                datetime.now(timezone.utc)
+                - last
+            )
 
-            if difference.days < 7:
-                days_left = 7 - difference.days
+            if delta.days < 7:
+                days_left = 7 - delta.days
 
                 raise HTTPException(
                     status_code=429,
                     detail=(
-                        f"You can change your name again in {days_left} "
-                        f"day{'s' if days_left != 1 else ''}."
+                        f"You can change your name "
+                        f"again in {days_left} day"
+                        f"{'s' if days_left != 1 else ''}."
                     ),
                 )
 
         except HTTPException:
             raise
+
         except Exception:
             pass
 
     await db.users.update_one(
-        {"user_id": user["user_id"]},
+        {
+            "user_id":
+                user["user_id"]
+        },
         {
             "$set": {
                 "name": new_name,
-                "name_changed_at": datetime.now(timezone.utc).isoformat(),
+                "name_changed_at":
+                    datetime.now(
+                        timezone.utc
+                    ).isoformat(),
             }
         },
     )
@@ -773,3 +1109,5 @@ async def update_display_name(request: Request):
         "success": True,
         "name": new_name,
     }
+
+
