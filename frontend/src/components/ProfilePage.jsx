@@ -14,6 +14,7 @@ const COMING_SOON_GRADES = ['7', '9'];
 
 export default function ProfilePage() {
   const { user, setUser } = useAuth();
+  const isNios = user?.school === 'nios';
   const { plan } = useSubscription();
   const nav = useNavigate();
   const [selectedClass, setSelectedClass] = useState(user?.class_level || '9');
@@ -28,8 +29,8 @@ export default function ProfilePage() {
   const [cancelLoading, setCancelLoading] = useState(false);
   const [credits, setCredits]             = useState(user?.credits || 0);
   const appealableClasses = useMemo(
-    () => CLASSES.filter(c => c !== user?.class_level && !COMING_SOON_GRADES.includes(c)),
-    [user?.class_level],
+    () => isNios ? [] : CLASSES.filter(c => c !== user?.class_level && !COMING_SOON_GRADES.includes(c)),
+    [isNios, user?.class_level],
   );
 
   // Name editing
@@ -39,13 +40,15 @@ export default function ProfilePage() {
   const [nameCooldown, setNameCooldown]   = useState(null); // days remaining
 
   useEffect(() => {
+    if (!isNios) {
     axios.get(`${API}/users/grade-status`, { withCredentials: true })
       .then(r => setGradeStatus(r.data)).catch((e) => { console.warn('Grade status fetch failed:', e); });
     axios.get(`${API}/users/grade-appeal`, { withCredentials: true })
       .then(r => setAppealResult(r.data.request)).catch((e) => { console.warn('Grade appeal fetch failed:', e); });
+    }
     axios.get(`${API}/credits`, { withCredentials: true })
       .then(r => setCredits(r.data?.credits ?? user?.credits ?? 0)).catch((e) => { console.warn('Credits fetch failed:', e); });
-  }, []);
+  }, [isNios]);
 
   const handleSaveName = async () => {
     if (!nameInput.trim() || nameInput.trim() === user?.name) { setEditingName(false); return; }
@@ -88,7 +91,7 @@ export default function ProfilePage() {
   const daysRemaining = gradeStatus?.days_remaining || 0;
 
   const handleSaveClass = async () => {
-    if (selectedClass === user?.class_level) return;
+    if (isNios || selectedClass === user?.class_level) return;
     setSaving(true); setErrorMsg('');
     try {
       await axios.put(`${API}/users/grade`, { class_level: selectedClass }, { withCredentials: true });
@@ -105,7 +108,7 @@ export default function ProfilePage() {
   };
 
   const submitAppeal = async () => {
-    if (!appealForm.desired_class || appealForm.reason.trim().length < 10) return;
+    if (isNios || !appealForm.desired_class || appealForm.reason.trim().length < 10) return;
     setAppealSubmitting(true);
     try {
       const r = await axios.post(`${API}/users/grade-appeal`, appealForm, { withCredentials: true });
@@ -120,6 +123,7 @@ export default function ProfilePage() {
 
   // School display name helper
   const SCHOOL_NAMES = {
+    'nios': 'NIOS — National Institute of Open Schooling',
     'brooklyn_national': 'Brooklyn National Public School',
     'national_public':   'National Public School',
   };
@@ -228,7 +232,36 @@ export default function ProfilePage() {
         ))}
       </div>
 
-      {/* Academic Grade */}
+      {/* NIOS courses; existing grade controls remain for other schools. */}
+      {isNios ? (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="glass-surface rounded-2xl p-5 border border-white/5"
+          data-testid="course-section">
+          <h3 className="text-white font-heading font-bold mb-1 flex items-center gap-2">
+            <BookOpen size={18} className="text-cyan-400" /> Course change
+          </h3>
+          <p className="text-zinc-500 text-xs font-body mb-3">
+            Your course determines your syllabus, quizzes, and AI tutoring material.
+          </p>
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-3 p-4 rounded-xl border border-cyan-500/40 bg-cyan-500/10"
+              data-testid="course-secondary">
+              <span className="text-white text-sm font-heading font-bold">Secondary Course</span>
+              <span className="text-cyan-300 text-xs font-body">Current course</span>
+            </div>
+            <button type="button" disabled data-testid="course-senior-secondary"
+              className="w-full flex items-center justify-between gap-3 p-4 rounded-xl border border-white/10 bg-zinc-900/50 text-left cursor-not-allowed"
+              title="Senior Secondary is coming soon">
+              <span className="text-zinc-400 text-sm font-heading font-bold">Senior Secondary</span>
+              <span className="text-zinc-400 text-xs font-body bg-zinc-800 px-2 py-1 rounded-full">Coming soon</span>
+            </button>
+          </div>
+          <p className="text-zinc-500 text-xs font-body mt-3">
+            Course changes will be available when Senior Secondary launches.
+          </p>
+        </motion.div>
+      ) : (
       <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
         className="glass-surface rounded-2xl p-5 border border-white/5" data-testid="grade-section">
         <h3 className="text-white font-heading font-bold mb-1 flex items-center gap-2">
@@ -282,9 +315,11 @@ export default function ProfilePage() {
         )}
       </motion.div>
 
+      )}
+
       {/* Appeal Modal */}
       <AnimatePresence>
-        {appealOpen && (
+        {!isNios && appealOpen && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md"
             data-testid="appeal-modal">
@@ -327,7 +362,7 @@ export default function ProfilePage() {
       </AnimatePresence>
 
       {/* Appeal Result Banner */}
-      {appealResult && appealResult.status === 'pending' && (
+      {!isNios && appealResult && appealResult.status === 'pending' && (
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
           className="rounded-2xl p-4 border border-blue-400/30 bg-blue-500/10" data-testid="appeal-status-banner">
           <div className="flex items-start gap-3">
@@ -440,3 +475,4 @@ export default function ProfilePage() {
     </div>
   );
 }
+

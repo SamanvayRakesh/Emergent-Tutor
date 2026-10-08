@@ -16,7 +16,6 @@ ALLOWED_ORIGINS = list({
     FRONTEND_URL,
     "http://localhost:3000",
     "https://ace-it.in",
-    "https://www.ace-it.in",
     *[o.strip() for o in _extra.split(',') if o.strip() and o.strip() != '*'],
 })
 
@@ -62,25 +61,8 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
-    expose_headers=["X-Auth-Token", "X-Refresh-Token"],
 )
 app.include_router(api_router)
-
-
-async def ensure_learning_indexes():
-    """Build learning indexes without making authentication depend on a migration."""
-    specs = [
-        (db.quizzes, "quiz evidence", [("user_id", 1), ("school", 1), ("class_level", 1), ("completed", 1)], {}),
-        (db.tutor_checks, "tutor check IDs", "check_id", {"unique": True}),
-        (db.tutor_checks, "tutor evidence", [("user_id", 1), ("school", 1), ("class_level", 1), ("completed", 1)], {}),
-    ]
-    for collection, label, keys, options in specs:
-        try:
-            await asyncio.wait_for(collection.create_index(keys, **options), timeout=10)
-        except asyncio.TimeoutError:
-            logger.warning("Learning index setup timed out (%s); authentication remains available", label)
-        except Exception:
-            logger.exception("Learning index setup failed (%s); authentication remains available", label)
 
 
 @app.on_event("startup")
@@ -106,7 +88,6 @@ async def startup_event():
     await db.onboarding.create_index("user_id", unique=True)
     await db.credit_analytics.create_index([("user_id", 1), ("timestamp", -1)])
     await db.student_profiles.create_index("user_id", unique=True)
-    app.state.learning_index_task = asyncio.create_task(ensure_learning_indexes())
 
     await db.mock_exams.create_index(
         "user_id", unique=True, name="one_generating_mock_per_user",
@@ -288,13 +269,6 @@ async def _cleanup_unverified_accounts():
 
 @app.on_event("shutdown")
 async def shutdown_event():
-    learning_indexes = getattr(app.state, "learning_index_task", None)
-    if learning_indexes:
-        learning_indexes.cancel()
-        try:
-            await learning_indexes
-        except asyncio.CancelledError:
-            pass
     worker = getattr(app.state, "mock_exam_worker", None)
     if worker:
         worker.cancel()
@@ -303,7 +277,5 @@ async def shutdown_event():
         except asyncio.CancelledError:
             pass
     mongo_client.close()
-
-
 
 

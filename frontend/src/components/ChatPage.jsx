@@ -13,9 +13,44 @@ import { useSubscription } from '../contexts/SubscriptionContext';
 import { useCredits } from '../contexts/CreditsContext';
 import { toast } from 'sonner';
 import InteractiveQuizModal from './InteractiveQuizModal';
-import { TutorCheck } from './TutorLearningCards';
+import MindMapCard, { validateMindMap, makeMindMapPrompt } from './MindMapCard';
+import StudyVisualCard, { STUDY_FORMATS, makeStudyVisualPrompt, validateStudyVisual } from './StudyVisualCard';
+import FlowchartCard, { validateFlowchart, makeFlowchartPrompt } from './FlowchartCard';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+
+// Retry only an authentication rejection, before generation can start.
+// A response that has begun streaming is never replayed automatically.
+export async function requestTutorReply(sessionId, content, signal) {
+  const options = {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    credentials: 'include', signal, body: JSON.stringify({ content }),
+  };
+  const url = API + '/chat/sessions/' + encodeURIComponent(sessionId) + '/message';
+  let response = await fetch(url, options);
+  if (response.status !== 401) return response;
+  try {
+    await axios.post(API + '/auth/refresh', {}, {
+      withCredentials: true, timeout: 15000, signal,
+    });
+  } catch (error) {
+    if (signal?.aborted) throw error;
+    if (error.response?.status === 401 || error.response?.status === 403) {
+      const expired = new Error('Your session has expired. Please sign in again, then request the visual.');
+      expired.code = 'SESSION_EXPIRED';
+      throw expired;
+    }
+    throw new Error('Could not renew your session. Please retry when the sign-in service is available.');
+  }
+  response = await fetch(url, options);
+  if (response.status === 401) {
+    const expired = new Error('Your session has expired. Please sign in again, then request the visual.');
+    expired.code = 'SESSION_EXPIRED';
+    throw expired;
+  }
+  return response;
+}
+
 
 const SUBJECT_COLORS = {
   Mathematics: '#22d3ee', Science: '#8b5cf6', Physics: '#06b6d4',
@@ -37,10 +72,17 @@ function fixMathDelimiters(text = '') {
 }
 
 function parseQuizBlocks(content) {
+  if (content.includes('[MINDMAP]') && !content.includes('[/MINDMAP]')) {
+    return [{ type: 'text', content: 'The mind map was incomplete. Please request it again.' }];
+  }
+  if (content.includes('[FLOWCHART]') && !content.includes('[/FLOWCHART]')) {
+    return [{ type: 'text', content: 'The flowchart was incomplete. Please request it again.' }];
+  }
+  if (content.includes('[STUDYVISUAL]') && !content.includes('[/STUDYVISUAL]')) return [{ type: 'text', content: 'The study visual was incomplete. Please generate it again.' }];
   const fixed = content;
   const parts = [];
   // Combined regex: matches either [QUIZ]...[/QUIZ] or [YOUTUBE]...[/YOUTUBE]
-  const regex = /\[QUIZ\]([\s\S]*?)\[\/QUIZ\]|\[YOUTUBE\]([\s\S]*?)\[\/YOUTUBE\]/g;
+  const regex = /\[QUIZ\]([\s\S]*?)\[\/QUIZ\]|\[YOUTUBE\]([\s\S]*?)\[\/YOUTUBE\]|\[MINDMAP\]([\s\S]*?)\[\/MINDMAP\]|\[FLOWCHART\]([\s\S]*?)\[\/FLOWCHART\]|\[STUDYVISUAL\]([\s\S]*?)\[\/STUDYVISUAL\]/g;
   let lastIdx = 0, match;
   while ((match = regex.exec(fixed)) !== null) {
     if (match.index > lastIdx) parts.push({ type: 'text', content: fixMathDelimiters(fixed.slice(lastIdx, match.index)) });
@@ -54,6 +96,33 @@ function parseQuizBlocks(content) {
     } else if (match[2] !== undefined) {
       const query = match[2].trim();
       if (query) parts.push({ type: 'youtube', query });
+    }
+    if (match[3] !== undefined) {
+      try {
+        const data = validateMindMap(JSON.parse(match[3].trim()));
+        if (!data) throw new Error('Invalid mind map');
+        parts.push({ type: 'mindmap', data });
+      } catch {
+        parts.push({ type: 'text', content: 'The mind map could not be read. Please request it again.' });
+      }
+    }
+    if (match[4] !== undefined) {
+      try {
+        const data = validateFlowchart(JSON.parse(match[4].trim()));
+        if (!data) throw new Error('Invalid flowchart');
+        parts.push({ type: 'flowchart', data });
+      } catch {
+        parts.push({ type: 'text', content: 'The flowchart could not be read. Please request it again.' });
+      }
+    }
+    if (match[5] !== undefined) {
+      try {
+        const data = validateStudyVisual(JSON.parse(match[5].trim()));
+        if (!data) throw new Error('Invalid study visual');
+        parts.push({ type: 'studyvisual', data });
+      } catch {
+        parts.push({ type: 'text', content: 'The study visual could not be read. Please generate it again.' });
+      }
     }
     lastIdx = regex.lastIndex;
   }
@@ -154,7 +223,7 @@ function QuizCard({ data }) {
   );
 }
 
-function MessageBubble({ msg, isStreaming, isNios, feedbackState, onFeedback, onDetailRequest, onScored }) {
+function MessageBubble({ msg, isStreaming, isNios, feedbackState, onFeedback, onDetailRequest }) {
   const isUser = msg.role === 'user';
   // Structured blocks are parsed after the reply completes.
   const parts = (!isUser && !isStreaming) ? parseQuizBlocks(msg.content) : null;
@@ -170,18 +239,24 @@ function MessageBubble({ msg, isStreaming, isNios, feedbackState, onFeedback, on
       <div className={`max-w-[82%] flex flex-col gap-1.5`}>
         <div className={`${isUser ? 'message-user' : 'message-ai'} p-3.5`}>
           {isUser ? (
-            <p className="text-white text-sm font-body leading-relaxed">{msg.content}</p>
+            <p className="text-white text-sm font-body leading-relaxed">{/^Visualize: (Mind map|Flowchart|Graph|PDF Cheat Sheet|Revision Notes|Key Points|Quick Revision) for /.test(msg.content) ? msg.content.split(/\n\n\[(?:MINDMAP|FLOWCHART|STUDYVISUAL) INSTRUCTIONS\]/)[0] : msg.content}</p>
           ) : isStreaming ? (
             <div className="markdown-content text-sm font-body streaming-cursor">
               <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]}
                 rehypePlugins={[[rehypeKatex, { strict: false, trust: false }]]}>
-                {fixMathDelimiters(msg.content.replace(/\[CHECK\][\s\S]*$/, ''))}
+                {fixMathDelimiters(msg.content)}
               </ReactMarkdown>
             </div>
           ) : (
             <div className="text-sm font-body">
               {parts?.map((part, i) =>
-                part.type === 'quiz' ? (
+                part.type === 'studyvisual' ? (
+                  <StudyVisualCard key={`study-${i}`} data={part.data} />
+                ) : part.type === 'flowchart' ? (
+                  <FlowchartCard key={`flow-${i}`} data={part.data} />
+                ) : part.type === 'mindmap' ? (
+                  <MindMapCard key={`map-${i}`} data={part.data} />
+                ) : part.type === 'quiz' ? (
                   <QuizCard key={`quiz-${i}`} data={part.data} />
                 ) : part.type === 'youtube' ? (
                   <YouTubeCard key={`yt-${i}`} query={part.query} />
@@ -208,7 +283,6 @@ function MessageBubble({ msg, isStreaming, isNios, feedbackState, onFeedback, on
           )}
         </div>
 
-        {!isStreaming && (msg.checks || []).map(check => <TutorCheck key={check.check_id} check={check} onScored={onScored} />)}
         {msg.stopped && <span className="text-xs text-zinc-500">Response stopped</span>}
         {/* Feedback & Detail row — only for finalised AI messages */}
         {!isUser && !isStreaming && (
@@ -401,6 +475,7 @@ export default function ChatPage() {
   const [session, setSession] = useState(null);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
+  const [visualizeOpen, setVisualizeOpen] = useState(false);
   const [streaming, setStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
   const [sessions, setSessions] = useState([]);
@@ -449,17 +524,6 @@ export default function ChatPage() {
       nav('/chat', { replace: true });
     }
   }, [nav]);
-
-  useEffect(() => {
-    const refreshMastery = () => {
-      if (!session?.chapter) return;
-      axios.get(`${API}/quiz/topic-mastery`, { params: { topic: session.chapter, subject: session.subject }, withCredentials: true })
-        .then(r => setChapterMastery(r.data)).catch(() => {});
-    };
-    window.addEventListener('aceit-learning-updated', refreshMastery);
-    window.addEventListener('focus', refreshMastery);
-    return () => { window.removeEventListener('aceit-learning-updated', refreshMastery); window.removeEventListener('focus', refreshMastery); };
-  }, [session?.chapter, session?.subject]);
 
   const handleCreated = (newSession) => {
     setSessions(p => [newSession, ...p]);
@@ -522,13 +586,12 @@ export default function ChatPage() {
         }
       }
       if (d.type === 'done') {
-        if (typeof d.content === 'string') full = d.content;
         if (!full.trim()) throw new Error('The tutor returned an empty reply. Please try again.');
         if (finished) return;
         finished = true;
         if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
         setMessages(p => [...p, { role: 'assistant', content: full,
-          timestamp: new Date().toISOString(), message_id: d.message_id, checks: d.checks || [] }]);
+          timestamp: new Date().toISOString(), message_id: d.message_id }]);
         setStreamingContent('');
         if (d.credits_used) {
           toast.success(`−${d.credits_used} credits (${d.word_count || 0} words)`, {
@@ -630,10 +693,7 @@ export default function ChatPage() {
     const timeout = setTimeout(() => controller.abort(), 120000);
 
     try {
-      const res = await fetch(`${process.env.REACT_APP_BACKEND_URL}/api/chat/sessions/${session.session_id}/message`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        credentials: 'include', signal: controller.signal, body: JSON.stringify({ content: text })
-      });
+      const res = await requestTutorReply(session.session_id, text, controller.signal);
       if (res.status === 429) {
         // Daily limit hit — trigger upgrade modal
         const body = await res.json().catch(() => ({}));
@@ -666,7 +726,7 @@ export default function ChatPage() {
       refreshCredits?.();
     } catch (e) {
       if (stoppedRef.current) {
-        const partial = streamBufferRef.current.replace(/\[CHECK\][\s\S]*$/, '');
+        const partial = streamBufferRef.current;
         if (partial.trim()) setMessages(p => [...p, {
           role: 'assistant', content: partial, timestamp: new Date().toISOString(), stopped: true,
         }]);
@@ -674,6 +734,7 @@ export default function ChatPage() {
         return;
       }
       console.error(e);
+      if (e.code === 'SESSION_EXPIRED') setMessages(p => p.slice(0, -1));
       setInput(text);
       setReplyError(e.name === 'AbortError' ? 'The tutor timed out. Retry your question.' : e.message || 'The tutor could not reply.');
       toast.error(e.name === 'AbortError' ? 'The tutor took too long to respond. Please try again.' :
@@ -763,7 +824,7 @@ export default function ChatPage() {
                 ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
                 : 'bg-zinc-700/50 text-zinc-400 border-zinc-600/40'
             }`}
-            title={`Chapter mastery: ${chapterMastery.mastery_pct}% from ${chapterMastery.attempts || 0} assessed answers. ${chapterMastery.attempts < 10 ? 'More practice gives stronger evidence.' : ''}`}
+            title={`Chapter mastery: ${chapterMastery.mastery_pct}%`}
           >
             <span className="w-1.5 h-1.5 rounded-full bg-current" />
             {chapterMastery.mastery_pct}% mastery
@@ -796,7 +857,6 @@ export default function ChatPage() {
             feedbackState={feedbackMap[msg.message_id]}
             onFeedback={sendFeedback}
             onDetailRequest={() => sendMessage('Explain in detail')}
-            onScored={mastery => setChapterMastery(mastery)}
           />
         ))}
         {streaming && streamingContent && (
@@ -843,6 +903,42 @@ export default function ChatPage() {
       </div>}
       {/* Input */}
       <div className="p-4 border-t border-white/5 glass">
+        <div className="mb-2">
+          <button type="button" data-testid="visualize-toggle" aria-expanded={visualizeOpen}
+            onClick={() => setVisualizeOpen(open => !open)}
+            className="inline-flex items-center gap-2 rounded-xl border border-violet-500/30 bg-violet-500/10 px-3 py-2 text-xs text-violet-300">
+            <Sparkles size={14} /> Visualize <ChevronDown size={13} />
+          </button>
+          {visualizeOpen && <div className="mt-2 rounded-xl border border-white/10 bg-zinc-950 p-3">
+            <p className="text-xs text-zinc-400 mb-2">Choose a study format for this chapter. Add an optional focus in the prompt below.</p>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" data-testid="visualize-mindmap" disabled={streaming || !session}
+                onClick={() => {
+                  if (streaming || sendingRef.current || !session) return;
+                  const prompt = makeMindMapPrompt(session.chapter, input);
+                  setVisualizeOpen(false); setInput(''); sendMessage(prompt);
+                }}
+                className="rounded-lg px-3 py-2 text-xs bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 disabled:opacity-40">Mind Map</button>
+              <button type="button" data-testid="visualize-flowchart" disabled={streaming || !session}
+                onClick={() => {
+                  if (streaming || sendingRef.current || !session) return;
+                  const prompt = makeFlowchartPrompt(session.chapter, input);
+                  setVisualizeOpen(false); setInput(''); sendMessage(prompt);
+                }}
+                className="rounded-lg px-3 py-2 text-xs bg-violet-500/15 border border-violet-500/30 text-violet-300 disabled:opacity-40">Flowchart</button>
+              {STUDY_FORMATS.map(format =>
+                <button key={format.id} type="button" data-testid={`visualize-${format.id}`} disabled={streaming || !session}
+                  onClick={() => {
+                    if (streaming || sendingRef.current || !session) return;
+                    const prompt = makeStudyVisualPrompt(session.chapter, input, format.id);
+                    setVisualizeOpen(false); setInput(''); sendMessage(prompt);
+                  }} className="rounded-lg px-3 py-2 text-xs bg-teal-500/15 border border-teal-500/30 text-teal-300 disabled:opacity-40">
+                  {format.label}
+                </button>)}
+            </div>
+            <p className="mt-2 text-[11px] text-zinc-500">Uses normal tutor credits. The visual appears after the reply finishes.</p>
+          </div>}
+        </div>
         <div className="flex gap-3 items-end">
           <div className="flex-1 relative">
             <textarea data-testid="chat-input"

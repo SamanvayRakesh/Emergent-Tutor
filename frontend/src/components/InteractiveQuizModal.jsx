@@ -13,7 +13,6 @@ const API = process.env.REACT_APP_BACKEND_URL;
  * On completion: submits to /api/quiz/{quiz_id}/submit and shows score.
  */
 export default function InteractiveQuizModal({ quizData, onClose, onComplete }) {
-  const [submitError, setSubmitError] = useState('');
   const [phase, setPhase] = useState('quiz'); // quiz | results
   const [currentQ, setCurrentQ] = useState(0);
   const [answers, setAnswers] = useState({});
@@ -75,7 +74,6 @@ export default function InteractiveQuizModal({ quizData, onClose, onComplete }) 
       }
     });
 
-    setSubmitError('');
     setSubmitting(true);
     try {
       const { data } = await axios.post(
@@ -90,11 +88,23 @@ export default function InteractiveQuizModal({ quizData, onClose, onComplete }) 
       };
       setResults(normalized);
       setPhase('results');
-      window.dispatchEvent(new Event('aceit-learning-updated'));
       if (onComplete) onComplete(normalized);
     } catch (err) {
-      const detail = err.response?.data?.detail;
-      setSubmitError(typeof detail === 'string' ? detail : 'Your results were not saved. Please submit again.');
+      // Compute local score as fallback
+      let correct = 0;
+      const resultsList = questions.map((q, i) => {
+        const userAns = (answers[i] ?? '').toString().toLowerCase().trim();
+        const correct_ans = (q.correct ?? q.correct_answer ?? '').toString().toLowerCase().trim();
+        const isCorrect = userAns === correct_ans ||
+          (q.options && q.options.findIndex(o => o.toLowerCase() === userAns) === q.correct_index);
+        if (isCorrect) correct++;
+        return { question: q.question, correct: isCorrect, user_answer: answers[i], correct_answer: q.correct ?? q.correct_answer, explanation: q.explanation };
+      });
+      const score_pct = Math.round((correct / questions.length) * 100);
+      const fallbackResults = { score: score_pct, correct_count: correct, total_questions: questions.length, results: resultsList, xp_earned: correct * 5 };
+      setResults(fallbackResults);
+      setPhase('results');
+      if (onComplete) onComplete(fallbackResults);
     } finally {
       setSubmitting(false);
     }
@@ -124,8 +134,7 @@ export default function InteractiveQuizModal({ quizData, onClose, onComplete }) 
         >
           {phase === 'quiz' && (
             <>
-              {submitError && <p role="alert" className="px-5 py-2 text-sm text-amber-200">{submitError}</p>}
-      {/* Header */}
+              {/* Header */}
               <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
                 <div>
                   <h2 className="text-white font-heading font-bold text-lg" data-testid="quiz-title">

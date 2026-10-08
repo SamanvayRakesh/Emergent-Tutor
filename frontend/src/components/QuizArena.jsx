@@ -125,7 +125,6 @@ export default function QuizArena() {
       };
       setResult(normalized);
       setPhase('result');
-      window.dispatchEvent(new Event('aceit-learning-updated'));
       // Refresh history
       axios.get(`${API}/quiz/history`, { withCredentials: true }).then(r => setHistory(r.data)).catch(() => {});
       // Refresh mastery hint
@@ -133,10 +132,7 @@ export default function QuizArena() {
         axios.get(`${API}/quiz/topic-mastery`, { params: { topic: quiz.chapter || quiz.topic, subject: quiz.subject }, withCredentials: true })
           .then(r => setMastery(r.data)).catch(() => {});
       }
-    } catch (e) {
-      const detail = e.response?.data?.detail;
-      toast.error(typeof detail === 'string' ? detail : 'Your quiz results were not saved. Please submit again.');
-    }
+    } catch { }
     setLoading(false);
   };
 

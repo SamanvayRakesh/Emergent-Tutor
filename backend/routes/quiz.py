@@ -14,7 +14,6 @@ from credits import deduct_credits
 from plan_gates import check_limit, increment_usage
 from models import QuizGenerateRequest, QuizSubmitRequest
 from adaptive_engine import record_quiz_result, update_topic_performance, get_student_profile
-from learning_evidence import chapter_mastery, learning_scope
 from school_curriculum import get_school_chapters, has_school_curriculum
 
 router = APIRouter()
@@ -336,7 +335,6 @@ Return ONLY valid JSON (no markdown, no extra text):
         "class_level": body.class_level, "subject": body.subject,
         "topic": body.topic, "chapter": body.chapter or body.topic,
         "school": user.get("school"), "difficulty": body.difficulty,
-        **({"course_id": user["course_id"]} if user.get("course_id") else {}),
         "questions": raw_questions,
         "title": quiz_data.get("title", f"Quiz: {body.topic}"),
         "completed": False, "score": None, "created_at": now,
@@ -354,7 +352,23 @@ async def get_quiz_history(request: Request):
 
 
 async def measured_mastery(user: dict, topic: str, subject: str = "") -> dict:
-    return await chapter_mastery(user, topic, subject)
+    """Use completed, server-scored quizzes; untested chapters start at zero."""
+    query = {"user_id": user["user_id"], "completed": True,
+             "class_level": user.get("class_level"),
+             "$or": [{"chapter": topic}, {"topic": topic},
+                     {"chapter": {"$exists": False}, "topic": {"$in": _get_subtopics(topic)}}]}
+    if subject:
+        query["subject"] = subject
+    if user.get("school"):
+        query["$and"] = [{"$or": [{"school": user["school"]}, {"school": {"$exists": False}}]}]
+    quizzes = await db.quizzes.find(query, {"_id": 0}).sort("completed_at", -1).limit(20).to_list(20)
+    correct = sum(q.get("correct_count", 0) for q in quizzes)
+    total = sum(q.get("total_questions", len(q.get("questions", []))) for q in quizzes)
+    ratio = correct / total if total else 0
+    difficulty = "easy" if ratio < .4 else "hard" if ratio >= .7 else "medium"
+    return {"topic": topic, "mastery": round(ratio, 3),
+            "mastery_pct": round(ratio * 100), "attempts": total,
+            "recommended_difficulty": difficulty}
 
 
 @router.get("/quiz/topic-mastery")
@@ -366,14 +380,12 @@ async def get_topic_mastery(topic: str, request: Request, subject: str = ""):
 @router.post("/quiz/{quiz_id}/submit")
 async def submit_quiz(quiz_id: str, body: QuizSubmitRequest, request: Request):
     user = await get_current_user(request)
-    quiz = await db.quizzes.find_one({"quiz_id": quiz_id, **learning_scope(user)}, {"_id": 0})
+    quiz = await db.quizzes.find_one({"quiz_id": quiz_id, "user_id": user["user_id"]}, {"_id": 0})
     if not quiz:
         raise HTTPException(status_code=404, detail="Quiz not found")
 
     # ── Layer 1: Replay block ─────────────────────────────────────────────────
     if quiz.get("completed"):
-        if quiz.get("submission_result"):
-            return quiz["submission_result"]
         raise HTTPException(status_code=400, detail="This quiz has already been submitted.")
 
     questions = quiz.get("questions", [])
@@ -445,18 +457,12 @@ async def submit_quiz(quiz_id: str, body: QuizSubmitRequest, request: Request):
         total_xp = int(total_xp * multiplier)
 
     now_iso = datetime.now(timezone.utc).isoformat()
-    submission_result = {"score": score_pct, "correct_count": correct_count, "total_questions": total,
-            "xp_earned": total_xp, "improvement_bonus": improvement_bonus,
-            "perfect_bonus": perfect_bonus, "streak_bonus": streak_bonus, "results": results}
     claimed = await db.quizzes.update_one(
         {"quiz_id": quiz_id, "user_id": user["user_id"], "completed": {"$ne": True}},
         {"$set": {"completed": True, "score": score_pct, "correct_count": correct_count,
-                  "total_questions": total, "completed_at": now_iso, "submission_result": submission_result}},
+                  "total_questions": total, "completed_at": now_iso}},
     )
     if not claimed.modified_count:
-        saved = await db.quizzes.find_one({"quiz_id": quiz_id, **learning_scope(user)}, {"_id": 0})
-        if saved and saved.get("submission_result"):
-            return saved["submission_result"]
         raise HTTPException(status_code=400, detail="This quiz has already been submitted.")
     if total_xp > 0:
         await db.users.update_one(
@@ -481,7 +487,7 @@ async def submit_quiz(quiz_id: str, body: QuizSubmitRequest, request: Request):
     matched = next((c for c in chapters if c.get("name", "").casefold() == chapter.casefold()), None)
     if matched:
         await db.progress.update_one(
-            {"user_id": user["user_id"], "school": user.get("school"), "class_level": quiz["class_level"], "chapter_id": matched["id"]},
+            {"user_id": user["user_id"], "chapter_id": matched["id"]},
             {"$set": {"school": user.get("school"), "class_level": quiz["class_level"],
                       "subject": quiz["subject"], "chapter_name": chapter,
                       "mastery": mastery["mastery_pct"], "updated_at": now_iso},

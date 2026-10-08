@@ -119,11 +119,12 @@ def _set_auth_cookies(
     user_id: str,
     email: str,
 ):
-    access_token = create_access_token(user_id, email)
-    refresh_token = create_refresh_token(user_id)
     response.set_cookie(
         "access_token",
-        access_token,
+        create_access_token(
+            user_id,
+            email,
+        ),
         httponly=True,
         secure=False,
         samesite="lax",
@@ -133,16 +134,15 @@ def _set_auth_cookies(
 
     response.set_cookie(
         "refresh_token",
-        refresh_token,
+        create_refresh_token(
+            user_id,
+        ),
         httponly=True,
         secure=False,
         samesite="lax",
         max_age=604800,
         path="/",
     )
-
-    response.headers["X-Auth-Token"] = access_token
-    response.headers["X-Refresh-Token"] = refresh_token
 
 
 def _strip_sensitive(user: dict) -> dict:
@@ -618,19 +618,18 @@ async def refresh_token(
                 detail="User not found",
             )
 
-        access_token = create_access_token(payload["sub"], user["email"])
         response.set_cookie(
             "access_token",
-            access_token,
+            create_access_token(
+                payload["sub"],
+                user["email"],
+            ),
             httponly=True,
             secure=False,
             samesite="lax",
             max_age=3600,
             path="/",
         )
-
-        response.headers["X-Auth-Token"] = access_token
-        response.headers["X-Refresh-Token"] = token
 
         return {
             "message": "Token refreshed"
@@ -650,23 +649,22 @@ async def google_session(
     body: GoogleSessionRequest,
     response: Response,
 ):
-    try:
-        async with httpx.AsyncClient(timeout=httpx.Timeout(12.0, connect=5.0)) as client:
-            resp = await client.get(
-                "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data",
-                headers={"X-Session-ID": body.session_id},
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(
+            "https://demobackend.emergentagent.com/auth/v1/env/oauth/session-data",
+            headers={
+                "X-Session-ID":
+                    body.session_id
+            },
+        )
+
+        if resp.status_code != 200:
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid session",
             )
-            if resp.status_code >= 500:
-                raise HTTPException(status_code=503, detail="Google sign-in service is temporarily unavailable")
-            if resp.status_code != 200:
-                raise HTTPException(status_code=400, detail="Invalid or expired Google session. Please sign in again.")
-            data = resp.json()
-    except httpx.TimeoutException:
-        raise HTTPException(status_code=504, detail="Google sign-in service timed out. Please sign in again.")
-    except (httpx.RequestError, ValueError):
-        raise HTTPException(status_code=502, detail="Google sign-in service could not be reached")
-    if not isinstance(data, dict) or not isinstance(data.get("email"), str) or not data["email"].strip():
-        raise HTTPException(status_code=502, detail="Google sign-in service returned an invalid account")
+
+        data = resp.json()
 
     email = (
         data.get("email", "")
@@ -843,10 +841,6 @@ async def google_session(
         max_age=604800,
         path="/",
     )
-
-    # Native clients receive JWTs; the existing Google session cookie stays intact.
-    response.headers["X-Auth-Token"] = create_access_token(user_id, email)
-    response.headers["X-Refresh-Token"] = create_refresh_token(user_id)
 
     user = await db.users.find_one(
         {
@@ -1109,5 +1103,4 @@ async def update_display_name(
         "success": True,
         "name": new_name,
     }
-
 
