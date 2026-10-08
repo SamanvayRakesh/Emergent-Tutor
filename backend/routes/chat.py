@@ -331,15 +331,20 @@ def _read_mapped_nios_math(chapter: str, root=None) -> str:
                 with fitz.open(path) as doc:
                     if doc.page_count != 663:
                         continue
-                    texts = tuple(page.get_text(sort=True) for page in doc)
+                    texts = {}  # Extract only requested chapter pages, lazily below.
                 if len(_NIOS_MATH_BOOK_CACHE) >= 2:
                     _NIOS_MATH_BOOK_CACHE.clear()
                     _NIOS_MATH_CONTEXT_CACHE.clear()
                 _NIOS_MATH_BOOK_CACHE[key] = texts
             texts = _NIOS_MATH_BOOK_CACHE[key]
+            missing = {i for first, last, *_ in spans for i in range(first - 1, last) if i not in texts}
+            if missing:
+                with fitz.open(path) as doc:
+                    for i in sorted(missing):
+                        texts[i] = doc[i].get_text(sort=True)
             parts = []
             for first, last, lesson, start_pattern, end_pattern in spans:
-                selected = texts[first-1:last]
+                selected = [texts[i] for i in range(first - 1, last)]
                 if any(len(t.strip()) < 30 for t in selected):
                     return ""  # Scanned/unreadable material must not become invented content.
                 excerpt = "\n\n".join(f"[PDF page {first+i}]\n{t.strip()}" for i,t in enumerate(selected))
@@ -593,6 +598,27 @@ async def _get_visual_source(session, school):
     return {"text": source, "complete": False, "topics": topics[:40]}
 
 
+def _compact_visual_source(text, limit=14000):
+    """Keep excerpts from every numbered topic, rather than cutting off the chapter tail."""
+    if len(text) <= limit:
+        return text
+    boundaries = list(re.finditer(r"(?m)^\s*\d{1,2}\.\d{1,2}\s+[^\n]+", text))
+    cuts = [0] + [m.start() for m in boundaries if m.start() > 0] + [len(text)]
+    blocks = [text[a:b] for a, b in zip(cuts, cuts[1:])]
+    if len(blocks) == 1:
+        # Unnumbered sources: distribute excerpts across the entire chapter.
+        blocks = [text[i:i + 2000] for i in range(0, len(text), 2000)]
+    allowance = max(1, (limit - 5 * len(blocks)) // len(blocks))
+    excerpts = []
+    for block in blocks:
+        if len(block) <= allowance:
+            excerpts.append(block)
+        else:
+            front = allowance * 3 // 4
+            excerpts.append(block[:front] + "\n…\n" + block[-(allowance - front):])
+    return "\n\n".join(excerpts)[:limit]
+
+
 def _study_visual_schema(kind, source):
     if kind == "graph":
         return (
@@ -600,7 +626,7 @@ def _study_visual_schema(kind, source):
             '"chartType":"bar|line|scatter","xLabel":"Quantity (unit)","yLabel":"Quantity (unit)",'
             '"illustrative":false,"basis":"Source table or formula and chosen inputs",'
             '"points":[{"label":"Point","x":0,"y":0,"detail":"Interpretation"}]}. '
-            "Use 2–32 finite points with absolute values <=1e12. Line/scatter need numeric x and at least two distinct x values. "
+            "Use 4–8 finite points with absolute values <=1e12. Line/scatter need numeric x and at least two distinct x values. "
             "Bar charts use meaningful categories. Keep negative values and zeros. Use a numeric relationship actually taught "
             "in this chapter, not arbitrary scores assigned to concepts. A formula-based worked example is allowed ONLY when "
             "illustrative=true and basis states the source formula, chosen inputs and assumptions. Never fabricate measurements, "
@@ -614,23 +640,45 @@ def _study_visual_schema(kind, source):
         '"visual":{"type":"concept|steps|compare|formula|timeline|cycle","title":"Topic-specific visual",'
         '"items":[{"label":"Specific concept or equation","detail":"Source-supported explanation"}]},'
         '"recall":{"question":"Recall question","answer":"Correct answer"}}]}. '
-        "Use 1–40 sections, 1–10 summary points per section and 2–8 visual items. Short labels (max 90 characters) "
-        "and concise details (max 700 characters). Give EVERY section a distinct, topic-specific visual; "
+        "Use 1–40 sections, exactly 2 short summary points per section and 2 visual items. Short labels (max 50 characters) "
+        "and concise details (one short sentence, max 140 characters). Give EVERY section a distinct, topic-specific visual; "
         "choose the representation that explains it: concept groups, ordered method steps, comparison cards, "
         "formula with variable meanings, dated timeline, or a real cycle. Vary visual types where appropriate; "
         "never invent chronology, causes or cycles for variety. Each visual's items must teach its own topic, "
         "not repeat generic labels from another topic. Include one recall question with its answer per topic. "
         "For a cheat sheet, summarize EVERY teaching topic in the source, including the last topics. A user focus "
         "adds emphasis but must not remove other topics. Use definitions, essential formulas with meanings, "
-        "representative examples and source-supported cautions. For notes, explain concepts, reasoning and worked "
+        "one representative example where useful. For notes, explain concepts, reasoning and worked "
         "examples; cover the chapter unless a focus is requested. Key points prioritize essential facts; quickrevision "
         "uses recall questions as headings and answers in points. coverage.topics must exactly list section headings. "
         f"Source heading inventory: {inventory}. For a cheat sheet, include each inventory heading EXACTLY as a section heading "
         "and add any other teaching topics present in the text. "
         + ("A complete chapter source is provided; coverage can be complete only if all teaching topics are covered. "
            if source["complete"] else "Only partial chapter Q&As are available: coverage.status MUST be partial; never claim full chapter coverage. ")
-        + "Keep JSON compact within the supplied token budget. Never invent exam predictions or textbook content."
+        + "Keep each section below 100 words and the overview below 30 words. Do not repeat the same explanation in points, visual and recall. Keep JSON compact within the supplied token budget. Never invent exam predictions or textbook content."
     )
+
+
+def _normalize_study_reply(content, kind, source):
+    """Repair redundant metadata locally; never regenerate correct topic content for it."""
+    match = re.fullmatch(r"\s*\[STUDYVISUAL\]\s*(.*?)\s*\[/STUDYVISUAL\]\s*", content, re.S)
+    if not match or kind == "graph":
+        return content
+    data = json.loads(match.group(1))
+    if not isinstance(data, dict) or not isinstance(data.get("sections"), list):
+        return content
+    sections = data["sections"]
+    if not sections or any(not isinstance(s, dict) or not isinstance(s.get("heading"), str) for s in sections):
+        return content
+    coverage = data.get("coverage")
+    coverage = coverage if isinstance(coverage, dict) else {}
+    headings = [s["heading"] for s in sections]
+    all_topics = {_normal_title(t) for t in source["topics"]}.issubset({_normal_title(t) for t in headings})
+    complete = source["complete"] and all_topics and coverage.get("status") == "complete"
+    data["coverage"] = {"status": "complete" if complete else "partial",
+                        "note": "Chapter topics covered from the available source." if complete else "Covers available chapter excerpts; full coverage is not verified.",
+                        "topics": headings}
+    return "[STUDYVISUAL]" + json.dumps(data, ensure_ascii=False, separators=(",", ":")) + "[/STUDYVISUAL]"
 
 
 def _validate_study_reply(content, kind, source):
@@ -673,7 +721,7 @@ def _validate_study_reply(content, kind, source):
         items = visual.get("items")
         if not isinstance(items, list) or not 2 <= len(items) <= 8 or any(not isinstance(item, dict) or not valid_text(item.get("label"), 90) or not valid_text(item.get("detail"), 700) for item in items):
             raise ValueError("Invalid visual items")
-        if not isinstance(recall, dict) or not valid_text(recall.get("question"), 500) or not valid_text(recall.get("answer"), 1000):
+        if recall is not None and (not isinstance(recall, dict) or not valid_text(recall.get("question"), 500) or not valid_text(recall.get("answer"), 1000)):
             raise ValueError("Missing recall question")
     coverage = data.get("coverage")
     headings = {_normal_title(s["heading"]) for s in sections}
@@ -765,20 +813,18 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
         study_kind = next(value for label, value in formats.items()
                           if body.content.startswith(f"Visualize: {label} for "))
     if is_visual:
-        if max_tokens < 400:
+        if max_tokens < 400 and not is_studyvisual:
             raise HTTPException(status_code=429, detail={"feature": "visualize",
                 "message": "Your remaining response budget is too small for a complete visual. Try after it resets.", "upgrade_to": "pro"})
         if is_studyvisual:
             visual_source = await _get_visual_source(session, user.get("school") or "")
-            if study_kind == "cheatsheet" and not visual_source["complete"]:
-                raise HTTPException(status_code=422, detail={"code": "CHAPTER_SOURCE_INCOMPLETE",
-                    "message": "A complete readable chapter textbook is needed for an all-topic cheat sheet. Partial revision notes are available. No credits were charged."})
-            # Full chapter summaries need more room than the old 350-word card.
-            desired = max(4500, min(12000, len(visual_source["topics"]) * 500 + 1500)) if study_kind in ("cheatsheet", "notes") else 2400
-            max_tokens = min(desired, max_tokens if budget["near_budget"] else desired)
+            # Bound provider input while retaining excerpts from every chapter topic.
+            visual_source = {**visual_source, "text": _compact_visual_source(visual_source["text"])}
+            desired = min(11000, max(1800, len(visual_source["topics"]) * 260 + 700)) if study_kind != "graph" else 1400
+            max_tokens = desired
             input_estimate = len(visual_source["text"]) // 3 + len(body.content) // 3 + 1500
             max_tokens = min(max_tokens, max(0, budget["remaining"] - input_estimate))
-            if max_tokens < (3000 if study_kind in ("cheatsheet", "notes") else 800):
+            if max_tokens < min(desired, 1000):
                 raise HTTPException(status_code=429, detail={"feature": "visualize",
                     "message": "There is not enough remaining AI budget for this chapter visual. No credits were charged.", "upgrade_to": "pro"})
         else:
@@ -835,6 +881,8 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
     math_visual_source = ""
     if is_visual and not is_studyvisual and is_nios and session["subject"] == "Mathematics":
         math_visual_source = await _get_mapped_nios_math_context(session["chapter"])
+        if is_flowchart and math_visual_source:
+            math_visual_source = _compact_visual_source(math_visual_source, 10000)
         if not math_visual_source:
             raise HTTPException(status_code=422, detail={
                 "code": "CHAPTER_SOURCE_UNAVAILABLE",
@@ -991,13 +1039,18 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
                 if not full_content.strip():
                     raise ValueError("AI provider returned an empty response")
                 if is_studyvisual:
-                    _validate_study_reply(full_content, study_kind, visual_source)
+                    normalized = _normalize_study_reply(full_content, study_kind, visual_source)
+                    _validate_study_reply(normalized, study_kind, visual_source)
+                    if normalized != full_content:
+                        full_content = normalized
+                        yield f"data: {json.dumps({'type':'reset'})}\n\n"
+                        yield f"data: {json.dumps({'type':'chunk','content':full_content})}\n\n"
                 break
             except Exception as exc:
                 logger.exception("Tutor generation attempt %s failed for session %s", attempt + 1, session_id)
                 status = getattr(exc, "status_code", None)
                 retryable = status is None or status in (408, 429) or status >= 500
-                if attempt == 0 and retryable and asyncio.get_running_loop().time() < deadline:
+                if attempt == 0 and retryable and not isinstance(exc, (ValueError, json.JSONDecodeError)) and asyncio.get_running_loop().time() < deadline:
                     yield f"data: {json.dumps({'type':'reset'})}\n\n"
                     continue
                 yield f"data: {json.dumps({'type':'error','code':'GENERATION_FAILED','message':'The tutor could not finish this reply. No credits were charged. Please retry your question.'})}\n\n"
