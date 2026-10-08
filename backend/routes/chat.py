@@ -634,28 +634,20 @@ def _study_visual_schema(kind, source):
         )
     inventory = json.dumps(source["topics"], ensure_ascii=False)
     return (
-        'Schema: {"kind":"' + kind + '","title":"Chapter title","summary":"Chapter overview",'
-        '"coverage":{"status":"complete|partial","note":"Honest source coverage","topics":["Topic"]},'
-        '"sections":[{"heading":"Topic","points":["Summary","Definition, formula or worked example"],'
-        '"visual":{"type":"concept|steps|compare|formula|timeline|cycle","title":"Topic-specific visual",'
-        '"items":[{"label":"Specific concept or equation","detail":"Source-supported explanation"}]},'
-        '"recall":{"question":"Recall question","answer":"Correct answer"}}]}. '
-        "Use 1–40 sections, exactly 2 short summary points per section and 2 visual items. Short labels (max 50 characters) "
-        "and concise details (one short sentence, max 140 characters). Give EVERY section a distinct, topic-specific visual; "
-        "choose the representation that explains it: concept groups, ordered method steps, comparison cards, "
-        "formula with variable meanings, dated timeline, or a real cycle. Vary visual types where appropriate; "
-        "never invent chronology, causes or cycles for variety. Each visual's items must teach its own topic, "
-        "not repeat generic labels from another topic. Include one recall question with its answer per topic. "
-        "For a cheat sheet, summarize EVERY teaching topic in the source, including the last topics. A user focus "
-        "adds emphasis but must not remove other topics. Use definitions, essential formulas with meanings, "
-        "one representative example where useful. For notes, explain concepts, reasoning and worked "
-        "examples; cover the chapter unless a focus is requested. Key points prioritize essential facts; quickrevision "
-        "uses recall questions as headings and answers in points. coverage.topics must exactly list section headings. "
-        f"Source heading inventory: {inventory}. For a cheat sheet, include each inventory heading EXACTLY as a section heading "
-        "and add any other teaching topics present in the text. "
-        + ("A complete chapter source is provided; coverage can be complete only if all teaching topics are covered. "
-           if source["complete"] else "Only partial chapter Q&As are available: coverage.status MUST be partial; never claim full chapter coverage. ")
-        + "Keep each section below 100 words and the overview below 30 words. Do not repeat the same explanation in points, visual and recall. Keep JSON compact within the supplied token budget. Never invent exam predictions or textbook content."
+        'COMPACT WIRE SCHEMA (the app builds summary points and coverage locally): '
+        '{"kind":"' + kind + '","title":"Chapter","summary":"One sentence",'
+        '"sections":[{"heading":"Topic","type":"concept|steps|compare|formula|timeline|cycle",'
+        '"items":[{"label":"Specific concept or formula","detail":"One concise teaching sentence"},'
+        '{"label":"Related concept or example","detail":"One concise teaching sentence"}]}]}. '
+        "Write sections in chapter order. Each section has 2–4 useful items. Labels <=60 characters; "
+        "details <=180 characters. Use topic-specific labels and source-supported explanations, equations and examples. "
+        "Choose a suitable visual type for each topic; never invent cycles or chronology. "
+        "Do NOT emit points, visual, recall or coverage fields: the app constructs them from items. "
+        "Cheat sheets cover every teaching topic even when a focus is requested; other formats respect a focus. "
+        "Quick revision labels are short recall questions, with answers in details. "
+        f"Chapter topic inventory: {inventory}. For cheat sheets use every inventory heading EXACTLY. "
+        "Include other teaching topics visible in the excerpts. Keep each topic under 65 words; "
+        "never pad the result to fill the token budget. No invented textbook facts."
     )
 
 
@@ -670,11 +662,18 @@ def _normalize_study_reply(content, kind, source):
     sections = data["sections"]
     if not sections or any(not isinstance(s, dict) or not isinstance(s.get("heading"), str) for s in sections):
         return content
+    for section in sections:
+        if "visual" not in section and isinstance(section.get("items"), list):
+            section["visual"] = {"type": section.get("type", "concept"),
+                                 "title": section["heading"], "items": section["items"]}
+            section["points"] = [item.get("detail", "") for item in section["items"] if isinstance(item, dict)]
+            section.pop("items", None)
+            section.pop("type", None)
     coverage = data.get("coverage")
     coverage = coverage if isinstance(coverage, dict) else {}
     headings = [s["heading"] for s in sections]
     all_topics = {_normal_title(t) for t in source["topics"]}.issubset({_normal_title(t) for t in headings})
-    complete = source["complete"] and all_topics and coverage.get("status") == "complete"
+    complete = source["complete"] and bool(source["topics"]) and all_topics and ("status" not in coverage or coverage.get("status") == "complete")
     data["coverage"] = {"status": "complete" if complete else "partial",
                         "note": "Chapter topics covered from the available source." if complete else "Covers available chapter excerpts; full coverage is not verified.",
                         "topics": headings}
@@ -819,8 +818,8 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
         if is_studyvisual:
             visual_source = await _get_visual_source(session, user.get("school") or "")
             # Bound provider input while retaining excerpts from every chapter topic.
-            visual_source = {**visual_source, "text": _compact_visual_source(visual_source["text"])}
-            desired = min(11000, max(1800, len(visual_source["topics"]) * 260 + 700)) if study_kind != "graph" else 1400
+            visual_source = {**visual_source, "text": _compact_visual_source(visual_source["text"], 10000)}
+            desired = min(7000, max(1400, len(visual_source["topics"]) * 160 + 400)) if study_kind != "graph" else 1000
             max_tokens = desired
             input_estimate = len(visual_source["text"]) // 3 + len(body.content) // 3 + 1500
             max_tokens = min(max_tokens, max(0, budget["remaining"] - input_estimate))
@@ -981,13 +980,13 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
                 "Do not add Quick Check, Exam Tip or Try This to visual replies. When mapped textbook sources are provided, summarize their teaching content; do not create source-status placeholder sections. "
                 "Otherwise output [" + tag + "] valid JSON [/" + tag + "]. " + schema +
                 "Use plain text strings with Unicode mathematical symbols, no LaTeX or HTML in JSON. "
-                + ("Use the available response budget for complete topic coverage. " if is_studyvisual else "Keep the result below 350 words. ")
+                + ("Finish concise chapter coverage; do not fill the token budget. " if is_studyvisual else "Keep the result below 350 words. ")
                 + "No Markdown fences or extra blocks."
             )
         ai_messages = [{"role": "system", "content": system_prompt}]
         for msg in ([] if is_studyvisual or math_visual_source else history[:-1]):
             ai_messages.append({"role": msg["role"], "content": msg["content"]})
-        ai_messages.append({"role": "user", "content": body.content})
+        ai_messages.append({"role": "user", "content": body.content.split("\n\n[STUDYVISUAL INSTRUCTIONS]")[0] if is_studyvisual else body.content})
 
     # Apply valid math formatting to every model path, including KB rephrasing.
     if not is_studyvisual:
@@ -1041,16 +1040,14 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
                 if is_studyvisual:
                     normalized = _normalize_study_reply(full_content, study_kind, visual_source)
                     _validate_study_reply(normalized, study_kind, visual_source)
-                    if normalized != full_content:
-                        full_content = normalized
-                        yield f"data: {json.dumps({'type':'reset'})}\n\n"
-                        yield f"data: {json.dumps({'type':'chunk','content':full_content})}\n\n"
+                    full_content = normalized
+                    yield f"data: {json.dumps({'type':'visual_ready','content':full_content})}\n\n"
                 break
             except Exception as exc:
                 logger.exception("Tutor generation attempt %s failed for session %s", attempt + 1, session_id)
                 status = getattr(exc, "status_code", None)
                 retryable = status is None or status in (408, 429) or status >= 500
-                if attempt == 0 and retryable and not isinstance(exc, (ValueError, json.JSONDecodeError)) and asyncio.get_running_loop().time() < deadline:
+                if attempt == 0 and not full_content and retryable and not isinstance(exc, (ValueError, json.JSONDecodeError)) and asyncio.get_running_loop().time() < deadline:
                     yield f"data: {json.dumps({'type':'reset'})}\n\n"
                     continue
                 yield f"data: {json.dumps({'type':'error','code':'GENERATION_FAILED','message':'The tutor could not finish this reply. No credits were charged. Please retry your question.'})}\n\n"
@@ -1122,8 +1119,31 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
         credits_used = credit_result["deducted"]
         yield f"data: {json.dumps({'type':'done','message_id':msg_id,'word_count':final_word_count,'credits_used':credits_used,'balance':credit_result.get('balance',0)})}\n\n"
 
+    async def with_keepalive():
+        iterator = generate().__aiter__()
+        pending = None
+        try:
+            while True:
+                if pending is None:
+                    pending = asyncio.create_task(iterator.__anext__())
+                done, _ = await asyncio.wait({pending}, timeout=5)
+                if not done:
+                    yield ": keepalive\n\n"
+                    continue
+                try:
+                    event = pending.result()
+                except StopAsyncIteration:
+                    break
+                pending = None
+                yield event
+        finally:
+            if pending is not None:
+                pending.cancel()
+                await asyncio.gather(pending, return_exceptions=True)
+            await iterator.aclose()
+
     return StreamingResponse(
-        generate(),
+        with_keepalive(),
         media_type="text/event-stream",
         headers={"Cache-Control":"no-cache","X-Accel-Buffering":"no"},
     )

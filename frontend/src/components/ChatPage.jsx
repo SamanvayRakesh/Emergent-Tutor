@@ -130,6 +130,81 @@ function parseQuizBlocks(content) {
   return parts;
 }
 
+// Read only complete section objects. Unfinished JSON remains private.
+export function completedVisualSections(content) {
+  if (typeof content !== 'string' || content.length > 150000) return [];
+  const start = /"sections"\s*:\s*\[/.exec(content);
+  if (!start) return [];
+  const sections = [];
+  let depth = 0, quoted = false, escaped = false, first = -1;
+  for (let i = start.index + start[0].length; i < content.length; i++) {
+    const c = content[i];
+    if (quoted) {
+      if (escaped) escaped = false;
+      else if (c === '\\') escaped = true;
+      else if (c === '"') quoted = false;
+      continue;
+    }
+    if (c === '"') { quoted = true; continue; }
+    if (c === '{') { if (depth === 0) first = i; depth++; }
+    else if (c === '}') {
+      depth--;
+      if (depth < 0) break;
+      if (depth === 0 && first >= 0) {
+        try {
+          const section = JSON.parse(content.slice(first, i + 1));
+          if (!section.visual && Array.isArray(section.items)) {
+            section.visual = { type: section.type || 'concept', title: section.heading, items: section.items };
+            section.points = section.items.map(item => item?.detail);
+          }
+          const valid = validateStudyVisual({ kind: 'notes', title: 'Preview', summary: 'Preview', sections: [section] });
+          if (valid) sections.push(valid.sections[0]);
+        } catch { /* Never show an incomplete or invalid object. */ }
+        first = -1;
+        if (sections.length === 40) break;
+      }
+    } else if (c === ']' && depth === 0) break;
+  }
+  return sections;
+}
+
+export function visualRequestInfo(content) {
+  const match = /^Visualize: (Mind map|Flowchart|Graph|PDF Cheat Sheet|Revision Notes|Key Points|Quick Revision) for ([^\n]+)/.exec(content || '');
+  if (!match) return null;
+  const ids = { 'Mind map': 'mindmap', Flowchart: 'flowchart', Graph: 'graph', 'PDF Cheat Sheet': 'cheatsheet', 'Revision Notes': 'notes', 'Key Points': 'keypoints', 'Quick Revision': 'quickrevision' };
+  return { label: match[1], kind: ids[match[1]], chapter: match[2] };
+}
+
+function cleanVisualFocus(input) {
+  if (!visualRequestInfo(input)) return input;
+  return /^Focus: ([^\n]+)/m.exec(input)?.[1] || '';
+}
+
+export function VisualReplyProgress({ request, content, ready = false }) {
+  const sections = completedVisualSections(content);
+  const complete = /\[\/(?:STUDYVISUAL|MINDMAP|FLOWCHART)\]/.test(content);
+  const parts = complete ? parseQuizBlocks(content) : [];
+  const visual = parts.find(part => ['studyvisual', 'mindmap', 'flowchart'].includes(part.type));
+  return <div className="flex gap-3" data-testid="visual-progress">
+    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-600 flex-shrink-0 flex items-center justify-center mt-1"><Sparkles size={14} className="text-white" /></div>
+    <div className="message-ai p-3.5 w-full max-w-[82%]">
+      <div role="status" aria-live="polite" className="flex items-center gap-2 text-xs text-violet-200">
+        <span className="h-2 w-2 rounded-full bg-cyan-400 animate-pulse" />
+        {ready ? 'Visual ready · saving your reply…' : sections.length ? `${sections.length} topic${sections.length === 1 ? '' : 's'} ready · building the rest…` : content ? 'Building your visual…' : `Preparing ${request?.label || 'your visual'}…`}
+      </div>
+      {visual?.type === 'studyvisual' ? <StudyVisualCard data={visual.data} preview={!ready} /> :
+        visual?.type === 'mindmap' ? <MindMapCard data={visual.data} /> :
+        visual?.type === 'flowchart' ? <FlowchartCard data={visual.data} /> :
+        sections.length > 0 ? <StudyVisualCard preview data={{ kind: request?.kind || 'notes', title: request?.chapter || 'Chapter', summary: 'Finished topics appear here while the rest is being prepared.', sections }} /> :
+        <div aria-hidden="true" className="mt-4 space-y-3 animate-pulse">
+          <div className="h-4 w-2/3 rounded bg-violet-400/10" />
+          <div className="grid grid-cols-2 gap-3">{[0, 1].map(i => <div key={i} className="h-20 rounded-xl border border-cyan-400/10 bg-cyan-400/5" />)}</div>
+          <div className="h-3 w-5/6 rounded bg-white/5" />
+        </div>}
+    </div>
+  </div>;
+}
+
 function YouTubeCard({ query }) {
   const encoded = encodeURIComponent(query);
   const searchUrl = `https://www.youtube.com/results?search_query=${encoded}`;
@@ -227,6 +302,7 @@ function MessageBubble({ msg, isStreaming, isNios, feedbackState, onFeedback, on
   const isUser = msg.role === 'user';
   // Structured blocks are parsed after the reply completes.
   const parts = (!isUser && !isStreaming) ? parseQuizBlocks(msg.content) : null;
+  const structuredStreaming = isStreaming && /\[(?:STUDYVISUAL|MINDMAP|FLOWCHART)(?:\]|$)/.test(msg.content);
 
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
@@ -240,6 +316,10 @@ function MessageBubble({ msg, isStreaming, isNios, feedbackState, onFeedback, on
         <div className={`${isUser ? 'message-user' : 'message-ai'} p-3.5`}>
           {isUser ? (
             <p className="text-white text-sm font-body leading-relaxed">{/^Visualize: (Mind map|Flowchart|Graph|PDF Cheat Sheet|Revision Notes|Key Points|Quick Revision) for /.test(msg.content) ? msg.content.split(/\n\n\[(?:MINDMAP|FLOWCHART|STUDYVISUAL) INSTRUCTIONS\]/)[0] : msg.content}</p>
+          ) : msg.visualPreview ? (
+            <StudyVisualCard data={msg.visualPreview} preview />
+          ) : structuredStreaming ? (
+            <VisualReplyProgress content={msg.content} />
           ) : isStreaming ? (
             <div className="markdown-content text-sm font-body streaming-cursor">
               <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]}
@@ -283,6 +363,7 @@ function MessageBubble({ msg, isStreaming, isNios, feedbackState, onFeedback, on
           )}
         </div>
 
+        {msg.unconfirmed && <span className="text-xs text-amber-200">Connection interrupted · reload the chat to check whether this reply was saved.</span>}
         {msg.stopped && <span className="text-xs text-zinc-500">Response stopped</span>}
         {/* Feedback & Detail row — only for finalised AI messages */}
         {!isUser && !isStreaming && (
@@ -478,6 +559,8 @@ export default function ChatPage() {
   const [visualizeOpen, setVisualizeOpen] = useState(false);
   const [streaming, setStreaming] = useState(false);
   const [streamingContent, setStreamingContent] = useState('');
+  const [visualRequest, setVisualRequest] = useState(null);
+  const [visualReady, setVisualReady] = useState(false);
   const [sessions, setSessions] = useState([]);
   const [showSessions, setShowSessions] = useState(false);
   const [quizModal, setQuizModal] = useState(null); // {quizData}
@@ -489,6 +572,8 @@ export default function ChatPage() {
   const sendingRef = useRef(false);
   const activeRequestRef = useRef(null);
   const stoppedRef = useRef(false);
+  const readyVisualRef = useRef('');
+  const replyCompletedRef = useRef(false);
   const [replyError, setReplyError] = useState('');
 
   // Cleanup RAF on unmount
@@ -572,9 +657,14 @@ export default function ChatPage() {
       try { d = JSON.parse(payload); }
       catch { throw new Error('The tutor response was interrupted. Please try again.'); }
       if (d.type === 'reset') {
-        full = ''; streamBufferRef.current = ''; setStreamingContent(''); return;
+        full = ''; streamBufferRef.current = ''; setStreamingContent(''); setVisualReady(false); readyVisualRef.current = ''; return;
       }
       if (d.type === 'error') throw new Error(d.message || 'The tutor could not finish this reply. Please try again.');
+      if (d.type === 'visual_ready' && typeof d.content === 'string') {
+        full = d.content; streamBufferRef.current = full; readyVisualRef.current = full;
+        if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
+        setStreamingContent(full); setVisualReady(true); return;
+      }
       if (d.type === 'chunk' && typeof d.content === 'string') {
         full += d.content;
         streamBufferRef.current = full;
@@ -588,7 +678,7 @@ export default function ChatPage() {
       if (d.type === 'done') {
         if (!full.trim()) throw new Error('The tutor returned an empty reply. Please try again.');
         if (finished) return;
-        finished = true;
+        finished = true; replyCompletedRef.current = true;
         if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
         setMessages(p => [...p, { role: 'assistant', content: full,
           timestamp: new Date().toISOString(), message_id: d.message_id }]);
@@ -667,6 +757,7 @@ export default function ChatPage() {
     const text = (forced !== undefined ? forced : input).trim();
     if (!text || streaming || sendingRef.current || !session) return;
     stoppedRef.current = false;
+    readyVisualRef.current = ''; replyCompletedRef.current = false;
     sendingRef.current = true;
     setReplyError('');
     if (forced === undefined) setInput('');
@@ -685,6 +776,8 @@ export default function ChatPage() {
     }
 
     setMessages(p => [...p, { role: 'user', content: text, timestamp: new Date().toISOString() }]);
+    setVisualRequest(visualRequestInfo(text));
+    setVisualReady(false);
     setStreaming(true);
     setStreamingContent('');
     streamBufferRef.current = '';
@@ -692,6 +785,21 @@ export default function ChatPage() {
     activeRequestRef.current = controller;
     const timeout = setTimeout(() => controller.abort(), 120000);
 
+    const retainVisualPreview = () => {
+      const request = visualRequestInfo(text);
+      if (!request || replyCompletedRef.current) return;
+      if (readyVisualRef.current) {
+        setMessages(p => [...p, { role: 'assistant', content: readyVisualRef.current,
+          timestamp: new Date().toISOString(), unconfirmed: true }]);
+        return;
+      }
+      const sections = completedVisualSections(streamBufferRef.current);
+      if (!sections.length) return;
+      setMessages(p => [...p, { role: 'assistant', content: '', unconfirmed: true,
+        timestamp: new Date().toISOString(), visualPreview: { kind: request.kind,
+          title: request.chapter, summary: 'Generation was interrupted. These finished topics are still available.',
+          sections, coverage: { status: 'partial', note: 'Incomplete preview; some chapter topics are missing.', topics: sections.map(s => s.heading) } } }]);
+    };
     try {
       const res = await requestTutorReply(session.session_id, text, controller.signal);
       if (res.status === 429) {
@@ -725,9 +833,10 @@ export default function ChatPage() {
       refreshSub?.();
       refreshCredits?.();
     } catch (e) {
+      retainVisualPreview();
       if (stoppedRef.current) {
         const partial = streamBufferRef.current;
-        if (partial.trim()) setMessages(p => [...p, {
+        if (partial.trim() && !visualRequestInfo(text)) setMessages(p => [...p, {
           role: 'assistant', content: partial, timestamp: new Date().toISOString(), stopped: true,
         }]);
         toast.info('Reply stopped');
@@ -747,6 +856,7 @@ export default function ChatPage() {
       streamBufferRef.current = '';
       setStreamingContent('');
       setStreaming(false);
+      setVisualRequest(null); setVisualReady(false);
       refreshCredits?.();
     }
   };
@@ -859,7 +969,8 @@ export default function ChatPage() {
             onDetailRequest={() => sendMessage('Explain in detail')}
           />
         ))}
-        {streaming && streamingContent && (
+        {streaming && visualRequest && <VisualReplyProgress request={visualRequest} content={streamingContent} ready={visualReady} />}
+        {streaming && !visualRequest && streamingContent && (
           <MessageBubble
             msg={{ role: 'assistant', content: streamingContent }}
             isStreaming={true}
@@ -869,7 +980,7 @@ export default function ChatPage() {
             onDetailRequest={() => {}}
           />
         )}
-        {streaming && !streamingContent && (
+        {streaming && !visualRequest && !streamingContent && (
           <div className="flex gap-3">
             <div className="w-7 h-7 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-600 flex-shrink-0 flex items-center justify-center">
               <Sparkles size={14} className="text-white" />
@@ -915,14 +1026,14 @@ export default function ChatPage() {
               <button type="button" data-testid="visualize-mindmap" disabled={streaming || !session}
                 onClick={() => {
                   if (streaming || sendingRef.current || !session) return;
-                  const prompt = makeMindMapPrompt(session.chapter, input);
+                  const prompt = makeMindMapPrompt(session.chapter, cleanVisualFocus(input));
                   setVisualizeOpen(false); setInput(''); sendMessage(prompt);
                 }}
                 className="rounded-lg px-3 py-2 text-xs bg-cyan-500/15 border border-cyan-500/30 text-cyan-300 disabled:opacity-40">Mind Map</button>
               <button type="button" data-testid="visualize-flowchart" disabled={streaming || !session}
                 onClick={() => {
                   if (streaming || sendingRef.current || !session) return;
-                  const prompt = makeFlowchartPrompt(session.chapter, input);
+                  const prompt = makeFlowchartPrompt(session.chapter, cleanVisualFocus(input));
                   setVisualizeOpen(false); setInput(''); sendMessage(prompt);
                 }}
                 className="rounded-lg px-3 py-2 text-xs bg-violet-500/15 border border-violet-500/30 text-violet-300 disabled:opacity-40">Flowchart</button>
@@ -930,13 +1041,13 @@ export default function ChatPage() {
                 <button key={format.id} type="button" data-testid={`visualize-${format.id}`} disabled={streaming || !session}
                   onClick={() => {
                     if (streaming || sendingRef.current || !session) return;
-                    const prompt = makeStudyVisualPrompt(session.chapter, input, format.id);
+                    const prompt = makeStudyVisualPrompt(session.chapter, cleanVisualFocus(input), format.id);
                     setVisualizeOpen(false); setInput(''); sendMessage(prompt);
                   }} className="rounded-lg px-3 py-2 text-xs bg-teal-500/15 border border-teal-500/30 text-teal-300 disabled:opacity-40">
                   {format.label}
                 </button>)}
             </div>
-            <p className="mt-2 text-[11px] text-zinc-500">Uses normal tutor credits. The visual appears after the reply finishes.</p>
+            <p className="mt-2 text-[11px] text-zinc-500">Uses normal tutor credits. Finished topics appear as they are prepared.</p>
           </div>}
         </div>
         <div className="flex gap-3 items-end">
@@ -966,6 +1077,7 @@ export default function ChatPage() {
     </div>
   );
 }
+
 
 
 

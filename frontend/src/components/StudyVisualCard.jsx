@@ -319,7 +319,7 @@ export async function makeStudyPdf(data) {
   finish(); return pdfFromJpegs(images);
 }
 
-function ChapterVisual({ data: d }) {
+function ChapterVisual({ data: d, preview = false }) {
   const [busy, setBusy] = useState(false), [error, setError] = useState(''), [reviewed, setReviewed] = useState({});
   const [revealed, setRevealed] = useState({}), refs = useRef([]);
   const download = async () => {
@@ -331,7 +331,7 @@ function ChapterVisual({ data: d }) {
   return <>
     <div className="flex items-center justify-between gap-3 mt-3">
       <p className="text-xs text-zinc-400" aria-live="polite">{Object.values(reviewed).filter(Boolean).length} / {d.sections.length} topics reviewed</p>
-      <button type="button" disabled={busy} onClick={download} className="rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-xs text-cyan-200 disabled:opacity-40">{busy ? 'Preparing PDF…' : 'Download PDF'}</button>
+      <button type="button" disabled={busy || preview} onClick={download} className="rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-xs text-cyan-200 disabled:opacity-40">{preview ? 'PDF available when complete' : busy ? 'Preparing PDF…' : 'Download PDF'}</button>
     </div>
     {error && <p role="alert" className="mt-2 text-amber-300">{error}</p>}
     {d.coverage && <p className={`mt-3 text-xs ${d.coverage.status === 'partial' ? 'text-amber-200' : 'text-zinc-400'}`}>{d.coverage.status === 'partial' ? 'Partial source coverage: ' : ''}{d.coverage.note}</p>}
@@ -353,12 +353,12 @@ function ChapterVisual({ data: d }) {
   </>;
 }
 
-export default function StudyVisualCard({ data }) {
+export default function StudyVisualCard({ data, preview = false }) {
   const d = validateStudyVisual(data);
   if (!d) return <p role="alert" className="text-amber-300">This study visual was incomplete or could not be read. Please generate it again.</p>;
   return <section className="my-3 rounded-2xl border border-cyan-500/20 bg-zinc-950 p-4 text-zinc-200">
     <p className="text-xs text-cyan-300">Ace-it Visualize · {STUDY_FORMATS.find(f => f.id === d.kind).label}</p>
     <h3 className="text-xl font-semibold mt-1">{d.title}</h3><p className="mt-2 text-sm text-zinc-400">{d.summary}</p>
-    {d.kind === 'graph' ? <GraphVisual key={`${d.title}-${JSON.stringify(d.points)}`} data={d} /> : <ChapterVisual key={`${d.kind}-${d.title}-${JSON.stringify(d.sections)}`} data={d} />}
+    {d.kind === 'graph' ? <GraphVisual key={`${d.title}-${JSON.stringify(d.points)}`} data={d} /> : <ChapterVisual key={`${d.kind}-${d.title}`} data={d} preview={preview} />}
   </section>;
 }
