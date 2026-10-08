@@ -261,6 +261,134 @@ async def _get_nios_kb_context(subject: str, chapter: str, query: str) -> str:
     return result
 
 
+# Verified against the uploaded NIOS "Mathematics-All Chapters.pdf".
+# Page ranges below use PDF pages (1-based), not printed textbook page numbers.
+_NIOS_MATH_PDF_SHA256 = "6b87c48e8c34da3463da5923898af796d1d82deec3a81cfa2100810d1dd085fa"
+_NIOS_MATH_SOURCE_MAP = {
+    "number systems": [(1, 36, "Number Systems", None, None)],
+    "polynomials": [(74, 97, "Algebraic Expressions and Polynomials", None, None)],
+    "linear equations in two variables": [
+        (146, 163, "Linear Equations, sections 5.5–5.8", r"5\.5\s+LINEAR EQUATIONS IN TWO VARIABLES", r"LET US SUM UP")
+    ],
+    "quadratic equations": [(168, 181, "Quadratic Equations", None, None)],
+    "arithmetic progressions": [(182, 197, "Arithmetic Progressions", None, None)],
+    "triangles and congruence": [(285, 308, "Congruence of Triangles", None, None)],
+    "coordinate geometry": [(429, 448, "Co-ordinate Geometry", None, None)],
+    "introduction to trigonometry": [
+        (504, 549, "Introduction to Trigonometry", None, None),
+        (550, 564, "Trigonometric Ratios of Some Special Angles, sections 23.1–23.4", None, r"23\.5\s+APPLICATION OF TRIGONOMETRY"),
+    ],
+    "applications of trigonometry": [
+        (564, 577, "Trigonometric Ratios of Some Special Angles, section 23.5 Application of Trigonometry",
+         r"23\.5\s+APPLICATION OF TRIGONOMETRY", r"LET US SUM UP")
+    ],
+    "circles and tangents": [
+        (376, 389, "Circles", None, None),
+        (390, 404, "Angles in a Circle and Cyclic Quadrilateral", None, None),
+        (405, 418, "Secants, Tangents and Their Properties", None, None),
+    ],
+    "areas related to circles": [
+        (460, 467, "Perimeters and Areas of Plane Figures, sections 20.4–20.6",
+         r"20\.4\s+AREAS OF CIRCLES AND CIRCULAR PATHS", r"LET US SUM UP")
+    ],
+    "surface areas and volumes": [(475, 502, "Surface Areas and Volumes of Solid Figures", None, None)],
+    "statistics": [
+        (585, 625, "Data and their Representations", None, None),
+        (626, 649, "Measures of Central Tendency", None, None),
+    ],
+    "probability": [(650, 663, "Introduction to Probability", None, None)],
+}
+_NIOS_MATH_BOOK_CACHE = {}
+_NIOS_MATH_CONTEXT_CACHE = {}
+
+
+def _read_mapped_nios_math(chapter: str, root=None) -> str:
+    """Read only a verified NIOS Maths book; never borrow CBSE or BNPS material."""
+    import hashlib
+    from pathlib import Path
+    import fitz  # Lazy import keeps backend startup independent of PDF loading.
+
+    topic = re.sub(r"[^a-z0-9]+", " ", chapter.casefold()).strip()
+    spans = _NIOS_MATH_SOURCE_MAP.get(topic)
+    if not spans:
+        return ""
+    app_root = Path(root) if root else Path(__file__).resolve().parents[2]
+    folder = app_root / "nios_syllabus" / "Mathematics"
+    if not folder.is_dir():
+        return ""
+    for path in sorted(folder.glob("*.pdf"))[:8]:
+        try:
+            stat = path.stat()
+            key = (str(path.resolve()), stat.st_mtime_ns, stat.st_size)
+            context_key = (*key, topic)
+            if context_key in _NIOS_MATH_CONTEXT_CACHE:
+                return _NIOS_MATH_CONTEXT_CACHE[context_key]
+            if key not in _NIOS_MATH_BOOK_CACHE:
+                digest = hashlib.sha256(path.read_bytes()).hexdigest()
+                # Fail closed if this is another edition: these page ranges must not silently point elsewhere.
+                if digest != _NIOS_MATH_PDF_SHA256:
+                    continue
+                with fitz.open(path) as doc:
+                    if doc.page_count != 663:
+                        continue
+                    texts = tuple(page.get_text(sort=True) for page in doc)
+                if len(_NIOS_MATH_BOOK_CACHE) >= 2:
+                    _NIOS_MATH_BOOK_CACHE.clear()
+                    _NIOS_MATH_CONTEXT_CACHE.clear()
+                _NIOS_MATH_BOOK_CACHE[key] = texts
+            texts = _NIOS_MATH_BOOK_CACHE[key]
+            parts = []
+            for first, last, lesson, start_pattern, end_pattern in spans:
+                selected = texts[first-1:last]
+                if any(len(t.strip()) < 30 for t in selected):
+                    return ""  # Scanned/unreadable material must not become invented content.
+                excerpt = "\n\n".join(f"[PDF page {first+i}]\n{t.strip()}" for i,t in enumerate(selected))
+                if start_pattern:
+                    start = re.search(start_pattern, excerpt, re.I)
+                    if not start:
+                        return ""
+                    excerpt = excerpt[start.start():]
+                if end_pattern:
+                    end = re.search(end_pattern, excerpt, re.I)
+                    if not end:
+                        return ""
+                    excerpt = excerpt[:end.start()]
+                else:
+                    # Keep teaching content, worked examples and the lesson recap.
+                    # Exclude answer keys and the repetitive terminal practice bank.
+                    end = re.search(r"(?im)^\s*TERMINAL EXERCISE\s*$", excerpt)
+                    if end:
+                        excerpt = excerpt[:end.start()]
+                if len(excerpt.strip()) < 300:
+                    return ""
+                parts.append(f"[NIOS Mathematics source: {lesson}; PDF pages {first}–{last}]\n{excerpt.strip()}")
+            result = "\n\n---\n\n".join(parts)
+            if len(result) > 160000:
+                return ""  # Bounded full-topic input; never truncate away the last concept.
+            result = (
+                f"[Verified NIOS Secondary Mathematics PDF: {path.name}]\n"
+                f"APP TOPIC: {chapter}\n"
+                "The app topic may correspond to a textbook lesson or a numbered section. "
+                "Use the mapped sources below. An alternate textbook heading does NOT mean the topic is absent.\n\n"
+                + result
+            )
+            if len(_NIOS_MATH_CONTEXT_CACHE) >= 40:
+                _NIOS_MATH_CONTEXT_CACHE.clear()
+            _NIOS_MATH_CONTEXT_CACHE[context_key] = result
+            return result
+        except Exception as exc:
+            logger.warning("NIOS Maths PDF mapping failed (%s): %s", path.name, type(exc).__name__)
+    return ""
+
+
+async def _get_mapped_nios_math_context(chapter: str) -> str:
+    try:
+        return await asyncio.wait_for(asyncio.to_thread(_read_mapped_nios_math, chapter), timeout=25)
+    except (asyncio.TimeoutError, ImportError):
+        logger.warning("NIOS Maths PDF mapping timed out or PDF dependency is unavailable")
+        return ""
+
+
 def _build_system_prompt(session: dict, memory: dict, category: str, chapter_context: str, max_tokens: int) -> str:
     cls = session["class_level"]
     class_num = int(cls) if cls.isdigit() else 9
@@ -400,7 +528,11 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
                 "feature": "visualize", "message": "Your remaining AI response budget is too small for this visual. Try again after it resets.",
                 "upgrade_to": "pro",
             })
-        max_tokens = min(max_tokens, 1200)
+        full_math_summary = (
+            user.get("school") == "nios" and session["subject"] == "Mathematics"
+            and body.content.startswith(("Visualize: PDF Cheat Sheet for ", "Visualize: Revision Notes for "))
+        )
+        max_tokens = min(max_tokens, 2400 if full_math_summary else 1200)
 
     # ── Category A: curriculum lookup, no LLM ────────────────────────────────
     if category == "A" and not is_visual:
@@ -450,6 +582,16 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
     )
     memory = build_compact_memory(profile)
 
+    math_visual_source = ""
+    if is_visual and is_nios and session["subject"] == "Mathematics":
+        math_visual_source = await _get_mapped_nios_math_context(session["chapter"])
+        if not math_visual_source:
+            raise HTTPException(status_code=422, detail={
+                "code": "CHAPTER_SOURCE_UNAVAILABLE",
+                "message": "Ace-it could not match this Maths topic to the uploaded NIOS textbook. "
+                           "The textbook may be missing, unreadable, or a different edition. No credits were charged.",
+            })
+
     # Persist user message
     now = datetime.now(timezone.utc).isoformat()
     await db.messages.insert_one(
@@ -485,7 +627,7 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
         # KB MISS — full generation, token-capped by budget tier
         if is_nios:
             # NIOS path: retrieve PDF chunks + Q&A context → strict grounding prompt
-            nios_kb_context = await _get_nios_kb_context(
+            nios_kb_context = math_visual_source or await _get_nios_kb_context(
                 session["subject"], session["chapter"], body.content.split("\n\n[")[0] if is_visual else body.content
             )
             is_detail = bool(_NIOS_DETAIL_RE.search(body.content))
@@ -565,12 +707,30 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
                 "The visual format is an instruction to organize the chapter, not a new textbook topic. "
                 "Do not refuse because the textbook lacks the name of the requested study format. "
                 "Refuse only if the requested focus lacks usable source material. "
-                "Do not add Quick Check, Exam Tip or Try This to visual replies. "
+                "Do not add Quick Check, Exam Tip or Try This to visual replies. When mapped textbook sources are provided, summarize their teaching content; do not create source-status placeholder sections. "
                 "Otherwise output [" + tag + "] valid JSON [/" + tag + "]. " + schema +
                 "Use plain text strings with Unicode mathematical symbols, no LaTeX or HTML in JSON. Keep the result below 350 words. No Markdown fences or extra blocks."
             )
+        if math_visual_source and is_studyvisual:
+            if kind == "cheatsheet":
+                system_prompt += (
+                    " For this complete mapped Maths topic, use 5 to 8 compact sections and up to 750 words. "
+                    "Cover every important concept, definitions, formulas with variable meanings, methods, "
+                    "representative examples and source-supported common mistakes. Prefer complete topic coverage "
+                    "over the generic 350-word guideline; respect the actual output token limit."
+                )
+            elif kind == "notes":
+                system_prompt += (
+                    " For these Maths revision notes, use 4 to 8 sections with explanations, reasoning "
+                    "and source-supported examples, up to 650 words within the output token limit."
+                )
+            elif kind == "quickrevision":
+                system_prompt += (
+                    " Use 6 to 8 sections. Each heading must be a recall QUESTION and its points the answer "
+                    "plus a short explanation, so the app can hide/reveal answers."
+                )
         ai_messages = [{"role": "system", "content": system_prompt}]
-        for msg in history[:-1]:
+        for msg in ([] if math_visual_source else history[:-1]):
             ai_messages.append({"role": msg["role"], "content": msg["content"]})
         ai_messages.append({"role": "user", "content": body.content})
 
@@ -780,6 +940,7 @@ async def submit_message_feedback(body: _FeedbackBody, request: Request):
     if result.matched_count == 0:
         raise HTTPException(status_code=404, detail="Message not found")
     return {"ok": True, "vote": body.vote}
+
 
 
 
