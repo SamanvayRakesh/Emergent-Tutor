@@ -33,7 +33,7 @@ export default function Sidebar({ onClose, onFeedbackOpen }) {
   const xpInLevel = xp % 500;
 
   return (
-    <div className="h-full flex flex-col bg-zinc-950 border-r border-white/5 py-4">
+    <div className="ace-sidebar h-full flex flex-col bg-zinc-950 border-r border-white/5 py-4">
       {/* Logo */}
       <div className="px-5 mb-6 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
@@ -50,7 +50,7 @@ export default function Sidebar({ onClose, onFeedbackOpen }) {
       {user && (
         <div className="mx-3 mb-4 p-3 rounded-xl glass-surface border border-white/5">
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-cyan-400 to-violet-500 flex items-center justify-center text-black font-heading font-black text-sm flex-shrink-0">
+            <div className="ace-avatar w-9 h-9 rounded-full flex items-center justify-center text-black font-heading font-black text-sm flex-shrink-0">
               {user.name?.[0]?.toUpperCase() || 'U'}
             </div>
             <div className="min-w-0 flex-1">
@@ -69,10 +69,10 @@ export default function Sidebar({ onClose, onFeedbackOpen }) {
               <span className="text-zinc-600 text-xs font-body">{xp} XP</span>
               <span className="text-zinc-600 text-xs font-body">{500 - xpInLevel} to next</span>
             </div>
-            <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+            <div className="ace-xp-track h-1.5 bg-zinc-800 rounded-full overflow-hidden">
               <motion.div
-                className="h-full rounded-full"
-                style={{ background: 'linear-gradient(90deg, #22d3ee, #8b5cf6)' }}
+                className="ace-xp-fill h-full rounded-full"
+                style={{ background: 'var(--ace-cloud)' }}
                 initial={{ width: 0 }}
                 animate={{ width: `${(xpInLevel / 500) * 100}%` }}
                 transition={{ duration: 1, delay: 0.3 }}

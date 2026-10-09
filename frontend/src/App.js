@@ -415,9 +415,8 @@ function App() {
 
               <Toaster
                 position="top-center"
-                theme="dark"
+                theme="light"
                 closeButton
-                richColors
               />
 
             </CreditsProvider>

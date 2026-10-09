@@ -24,7 +24,7 @@ export default function Layout() {
   }
 
   return (
-    <div className="flex h-screen bg-zinc-950 overflow-hidden">
+    <div className="ace-app-shell flex h-screen bg-zinc-950 overflow-hidden">
       <div className="hidden lg:block w-64 flex-shrink-0">
         <Sidebar onFeedbackOpen={() => setShowFeedback(true)} />
       </div>

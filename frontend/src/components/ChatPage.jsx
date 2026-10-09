@@ -1013,7 +1013,7 @@ export default function ChatPage() {
         {replyError} <button onClick={() => sendMessage()} disabled={streaming} className="ml-2 underline">Retry question</button>
       </div>}
       {/* Input */}
-      <div className="p-4 border-t border-white/5 glass">
+      <div className="ace-prompt p-4 border-t border-white/5 glass">
         <div className="mb-2">
           <button type="button" data-testid="visualize-toggle" aria-expanded={visualizeOpen}
             onClick={() => setVisualizeOpen(open => !open)}
