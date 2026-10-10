@@ -765,3 +765,31 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
 .App .ace-onboarding-panel .ace-onboarding-icon svg { color: var(--ace-link) !important; }
 .App .ace-onboarding-panel button[aria-pressed="true"]:not(:disabled) { background: var(--ace-control-active) !important; border-color: var(--ace-accent) !important; color: var(--ace-control-text) !important; }
 .App .ace-onboarding-panel button:not([data-ace-primary]) p { -webkit-text-fill-color: currentColor !important; }
+
+/* Chapter study formats share tokens, but use different reading patterns. */
+.App .ace-study-visual { container-type: inline-size; min-width: 0; }
+.App .ace-study-sections { display: grid; gap: 16px; margin-top: 16px; }
+.App .ace-study-topic { min-width: 0; scroll-margin-top: 20px; }
+.App .ace-study-cheatsheet { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
+.App .ace-study-keypoints { gap: 10px; }
+.App .ace-study-keypoints .ace-study-topic { border-left: 3px solid var(--ace-accent) !important; }
+.App .ace-study-notes .ace-study-topic { padding: 24px !important; }
+.App .ace-note-body { display: grid; gap: 16px; margin-top: 18px; line-height: 1.7; }
+.App .ace-note-body h5 { font-weight: 650; color: var(--ace-body) !important; margin-bottom: 4px; }
+.App .ace-note-body p, .App .ace-key-takeaway, .App .ace-study-points { color: var(--ace-label) !important; -webkit-text-fill-color: currentColor !important; font-size: 14px; }
+.App .ace-key-takeaway { margin-top: 12px; line-height: 1.6; }
+.App .ace-study-points { list-style: disc; padding-left: 20px; margin-top: 12px; line-height: 1.65; }
+.App .ace-study-points li + li { margin-top: 6px; }
+.App .ace-study-disclosure { display: flex; justify-content: space-between; gap: 12px; margin-top: 14px; font-size: 12px; padding: 8px 12px; }
+.App .ace-topic-special { display: grid; gap: 10px; margin-top: 12px; }
+.App .ace-topic-compare { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.App .ace-topic-special button { text-align: left; padding: 14px; min-width: 0; display: grid; gap: 8px; align-content: start; white-space: normal; }
+.App .ace-topic-label { font-weight: 650; overflow-wrap: anywhere; }
+.App .ace-topic-detail { font-size: 12px; line-height: 1.6; color: var(--ace-label) !important; -webkit-text-fill-color: currentColor !important; }
+.App .ace-topic-formula .ace-topic-label { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 16px; }
+.App .ace-topic-export-only { display: none; }
+.App .ace-topic-svg { min-width: 0; display: block; }
+.App .ace-topic-compact-controls { gap: 6px; }
+.App .ace-visual-receipt { align-self: flex-end; font-size: 11px; color: var(--ace-label) !important; -webkit-text-fill-color: currentColor !important; }
+@container (max-width: 620px) { .App .ace-study-cheatsheet { grid-template-columns: 1fr; } }
+@media (max-width: 480px) { .App .ace-topic-compare { grid-template-columns: 1fr; } .App .ace-study-notes .ace-study-topic { padding: 16px !important; } }

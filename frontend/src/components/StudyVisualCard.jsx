@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from 'react';
+import { memo, useId, useRef, useState } from 'react';
 
 export const STUDY_FORMATS = [
   { id: 'graph', label: 'Graph' },
@@ -114,22 +114,27 @@ function edgeEnds(a, b) {
   const start = radius(a), end = radius(b);
   return [a.x + dx * start, a.y + dy * start, b.x - dx * end, b.y - dy * end];
 }
-function TopicVisual({ visual }) {
+function TopicVisual({ visual, compact = false }) {
   const [selected, setSelected] = useState(0), svgRef = useRef(null);
   const arrow = `ace-topic-${useId().replace(/[^a-z0-9]/gi, '')}`;
   const layout = topicLayout(visual), active = Math.min(selected, visual.items.length - 1);
-  return <div className="mt-3 rounded-xl border border-cyan-500/20 bg-zinc-950 p-3" data-testid="topic-visual">
+  return <div className="mt-3 rounded-xl border border-cyan-500/20 bg-zinc-950 p-3" data-testid="topic-visual" data-visual-type={visual.type}>
     <div className="flex items-center justify-between gap-3">
       <p className="text-sm text-cyan-200 font-semibold">{visual.title}</p>
       <button type="button" onClick={() => saveSvg(svgRef.current, visual.title)} className="shrink-0 text-xs text-cyan-300">Save SVG</button>
     </div>
-    <div className="overflow-auto max-h-[440px] mt-2">
-      <svg ref={svgRef} viewBox={`0 0 ${layout.width} ${layout.height}`} className="w-full min-w-[540px]"
+    {['compare', 'formula'].includes(visual.type) && <div className={`ace-topic-special ace-topic-${visual.type}`}>
+      {visual.items.map((item, i) => <button type="button" key={i} aria-pressed={active === i} onClick={() => setSelected(i)}>
+        <span className="ace-topic-label">{item.label}</span><span className="ace-topic-detail">{item.detail}</span>
+      </button>)}
+    </div>}
+    <div className={`overflow-auto max-h-[440px] mt-2 ${['compare', 'formula'].includes(visual.type) ? 'ace-topic-export-only' : ''}`}>
+      <svg ref={svgRef} viewBox={`0 0 ${layout.width} ${layout.height}`} className="ace-topic-svg w-full"
         role="group" aria-label={`${visual.type}: ${visual.title}`} style={{ background: '#ffffff' }}>
         <title>{visual.title}</title><rect width={layout.width} height={layout.height} fill="#ffffff" />
         <defs><marker id={arrow} markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 z" fill="#3159cd" /></marker></defs>
         {layout.hub && <><circle cx="350" cy={layout.height / 2} r="38" fill="#eaf0ff" stroke="#3159cd" />
-          <text x="350" y={layout.height / 2 + 5} textAnchor="middle" fill="#172033" fontSize="14">Concept</text></>}
+          <text x="350" y={layout.height / 2 + 5} textAnchor="middle" fill="#172033" fontSize="14">Explore</text></>}
         {layout.hub && layout.nodes.map((n, i) => <line key={`hub-${i}`} x1="350" y1={layout.height / 2}
           x2={n.x} y2={n.y} stroke="#7b879a" strokeWidth="2" />)}
         {layout.edges.map(([a, b], i) => {
@@ -147,11 +152,11 @@ function TopicVisual({ visual }) {
         </g>)}
       </svg>
     </div>
-    <div className="mt-3 flex flex-wrap gap-2" aria-label="Explore topic details">
+    {!['compare', 'formula'].includes(visual.type) && <><div className={`mt-3 flex flex-wrap gap-2 ${compact ? 'ace-topic-compact-controls' : ''}`} aria-label="Explore topic details">
       {visual.items.map((item, i) => <button type="button" key={i} aria-pressed={active === i} onClick={() => setSelected(i)}
         className={`rounded-lg border px-3 py-2 text-xs ${active === i ? 'border-cyan-400 bg-cyan-500/15 text-cyan-200' : 'border-white/10 text-zinc-300'}`}>{item.label}</button>)}
     </div>
-    <div aria-live="polite" className="mt-3 text-sm text-zinc-300"><p className="font-semibold text-cyan-100">{visual.items[active].label}</p><p className="mt-1 whitespace-pre-wrap">{visual.items[active].detail}</p></div>
+    <div aria-live="polite" className="mt-3 text-sm text-zinc-300"><p className="font-semibold text-cyan-100">{visual.items[active].label}</p><p className="mt-1 whitespace-pre-wrap">{visual.items[active].detail}</p></div></>}
   </div>;
 }
 
@@ -190,11 +195,12 @@ function GraphVisual({ data: d }) {
         <path d={`M${g.left} ${g.top} V${g.bottom} H${g.right}`} fill="none" stroke="#7b879a" />
         {g.low < 0 && g.high > 0 && <line x1={g.left} x2={g.right} y1={g.y(0)} y2={g.y(0)} stroke="#7b879a" />}
         {d.chartType === 'line' && connect && <polyline points={g.shown.map((point, i) => `${g.x(point, i)},${g.y(point.y)}`).join(' ')} fill="none" stroke="#3159cd" strokeWidth="2" />}
+        {!isBar && <line x1={g.x(p, active - range[0])} x2={g.x(p, active - range[0])} y1={g.top} y2={g.bottom} stroke="#315FEA" strokeDasharray="4 4" opacity=".35" />}
         {g.shown.map((point, i) => {
           const original = range[0] + i, cx = g.x(point, i), cy = g.y(point.y), width = Math.min(44, 360 / g.shown.length);
           return <g key={original} role="button" tabIndex={0} aria-pressed={active === original}
             aria-label={`${point.label}: ${isBar ? '' : `${d.xLabel} ${point.x}, `}${d.yLabel} ${point.y}`}
-            onClick={() => setSelected(original)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelected(original); } }} style={{ cursor: 'pointer' }}>
+            onClick={() => setSelected(original)} onMouseEnter={() => setSelected(original)} onFocus={() => setSelected(original)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelected(original); } }} style={{ cursor: 'pointer' }}>
             <title>{point.label}: {point.y}</title>
             {isBar ? <rect x={cx - width / 2} y={Math.min(cy, g.y(0))} width={width} height={Math.max(2, Math.abs(cy - g.y(0)))} fill={active === original ? '#172033' : '#3159cd'} /> :
               <circle cx={cx} cy={cy} r={active === original ? 7 : 5} fill={active === original ? '#172033' : '#3159cd'} />}
@@ -321,7 +327,7 @@ export async function makeStudyPdf(data) {
 
 function ChapterVisual({ data: d, preview = false }) {
   const [busy, setBusy] = useState(false), [error, setError] = useState(''), [reviewed, setReviewed] = useState({});
-  const [revealed, setRevealed] = useState({}), refs = useRef([]);
+  const [revealed, setRevealed] = useState({}), [expanded, setExpanded] = useState({}), refs = useRef([]);
   const download = async () => {
     setBusy(true); setError('');
     try { saveBlob(await makeStudyPdf(d), filename(d.title, 'pdf')); }
@@ -339,12 +345,20 @@ function ChapterVisual({ data: d, preview = false }) {
       {d.sections.map((s, i) => <button type="button" key={i} onClick={() => { refs.current[i]?.scrollIntoView({ behavior: window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'nearest' }); refs.current[i]?.focus({ preventScroll: true }); }}
         className="rounded-lg border border-white/10 px-3 py-2 text-xs text-zinc-300">{i + 1}. {s.heading}</button>)}
     </nav>
-    <div className="space-y-4">
-      {d.sections.map((s, i) => <article key={i} ref={el => { refs.current[i] = el; }} tabIndex={-1} className="rounded-xl bg-zinc-900/70 border border-white/5 p-4 outline-none focus:ring-2 focus:ring-cyan-500/40">
+    <div className={`ace-study-sections ace-study-${d.kind}`}>
+      {d.sections.map((s, i) => <article key={i} ref={el => { refs.current[i] = el; }} tabIndex={-1} className="ace-study-topic rounded-xl bg-zinc-900/70 border border-white/5 p-4 outline-none focus:ring-2 focus:ring-cyan-500/40">
         <div className="flex items-start justify-between gap-3"><h4 className="text-cyan-100 font-semibold">{i + 1}. {s.heading}</h4>
           <label className="flex shrink-0 items-center gap-2 text-xs text-zinc-400"><input type="checkbox" checked={Boolean(reviewed[i])} onChange={e => setReviewed(v => ({ ...v, [i]: e.target.checked }))} />Reviewed</label></div>
         {d.kind === 'quickrevision' && <button type="button" aria-expanded={Boolean(revealed[i])} className="mt-3 text-xs text-cyan-300" onClick={() => setRevealed(v => ({ ...v, [i]: !v[i] }))}>{revealed[i] ? 'Hide answer' : 'Reveal answer'}</button>}
-        {(d.kind !== 'quickrevision' || revealed[i]) && <><ul className="list-disc pl-5 mt-3 space-y-2 text-sm text-zinc-300">{s.points.map((point, j) => <li key={j} className="whitespace-pre-wrap">{point}</li>)}</ul><TopicVisual visual={s.visual} /></>}
+        {d.kind === 'keypoints' ? <>
+          <p className="ace-key-takeaway">{s.points[0]}</p>
+          <button type="button" className="ace-study-disclosure" aria-expanded={Boolean(expanded[i])} onClick={() => setExpanded(v => ({ ...v, [i]: !v[i] }))}>{expanded[i] ? 'Collapse topic' : 'Explore key ideas'} <span aria-hidden="true">{expanded[i] ? '−' : '+'}</span></button>
+          {expanded[i] && <><ul className="ace-study-points">{s.points.slice(1).map((point, j) => <li key={j}>{point}</li>)}</ul><TopicVisual visual={s.visual} compact /></>}
+        </> : (d.kind !== 'quickrevision' || revealed[i]) && <>
+          {d.kind === 'notes' ? <div className="ace-note-body">{s.visual.items.map((item, j) => <div key={j}><h5>{item.label}</h5><p>{item.detail}</p></div>)}</div> : d.kind !== 'cheatsheet' && <ul className="ace-study-points">{s.points.map((point, j) => <li key={j}>{point}</li>)}</ul>}
+          {d.kind === 'notes' && <button type="button" className="ace-study-disclosure" aria-expanded={Boolean(expanded[i])} onClick={() => setExpanded(v => ({ ...v, [i]: !v[i] }))}>{expanded[i] ? 'Hide visual explanation' : 'Open visual explanation'}</button>}
+          {(d.kind !== 'notes' || expanded[i]) && <TopicVisual visual={s.visual} compact={d.kind === 'cheatsheet'} />}
+        </>}
         {s.recall && <div className="mt-3 border-t border-white/10 pt-3"><p className="text-sm text-violet-200">{s.recall.question}</p>
           <button type="button" className="mt-2 text-xs text-violet-300" aria-expanded={Boolean(revealed[`recall-${i}`])} onClick={() => setRevealed(v => ({ ...v, [`recall-${i}`]: !v[`recall-${i}`] }))}>{revealed[`recall-${i}`] ? 'Hide answer' : 'Check your recall'}</button>
           {revealed[`recall-${i}`] && <p className="mt-2 text-sm text-zinc-300">{s.recall.answer}</p>}</div>}
@@ -353,12 +367,17 @@ function ChapterVisual({ data: d, preview = false }) {
   </>;
 }
 
-export default function StudyVisualCard({ data, preview = false }) {
+function StudyVisualCard({ data, preview = false }) {
   const d = validateStudyVisual(data);
   if (!d) return <p role="alert" className="text-amber-300">This study visual was incomplete or could not be read. Please generate it again.</p>;
-  return <section className="ace-feature my-3 rounded-2xl border border-cyan-500/20 bg-zinc-950 p-4 text-zinc-200">
+  return <section data-study-kind={d.kind} className="ace-feature ace-study-visual my-3 rounded-2xl border border-cyan-500/20 bg-zinc-950 p-4 text-zinc-200">
     <p className="text-xs text-cyan-300">Ace-it Visualize · {STUDY_FORMATS.find(f => f.id === d.kind).label}</p>
     <h3 className="text-xl font-semibold mt-1">{d.title}</h3><p className="mt-2 text-sm text-zinc-400">{d.summary}</p>
     {d.kind === 'graph' ? <GraphVisual key={`${d.title}-${JSON.stringify(d.points)}`} data={d} /> : <ChapterVisual key={`${d.kind}-${d.title}`} data={d} preview={preview} />}
   </section>;
 }
+
+// Streaming updates often contain no new complete topic. Keep those updates
+// from rebuilding every SVG and study control while raw JSON stays hidden.
+export default memo(StudyVisualCard, (before, after) =>
+  before.preview === after.preview && JSON.stringify(before.data) === JSON.stringify(after.data));

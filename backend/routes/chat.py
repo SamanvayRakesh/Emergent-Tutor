@@ -495,6 +495,31 @@ def _teaching_topics(source):
     return topics
 
 
+def _printed_nios_range(doc, target, chapter_names):
+    """Find real lesson openings when a textbook has no PDF bookmarks.
+
+    A title alone can be a contents entry or a running header: require the
+    lesson's OBJECTIVES marker too, then stop at the next verified opening.
+    """
+    names = {_normal_title(name) for name in chapter_names}
+    openings = []
+    for index in range(doc.page_count):
+        text = doc[index].get_text(sort=True)
+        if not re.search(r"\bOBJECTIVES\b", text[:4500], re.I):
+            continue
+        lines = [_normal_title(re.sub(r"^\s*(?:lesson|chapter)?\s*\d+[.\s:-]*", "", line, flags=re.I))
+                 for line in text.splitlines()[:45]]
+        matches = names.intersection(lines)
+        if len(matches) == 1:
+            openings.append((index, next(iter(matches))))
+    wanted = _normal_title(target)
+    hits = [i for i, (_, name) in enumerate(openings) if name == wanted]
+    if len(hits) != 1:
+        return None
+    pos = hits[0]
+    return openings[pos][0], openings[pos + 1][0] if pos + 1 < len(openings) else doc.page_count
+
+
 def _read_visual_pdf(session, school, chapter, root=None):
     """Read only the active chapter's local PDF; never download a user-provided URL."""
     from pathlib import Path
@@ -534,10 +559,16 @@ def _read_visual_pdf(session, school, chapter, root=None):
                                   if _normal_title(re.sub(r"^\s*(?:lesson|chapter)?\s*\d+[.\s:-]*", "", row[1], flags=re.I))
                                   == _normal_title(session["chapter"])), None)
                     if entry is None:
-                        continue
-                    level, _, page = toc[entry]
-                    first = page - 1
-                    last = next((row[2] - 1 for row in toc[entry + 1:] if row[0] <= level and row[2] > page), doc.page_count)
+                        from nios_curriculum import NIOS_CURRICULUM
+                        names = [c["name"] for c in NIOS_CURRICULUM.get(subject, [])]
+                        printed = _printed_nios_range(doc, session["chapter"], names)
+                        if printed is None:
+                            continue
+                        first, last = printed
+                    else:
+                        level, _, page = toc[entry]
+                        first = page - 1
+                        last = next((row[2] - 1 for row in toc[entry + 1:] if row[0] <= level and row[2] > page), doc.page_count)
                 if first < 0 or last <= first or last - first > 100:
                     continue
                 pages = [doc[i].get_text(sort=True).strip() for i in range(first, last)]
@@ -633,6 +664,12 @@ def _study_visual_schema(kind, source):
             "surveys or statistics. If no useful numeric relationship is supported, explain why without a JSON block."
         )
     inventory = json.dumps(source["topics"], ensure_ascii=False)
+    guidance = {
+        "keypoints": "Prioritize the essential definition, rule and exam distinction per topic. Use 2 short items per section; no repeated explanations. ",
+        "notes": "Explain each idea and include a source-supported application or worked step; 2–3 concise items per topic. ",
+        "cheatsheet": "Use 2–3 concise items per topic: the core rule, a useful distinction and a source-supported example where available. ",
+        "quickrevision": "Use question/answer pairs designed for active recall. ",
+    }.get(kind, "")
     return (
         'COMPACT WIRE SCHEMA (the app builds summary points and coverage locally): '
         '{"kind":"' + kind + '","title":"Chapter","summary":"One sentence",'
@@ -641,7 +678,9 @@ def _study_visual_schema(kind, source):
         '{"label":"Related concept or example","detail":"One concise teaching sentence"}]}]}. '
         "Write sections in chapter order. Each section has 2–4 useful items. Labels <=60 characters; "
         "details <=180 characters. Use topic-specific labels and source-supported explanations, equations and examples. "
-        "Choose a suitable visual type for each topic; never invent cycles or chronology. "
+        "Choose visuals by meaning: compare for distinctions, steps for procedures, formula for equations, "
+        "concept for categories, timeline only for dated events, cycle only for genuine repeating processes. "
+        "Vary types where the chapter supports it; accuracy beats artificial variety. " + guidance +
         "Do NOT emit points, visual, recall or coverage fields: the app constructs them from items. "
         "Cheat sheets cover every teaching topic even when a focus is requested; other formats respect a focus. "
         "Quick revision labels are short recall questions, with answers in details. "
@@ -1000,6 +1039,8 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
 
     # ── Stream response ───────────────────────────────────────────────────────
     async def generate():
+        if is_visual:
+            yield f"data: {json.dumps({'type':'accepted'})}\n\n"
         full_content = ""
         word_count = 0
         input_tokens_est = int(sum(len(m["content"].split()) * 1.3 for m in ai_messages))

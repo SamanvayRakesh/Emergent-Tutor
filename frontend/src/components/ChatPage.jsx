@@ -298,7 +298,7 @@ function QuizCard({ data }) {
   );
 }
 
-function MessageBubble({ msg, isStreaming, isNios, feedbackState, onFeedback, onDetailRequest }) {
+function MessageBubble({ msg, receipt, isStreaming, isNios, feedbackState, onFeedback, onDetailRequest }) {
   const isUser = msg.role === 'user';
   // Structured blocks are parsed after the reply completes.
   const parts = (!isUser && !isStreaming) ? parseQuizBlocks(msg.content) : null;
@@ -313,6 +313,7 @@ function MessageBubble({ msg, isStreaming, isNios, feedbackState, onFeedback, on
       </div>
 
       <div className={`max-w-[82%] flex flex-col gap-1.5`}>
+        {isUser && receipt && <span className="ace-visual-receipt" role="status">{receipt}</span>}
         <div className={`${isUser ? 'message-user' : 'message-ai'} p-3.5`}>
           {isUser ? (
             <p className="text-white text-sm font-body leading-relaxed">{/^Visualize: (Mind map|Flowchart|Graph|PDF Cheat Sheet|Revision Notes|Key Points|Quick Revision) for /.test(msg.content) ? msg.content.split(/\n\n\[(?:MINDMAP|FLOWCHART|STUDYVISUAL) INSTRUCTIONS\]/)[0] : msg.content}</p>
@@ -661,6 +662,9 @@ export default function ChatPage() {
       let d;
       try { d = JSON.parse(payload); }
       catch { throw new Error('The tutor response was interrupted. Please try again.'); }
+      if (d.type === 'accepted') {
+        setMessages(p => p.map((m, i) => i === p.length - 1 && m.role === 'user' ? { ...m, visualSeen: true } : m)); return;
+      }
       if (d.type === 'reset') {
         full = ''; streamBufferRef.current = ''; setStreamingContent(''); setVisualReady(false); readyVisualRef.current = ''; return;
       }
@@ -671,6 +675,7 @@ export default function ChatPage() {
         setStreamingContent(full); setVisualReady(true); return;
       }
       if (d.type === 'chunk' && typeof d.content === 'string') {
+        if (!full && visualRequest) setMessages(p => p.map((m, i) => i === p.length - 1 && m.role === 'user' ? { ...m, visualSeen: true } : m));
         full += d.content;
         streamBufferRef.current = full;
         if (!rafRef.current) {
@@ -969,6 +974,7 @@ export default function ChatPage() {
           <MessageBubble
             key={msg.timestamp || i}
             msg={msg}
+            receipt={msg.role === 'user' && visualRequestInfo(msg.content) ? (msg.visualSeen || messages.slice(i + 1).some(m => m.role === 'assistant') ? 'Seen ✓✓' : streaming && i === messages.length - 1 ? 'Sent · waiting to be seen' : 'Not seen') : null}
             isStreaming={false}
             isNios={isNios}
             feedbackState={feedbackMap[msg.message_id]}
