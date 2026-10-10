@@ -635,3 +635,54 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
 :is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"]) a:not([class*="bg-"]):not(.ace-sidebar a) { color: var(--ace-link) !important; }
 .App:where(:not(:has(.al))) .ace-welcome .ace-welcome-avatar { color: var(--ace-link) !important; }
 :is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"]) :is(input, textarea, select) { color-scheme: inherit !important; }
+
+/* Tutor-only prompt-first workspace; shared tokens keep light/dark parity. */
+.App:where(:not(:has(.al))) .ace-tutor { position: relative; isolation: isolate; min-height: 0; background: var(--ace-cotton) !important; }
+.App .ace-tutor::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; opacity: .5;
+  background-image: radial-gradient(circle, var(--ace-control-border) .8px, transparent .9px) !important;
+  background-size: 18px 18px;
+  mask-image: radial-gradient(ellipse at center, transparent 25%, #000 95%);
+}
+.App .ace-tutor.has-messages::before { opacity: .18; }
+.App .ace-tutor .ace-tutor-header[class] { position: relative; flex-shrink: 0; border-radius: 0 !important; border: 0 !important; border-bottom: 1px solid var(--ace-border) !important; box-shadow: none !important; background: var(--ace-beige) !important; }
+.App .ace-tutor-intro h1 { max-width: 680px; font-size: clamp(24px, 2.6vw, 34px); line-height: 1.2; font-weight: 650; letter-spacing: -.035em; margin: 8px auto; }
+.App .ace-tutor-intro p { color: var(--ace-label) !important; max-width: 620px; font-size: 14px; line-height: 1.6; margin: 0 auto; }
+.App .ace-tutor .ace-tutor-eyebrow { font-size: 10px; font-weight: 650; letter-spacing: .14em; color: var(--ace-label) !important; }
+.App .ace-tutor .ace-tutor-intro > div:first-child { background: var(--ace-accent-soft) !important; color: var(--ace-link) !important; border: 0; }
+.App .ace-tutor-setup { position: relative; width: 100%; min-height: 0; overflow-y: auto; padding-block: clamp(24px, 5vh, 56px); }
+.App .ace-tutor .ace-tutor-setup-card { max-width: 540px; border-radius: 18px !important; padding: 24px; box-shadow: var(--ace-shadow-card) !important; }
+.App .ace-tutor .ace-tutor-messages { position: relative; min-height: 0; }
+.App .ace-tutor.is-empty { overflow-y: auto; }
+.App .ace-tutor.is-empty .ace-tutor-messages { flex: 0 0 auto; overflow: visible; padding: clamp(28px, 7vh, 80px) 20px 24px; }
+.App .ace-tutor.is-empty .ace-tutor-intro { height: auto; gap: 10px; }
+.App .ace-tutor .ace-tutor-composer {
+  position: relative; flex-shrink: 0; display: flex; flex-direction: column;
+  width: min(800px, calc(100% - 40px)); margin: 12px auto 20px;
+  padding: 16px; border: 1px solid var(--ace-border) !important;
+  border-radius: 20px !important; background: var(--ace-beige) !important;
+  box-shadow: var(--ace-shadow-card) !important;
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+.App .ace-tutor .ace-tutor-composer:focus-within { border-color: var(--ace-control-border) !important; box-shadow: var(--ace-shadow-hover) !important; }
+.App .ace-tutor .ace-tutor-input-row { order: 1; gap: 12px; align-items: flex-end; }
+.App .ace-tutor .ace-tutor-tools { order: 2; margin: 12px 0 0; padding-top: 10px; border-top: 1px solid var(--ace-border); }
+.App .ace-tutor .ace-tutor-composer textarea[data-testid="chat-input"][class] {
+  background: transparent !important; border: 0 !important; outline: none !important;
+  box-shadow: none !important; border-radius: 0; padding: 4px 2px;
+  min-height: 58px !important; font-size: 15px; line-height: 1.6;
+}
+.App .ace-tutor.is-empty .ace-tutor-composer textarea[class] { min-height: 84px !important; }
+.App .ace-tutor .ace-tutor-input-row > button { border-radius: 14px !important; width: 42px; height: 42px; }
+.App .ace-tutor .ace-tutor-suggestions { flex-shrink: 0; max-width: 840px; width: 100%; margin: 0 auto; }
+.App .ace-tutor.is-empty .ace-tutor-suggestions { order: 3; justify-content: center; flex-wrap: wrap; overflow: visible; padding: 0 20px 40px; }
+.App .ace-tutor.is-empty .ace-tutor-composer { order: 2; margin-top: 0; margin-bottom: 18px; }
+.App .ace-tutor .ace-tutor-visual-menu { background: var(--ace-field) !important; border-color: var(--ace-border) !important; }
+@media (max-width: 640px) {
+  .App .ace-tutor .ace-tutor-header[class] { gap: 8px; padding-inline: 12px; }
+  .App .ace-tutor .ace-tutor-header > button { font-size: 12px; }
+  .App .ace-tutor .ace-tutor-composer { width: calc(100% - 24px); padding: 12px; margin-bottom: 12px; }
+  .App .ace-tutor.is-empty .ace-tutor-messages { padding-top: 32px; }
+  .App .ace-tutor-intro h1 { font-size: 25px; }
+  .App .ace-tutor-setup { padding: 24px 16px; }
+}

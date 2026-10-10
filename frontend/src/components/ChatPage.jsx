@@ -482,9 +482,14 @@ function SessionSetup({ onCreated, prefill }) {
   const selectClass = 'w-full bg-zinc-900 border border-white/10 rounded-xl px-4 py-3 text-white text-sm font-body focus:outline-none focus:border-cyan-500/50 appearance-none';
 
   return (
-    <div className="flex-1 flex items-center justify-center p-6">
+    <div className="ace-tutor-setup flex-1 flex flex-col items-center justify-center p-6">
+      <div className="ace-tutor-intro text-center mb-8">
+        <span className="ace-tutor-eyebrow">YOUR PERSONAL LEARNING SPACE</span>
+        <h1>Big questions. Clear understanding.</h1>
+        <p>Choose a chapter and learn at your own pace.</p>
+      </div>
       <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
-        className="w-full max-w-md glass rounded-2xl p-6 border border-white/10">
+        className="ace-tutor-setup-card w-full max-w-md glass rounded-2xl p-6 border border-white/10">
         <div className="flex items-center gap-3 mb-5">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-400 to-violet-600 flex items-center justify-center">
             <Sparkles size={20} className="text-white" />
@@ -513,7 +518,7 @@ function SessionSetup({ onCreated, prefill }) {
 
           {subjects.length > 0 && (
             <div className="relative">
-              <select value={sel.subject} onChange={e => onSubjectChange(e.target.value)} data-testid="subject-select" className={selectClass}>
+              <select value={sel.subject} onChange={e => onSubjectChange(e.target.value)} data-testid="subject-select" aria-label="Select subject" className={selectClass}>
                 <option value="">Select Subject</option>
                 {subjects.map(s => <option key={s.name} value={s.name}>{s.name}</option>)}
               </select>
@@ -526,7 +531,7 @@ function SessionSetup({ onCreated, prefill }) {
               <select value={sel.chapterId} onChange={e => {
                 const ch = chapters.find(c => c.id === e.target.value);
                 setSel(p => ({ ...p, chapterId: e.target.value, chapterName: ch?.name || '' }));
-              }} data-testid="chapter-select" className={selectClass}>
+              }} data-testid="chapter-select" aria-label="Select chapter" className={selectClass}>
                 <option value="">Select Chapter</option>
                 {chapters.map(ch => <option key={ch.id} value={ch.id}>{ch.name}</option>)}
               </select>
@@ -861,12 +866,13 @@ export default function ChatPage() {
     }
   };
 
+  const isEmpty = messages.length === 0 && !streaming && !replyError;
   const SUGGESTIONS = ['Explain with a simple example', 'Give me a quick quiz', 'Why does this work?', 'Summarize key points'];
 
   if (!paramId && !session) {
     return (
-      <div className="h-full flex flex-col">
-        <div className="p-4 border-b border-white/5 flex items-center justify-between">
+      <div className="ace-tutor is-setup h-full flex flex-col">
+        <div className="ace-tutor-header p-4 border-b border-white/5 flex items-center justify-between">
           <h1 className="text-white font-heading font-bold flex items-center gap-2"><Sparkles size={20} className="text-cyan-400" /> AI Tutor</h1>
           {sessions.length > 0 && (
             <button onClick={() => setShowSessions(!showSessions)} data-testid="sessions-toggle"
@@ -881,7 +887,7 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="h-full flex flex-col">
+    <div className={`ace-tutor h-full flex flex-col ${isEmpty ? 'is-empty' : 'has-messages'}`}>
       {/* Quiz Modal */}
       {quizModal && (
         <InteractiveQuizModal
@@ -911,7 +917,7 @@ export default function ChatPage() {
       )}
 
       {/* Header */}
-      <div className="px-4 py-3 border-b border-white/5 glass flex items-center gap-3">
+      <div className="ace-tutor-header px-4 py-3 border-b border-white/5 glass flex items-center gap-3">
         <button onClick={() => nav(-1)} data-testid="back-btn"
           className="p-1.5 rounded-lg hover:bg-white/5 text-zinc-500 hover:text-white transition-colors">
           <ArrowLeft size={18} />
@@ -947,15 +953,16 @@ export default function ChatPage() {
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="ace-tutor-messages flex-1 overflow-y-auto p-4 space-y-4">
       {messages.length === 0 && !streaming && (
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col items-center justify-center h-full gap-3 text-center px-4">
+            className="ace-tutor-intro flex flex-col items-center justify-center h-full gap-3 text-center px-4">
             <div className="w-10 h-10 rounded-full border border-violet-500/25 bg-violet-500/10 flex items-center justify-center">
               <Sparkles size={18} className="text-violet-400" />
             </div>
-            <p className="text-zinc-300 text-sm font-body font-semibold">Session Started</p>
-            <p className="text-zinc-600 text-xs font-body">Ask anything about <span className="text-zinc-400">{session?.chapter}</span></p>
+            <span className="ace-tutor-eyebrow">LET’S MAKE IT CLICK</span>
+            <h1>What do you want to understand today?</h1>
+            <p className="ace-tutor-context">{session?.subject} <span aria-hidden="true">·</span> {session?.chapter}</p>
           </motion.div>
         )}
         {messages.map((msg, i) => (
@@ -999,7 +1006,7 @@ export default function ChatPage() {
 
       {/* Suggestions */}
       {messages.length < 3 && !streaming && session && (
-        <div className="px-4 pb-2 flex gap-2 overflow-x-auto no-scrollbar">
+        <div className="ace-tutor-suggestions px-4 pb-2 flex gap-2 overflow-x-auto no-scrollbar">
           {SUGGESTIONS.map(s => (
             <button key={s} onClick={() => sendMessage(s)}
               className="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-body glass border border-white/10 text-zinc-400 hover:text-white hover:border-white/20 transition-all">
@@ -1013,14 +1020,14 @@ export default function ChatPage() {
         {replyError} <button onClick={() => sendMessage()} disabled={streaming} className="ml-2 underline">Retry question</button>
       </div>}
       {/* Input */}
-      <div className="ace-prompt p-4 border-t border-white/5 glass">
-        <div className="mb-2">
+      <div className="ace-prompt ace-tutor-composer p-4 border-t border-white/5 glass">
+        <div className="ace-tutor-tools mb-2">
           <button type="button" data-testid="visualize-toggle" aria-expanded={visualizeOpen}
             onClick={() => setVisualizeOpen(open => !open)}
             className="inline-flex items-center gap-2 rounded-xl border border-violet-500/30 bg-violet-500/10 px-3 py-2 text-xs text-violet-300">
             <Sparkles size={14} /> Visualize <ChevronDown size={13} />
           </button>
-          {visualizeOpen && <div className="mt-2 rounded-xl border border-white/10 bg-zinc-950 p-3">
+          {visualizeOpen && <div className="ace-tutor-visual-menu mt-2 rounded-xl border border-white/10 bg-zinc-950 p-3">
             <p className="text-xs text-zinc-400 mb-2">Choose a study format for this chapter. Add an optional focus in the prompt below.</p>
             <div className="flex flex-wrap gap-2">
               <button type="button" data-testid="visualize-mindmap" disabled={streaming || !session}
@@ -1050,12 +1057,13 @@ export default function ChatPage() {
             <p className="mt-2 text-[11px] text-zinc-500">Uses normal tutor credits. Finished topics appear as they are prepared.</p>
           </div>}
         </div>
-        <div className="flex gap-3 items-end">
+        <div className="ace-tutor-input-row flex gap-3 items-end">
           <div className="flex-1 relative">
             <textarea data-testid="chat-input"
               value={input} onChange={e => setInput(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-              placeholder="Ask your AI tutor anything..."
+              aria-label="Message your AI tutor"
+              placeholder={isEmpty ? 'Ask a question, or tell me what feels confusing…' : 'Ask your AI tutor anything…'}
               rows={1}
               className="w-full bg-zinc-900 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/30 transition-all font-body resize-none overflow-hidden"
               style={{ minHeight: '44px', maxHeight: '120px' }}
@@ -1067,7 +1075,7 @@ export default function ChatPage() {
               <Square size={16} fill="currentColor" className="text-white" />
             </button>
           ) : (
-          <button data-ace-primary="true" onClick={() => sendMessage()} disabled={!input.trim()} data-testid="send-message-btn"
+          <button data-ace-primary="true" onClick={() => sendMessage()} disabled={!input.trim()} data-testid="send-message-btn" aria-label="Send message" title="Send message"
             className="w-11 h-11 rounded-xl bg-cyan-500 hover:bg-cyan-400 disabled:opacity-40 flex items-center justify-center transition-all flex-shrink-0">
             <Send size={18} className="text-black" />
           </button>
