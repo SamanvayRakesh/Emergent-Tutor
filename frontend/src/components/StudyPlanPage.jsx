@@ -107,7 +107,7 @@ export default function StudyPlanPage() {
         <p className="text-zinc-400 text-sm font-body mb-6 max-w-sm mx-auto">
           Upgrade to Starter or Pro to access personalised AI Study Plans built around your quiz history and weak areas.
         </p>
-        <button onClick={() => nav('/upgrade')}
+        <button data-ace-primary="true" onClick={() => nav('/upgrade')}
           className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-violet-500 hover:bg-violet-400 text-white font-heading font-bold text-sm transition-all">
           Upgrade to Starter <ArrowRight size={16} />
         </button>
@@ -244,7 +244,7 @@ export default function StudyPlanPage() {
                   <label className="text-zinc-500 text-xs font-body mb-1.5 block">Target Score</label>
                   <div className="flex gap-2">
                     {[70, 80, 90, 95].map(s => (
-                      <button key={s} onClick={() => setForm(p => ({ ...p, target_score: s }))} data-testid={`target-${s}`}
+                      <button aria-pressed={form.target_score === s} key={s} onClick={() => setForm(p => ({ ...p, target_score: s }))} data-testid={`target-${s}`}
                         className={`flex-1 py-3 rounded-xl text-sm font-heading font-bold transition-all ${form.target_score === s ? 'bg-violet-500/20 text-violet-400 border border-violet-500/40' : 'bg-zinc-900 text-zinc-500 border border-white/10 hover:text-zinc-300'}`}>
                         {s}%
                       </button>
@@ -271,7 +271,7 @@ export default function StudyPlanPage() {
                 <label className="text-zinc-500 text-xs font-body mb-2 block">Available Days</label>
                 <div className="flex gap-2 flex-wrap" data-testid="available-days-picker">
                   {DAYS.map(d => (
-                    <button key={d} onClick={() => toggleDay(d)}
+                    <button aria-pressed={form.available_days.includes(d)} key={d} onClick={() => toggleDay(d)}
                       data-testid={`day-toggle-${d}`}
                       className={`px-3 py-1.5 rounded-xl text-xs font-heading font-bold transition-all border ${form.available_days.includes(d) ? 'bg-cyan-500/20 text-cyan-400 border-cyan-500/40' : 'bg-zinc-900 text-zinc-600 border-white/10 hover:text-zinc-400'}`}>
                       {d}
@@ -285,7 +285,7 @@ export default function StudyPlanPage() {
                 <label className="text-zinc-500 text-xs font-body mb-2 block">Study Session Preference</label>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2" data-testid="session-preference-picker">
                   {SESSION_OPTS.map(({ value, label, icon: Icon, desc }) => (
-                    <button key={value} onClick={() => setForm(p => ({ ...p, session_preference: value }))}
+                    <button aria-pressed={form.session_preference === value} key={value} onClick={() => setForm(p => ({ ...p, session_preference: value }))}
                       data-testid={`session-${value}`}
                       className={`p-3 rounded-xl border text-left transition-all ${form.session_preference === value ? 'border-cyan-500/40 bg-cyan-500/10' : 'border-white/10 bg-zinc-900/50 hover:border-white/20'}`}>
                       <Icon size={15} className={form.session_preference === value ? 'text-cyan-400 mb-1' : 'text-zinc-600 mb-1'} />
@@ -301,7 +301,7 @@ export default function StudyPlanPage() {
                 <label className="text-zinc-500 text-xs font-body mb-2 block">Subjects to Focus On</label>
                 <div className="flex flex-wrap gap-2">
                   {SUBJECTS.map(s => (
-                    <button key={s} onClick={() => toggleSubject(s)} data-testid={`subject-toggle-${s}`}
+                    <button aria-pressed={form.subjects.includes(s)} key={s} onClick={() => toggleSubject(s)} data-testid={`subject-toggle-${s}`}
                       className={`px-3 py-1.5 rounded-full text-xs font-body border transition-all ${form.subjects.includes(s) ? 'bg-violet-500/20 text-violet-400 border-violet-500/40' : 'bg-zinc-900/50 text-zinc-500 border-white/10 hover:text-zinc-300 hover:border-white/20'}`}>
                       {form.subjects.includes(s) && '✓ '}{s}
                     </button>
@@ -309,7 +309,7 @@ export default function StudyPlanPage() {
                 </div>
               </div>
 
-              <button onClick={generate} disabled={!form.exam_date || generating || form.available_days.length === 0}
+              <button data-ace-primary="true" onClick={generate} disabled={!form.exam_date || generating || form.available_days.length === 0}
                 data-testid="generate-plan-btn"
                 className="w-full py-3 rounded-xl bg-violet-500 hover:bg-violet-400 disabled:opacity-40 text-white font-heading font-bold flex items-center justify-center gap-2 transition-all">
                 {generating

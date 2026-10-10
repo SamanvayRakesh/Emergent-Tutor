@@ -158,7 +158,7 @@ export default function AdminDashboard() {
             { id: 'grade-requests', label: 'Grade Requests', icon: GraduationCap },
             { id: 'feedback',       label: 'Feedback',       icon: MessageSquarePlus },
           ].map(({ id, label, icon: Icon }) => (
-            <button key={id} data-testid={`admin-tab-${id}`}
+            <button aria-pressed={tab === id} key={id} data-testid={`admin-tab-${id}`}
               onClick={() => setTab(id)}
               className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-body font-semibold transition-all ${
                 tab === id ? 'bg-white/10 text-white' : 'text-zinc-500 hover:text-zinc-300'

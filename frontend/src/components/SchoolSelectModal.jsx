@@ -147,7 +147,7 @@ export default function SchoolSelectModal() {
 
           <div className="space-y-3 mb-5">
             {schools.map(school => (
-              <button
+              <button aria-pressed={selected === school.id}
                 key={school.id}
                 type="button"
                 data-testid={`school-option-${school.id}`}
@@ -207,7 +207,7 @@ export default function SchoolSelectModal() {
             </button>
           )}
 
-          <button
+          <button data-ace-primary="true"
             type="button"
             data-testid="school-modal-confirm"
             onClick={handleSave}

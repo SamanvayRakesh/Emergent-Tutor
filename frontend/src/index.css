@@ -13,7 +13,15 @@
   --ace-border: #dde3ec;
   --ace-accent: #3159cd;
   --ace-accent-hover: #2547ad;
-  --ace-accent-soft: #eaf0ff;
+  --ace-accent-soft: #d9e4fa;
+  --ace-control: #e7edf8;
+  --ace-control-hover: #dce6f7;
+  --ace-control-active: #cfddf5;
+  --ace-control-border: #bfceea;
+  --ace-control-text: #264582;
+  --ace-field: #f8faff;
+  --ace-sidebar-control: #1e304b;
+  --ace-sidebar-control-hover: #283d5c;
   --ace-sidebar: #152238;
   --ace-sidebar-panel: #20324e;
   --ace-sidebar-border: #2d3f5b;
@@ -97,8 +105,8 @@ code, pre { font-family: 'JetBrains Mono', monospace; }
 .App .ace-prompt { background-color: var(--ace-white) !important; }
 .App input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
 .App select, .App textarea, .App [role="combobox"] {
-  background: var(--ace-white) !important; color: var(--ace-black) !important;
-  border-color: var(--ace-border) !important;
+  background: var(--ace-field) !important; color: var(--ace-black) !important;
+  border-color: var(--ace-control-border) !important;
 }
 .App input::placeholder, .App textarea::placeholder { color: var(--ace-grey) !important; opacity: 1; }
 .App input[type="checkbox"], .App input[type="radio"], .App input[type="range"] { accent-color: var(--ace-charcoal) !important; }
@@ -106,14 +114,14 @@ code, pre { font-family: 'JetBrains Mono', monospace; }
 .App :focus-visible { outline: 2px solid var(--ace-charcoal) !important; outline-offset: 3px; }
 .App [aria-selected="true"], .App [aria-pressed="true"], .App [data-state="checked"] { outline: 2px solid var(--ace-charcoal); outline-offset: 2px; }
 
-/* Secondary controls are white; blue is reserved for primary actions. */
+/* Secondary controls use a visible blue-grey fill; primary actions use solid blue. */
 .App button[class], .App button:not([class]), .App [role="button"]:not(svg g), .App input[type="submit"],
 .App a[class*="bg-"], .App .al-btn, .App .al-btn-outline {
-  background: var(--ace-white) !important; color: var(--ace-black) !important;
+  background: var(--ace-control) !important; color: var(--ace-control-text) !important;
   -webkit-text-fill-color: var(--ace-black) !important; border-color: var(--ace-border) !important;
 }
 .App button[class] *, .App button:not([class]) *, .App a[class*="bg-"] *, .App .al-btn * { color: var(--ace-black) !important; }
-.App button:hover, .App .al-btn:hover { background: var(--ace-white) !important; border-color: var(--ace-accent) !important; text-decoration: none; }
+.App button:hover, .App .al-btn:hover { background: var(--ace-control-hover) !important; border-color: var(--ace-accent) !important; text-decoration: none; }
 .App button:disabled { opacity: 1 !important; color: var(--ace-grey) !important; cursor: not-allowed; }
 .App button:disabled * { color: var(--ace-grey) !important; }
 .App button [class*="absolute"][class*="bg-gradient"] { display: none !important; }
@@ -149,7 +157,7 @@ code, pre { font-family: 'JetBrains Mono', monospace; }
   border-color: var(--ace-border) !important; box-shadow: none !important; background-image: none !important;
 }
 [data-sonner-toast] *, [data-radix-popper-content-wrapper] [class*="text-"] { color: var(--ace-black) !important; }
-[data-sonner-toast] button, [data-radix-popper-content-wrapper] [role="option"][data-highlighted] { background: var(--ace-white) !important; color: var(--ace-black) !important; }
+[data-sonner-toast] button, [data-radix-popper-content-wrapper] [role="option"][data-highlighted] { background: var(--ace-control) !important; color: var(--ace-control-text) !important; }
 
 /* Charts stay legible; individual series use solid neutral fills, never gradients. */
 .App .recharts-text, .App .recharts-label { fill: var(--ace-charcoal) !important; }
@@ -237,8 +245,8 @@ code, pre { font-family: 'JetBrains Mono', monospace; }
 [role="dialog"] *, [role="alertdialog"] * { background-image: none !important; box-shadow: none !important; text-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; border-color: var(--ace-border) !important; }
 [role="dialog"] [class*="text-"], [role="alertdialog"] [class*="text-"] { color: var(--ace-black) !important; }
 [role="dialog"] [class*="bg-"], [role="alertdialog"] [class*="bg-"] { background-color: var(--ace-beige) !important; }
-[role="dialog"] button, [role="alertdialog"] button { background: var(--ace-white) !important; color: var(--ace-black) !important; }
-[role="dialog"] input, [role="dialog"] textarea, [role="dialog"] select { background: var(--ace-white) !important; color: var(--ace-black) !important; }
+[role="dialog"] button, [role="alertdialog"] button { background: var(--ace-control) !important; color: var(--ace-control-text) !important; }
+[role="dialog"] input, [role="dialog"] textarea, [role="dialog"] select { background: var(--ace-control) !important; color: var(--ace-control-text) !important; }
 
 .App img[src*="aceit-logo"] { filter: brightness(0); }
 .App .ace-sidebar img[src*="aceit-logo"] { filter: brightness(0) invert(0.85); }
@@ -277,3 +285,74 @@ code, pre { font-family: 'JetBrains Mono', monospace; }
 .App .ace-sidebar nav a:not([aria-current="page"]) * { color: var(--ace-cloud) !important; -webkit-text-fill-color: var(--ace-cloud) !important; }
 .App .ace-feature svg g[aria-pressed="true"] { outline: none !important; }
 .App .ace-feature svg g:focus-visible { outline: 2px solid var(--ace-accent) !important; outline-offset: 3px; }
+
+/* Every interactive surface uses the same normal / hover / selected / disabled scale,
+   including controls portalled outside the application root. */
+:is(.App, [role="dialog"], [role="alertdialog"], [data-radix-popper-content-wrapper], [data-sonner-toaster]) :where(button, [role="button"]:not(svg g), input[type="submit"], input[type="button"])[class],
+:is(.App, [role="dialog"], [role="alertdialog"], [data-radix-popper-content-wrapper], [data-sonner-toaster]) button:not([class]) {
+  background: var(--ace-control) !important; color: var(--ace-control-text) !important;
+  -webkit-text-fill-color: var(--ace-control-text) !important;
+  border: 1px solid var(--ace-control-border) !important;
+  border-radius: 9px; transition: background-color 120ms ease, border-color 120ms ease;
+}
+:is(.App, [role="dialog"], [role="alertdialog"], [data-radix-popper-content-wrapper], [data-sonner-toaster]) button[class] * {
+  color: inherit !important; -webkit-text-fill-color: inherit !important;
+}
+:is(.App, [role="dialog"], [role="alertdialog"], [data-radix-popper-content-wrapper], [data-sonner-toaster]) button:hover:not(:disabled) {
+  background: var(--ace-control-hover) !important; border-color: var(--ace-accent) !important;
+}
+:is(.App, [role="dialog"], [role="alertdialog"], [data-radix-popper-content-wrapper], [data-sonner-toaster]) :is(button, [role="tab"], [role="option"]):is([aria-pressed="true"], [aria-selected="true"], [data-state="active"], [data-state="on"]) {
+  background: var(--ace-control-active) !important; color: var(--ace-control-text) !important;
+  -webkit-text-fill-color: var(--ace-control-text) !important;
+  border-color: var(--ace-accent) !important; outline: 1px solid var(--ace-accent) !important;
+}
+:is(.App, [role="dialog"], [role="alertdialog"], [data-radix-popper-content-wrapper]) :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea, select, [role="combobox"])[class] {
+  background: var(--ace-field) !important; color: var(--ace-black) !important;
+  border: 1px solid var(--ace-control-border) !important;
+}
+:is(.App, [role="dialog"], [role="alertdialog"], [data-radix-popper-content-wrapper]) :is(input, textarea, select, [role="combobox"]):focus-visible {
+  outline: 2px solid var(--ace-accent) !important; outline-offset: 2px;
+}
+:is(.App, [role="dialog"], [role="alertdialog"]) :is(input[type="checkbox"], input[type="radio"], input[type="range"]) {
+  accent-color: var(--ace-accent) !important;
+}
+:is(.App, [role="dialog"], [role="alertdialog"]) [role="switch"] { background: var(--ace-control-border) !important; border: 1px solid var(--ace-control-border) !important; }
+:is(.App, [role="dialog"], [role="alertdialog"]) [role="switch"][data-state="checked"] { background: var(--ace-accent) !important; }
+:is(.App, [role="dialog"], [role="alertdialog"]) [role="slider"] { background: var(--ace-accent) !important; border-color: var(--ace-accent) !important; }
+[data-radix-popper-content-wrapper] :is([role="option"], [role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"]):is([data-highlighted], [aria-selected="true"], [data-state="checked"]) { background: var(--ace-control-active) !important; color: var(--ace-control-text) !important; }
+.App :is(a[class*="bg-"], .al-btn-outline) { background: var(--ace-control) !important; color: var(--ace-control-text) !important; -webkit-text-fill-color: var(--ace-control-text) !important; border: 1px solid var(--ace-control-border) !important; }
+.App :is(a[class*="bg-"], .al-btn-outline):hover { background: var(--ace-control-hover) !important; }
+.App [role="button"]:not(svg g):hover { background: var(--ace-control-hover) !important; }
+/* Preserve the sidebar's darker neighbouring shades. */
+.App .ace-sidebar button[class] { background: var(--ace-sidebar-control) !important; color: var(--ace-cloud) !important; -webkit-text-fill-color: var(--ace-cloud) !important; border: 1px solid var(--ace-sidebar-border) !important; }
+.App .ace-sidebar button[class]:hover { background: var(--ace-sidebar-control-hover) !important; }
+.App .ace-sidebar nav a:not([aria-current="page"]) { background: var(--ace-sidebar) !important; border: 1px solid transparent !important; }
+.App .ace-sidebar nav a:not([aria-current="page"]):hover { background: var(--ace-sidebar-control) !important; border-color: var(--ace-sidebar-border) !important; }
+/* A consistent blue for every primary action, including legacy colour utilities. */
+:is(.App, [role="dialog"], [role="alertdialog"], [data-radix-popper-content-wrapper]) button[data-ace-primary="true"],
+.App button[data-testid="send-message-btn"], .App .ace-sidebar button[data-testid="sidebar-upgrade-btn"],
+.App .al .al-btn:not(.al-btn-outline) {
+  background: var(--ace-accent) !important; color: var(--ace-white) !important;
+  -webkit-text-fill-color: var(--ace-white) !important; border-color: var(--ace-accent) !important;
+}
+:is(.App, [role="dialog"], [role="alertdialog"]) button[data-ace-primary="true"] *,
+.App button[data-testid="send-message-btn"] *, .App .ace-sidebar button[data-testid="sidebar-upgrade-btn"] *, .App .al .al-btn:not(.al-btn-outline) * { color: var(--ace-white) !important; -webkit-text-fill-color: var(--ace-white) !important; }
+:is(.App, [role="dialog"], [role="alertdialog"]) button[data-ace-primary="true"]:hover:not(:disabled),
+.App button[data-testid="send-message-btn"]:hover:not(:disabled), .App .al .al-btn:not(.al-btn-outline):hover { background: var(--ace-accent-hover) !important; }
+:is(.App, [role="dialog"], [role="alertdialog"], [data-radix-popper-content-wrapper], [data-sonner-toaster]) button[class]:disabled,
+:is(.App, [role="dialog"], [role="alertdialog"], [data-radix-popper-content-wrapper], [data-sonner-toaster]) button[class]:disabled:hover,
+.App .ace-sidebar button:disabled, .App .al button:disabled {
+  background: #e3e8f0 !important; color: #596477 !important; -webkit-text-fill-color: #596477 !important;
+  border: 1px solid #c5cfdd !important; outline: none !important; cursor: not-allowed;
+}
+:is(.App, [role="dialog"], [role="alertdialog"]) button:disabled * { color: inherit !important; -webkit-text-fill-color: inherit !important; }
+.App input[type="range"] { background: #d6e1f4 !important; }
+.App .ace-prompt textarea { background: var(--ace-field) !important; border-color: var(--ace-control-border) !important; }
+:is(.App, [role="dialog"], [role="alertdialog"], [data-radix-popper-content-wrapper]) button:is([aria-pressed="true"], [aria-selected="true"]):hover:not(:disabled) { background: #c4d5f2 !important; border-color: var(--ace-accent) !important; }
+:is(.App, [role="dialog"], [role="alertdialog"]) button[class]:active:not(:disabled) { background: var(--ace-control-active) !important; }
+:is(.App, [role="dialog"], [role="alertdialog"]) button[data-ace-primary="true"]:active:not(:disabled), .App button[data-testid="send-message-btn"]:active:not(:disabled) { background: #1d3c99 !important; }
+.App .ace-sidebar button[class]:active:not(:disabled) { background: #304869 !important; }
+@media (prefers-reduced-motion: reduce) { .App button, [role="dialog"] button, [role="alertdialog"] button { transition: none !important; } }
+:is(.App, [role="dialog"], [role="alertdialog"]) [role="checkbox"][data-state="checked"] { background: var(--ace-accent) !important; color: var(--ace-white) !important; border-color: var(--ace-accent) !important; }
+:is(.App, [role="dialog"], [role="alertdialog"]) [role="checkbox"][data-state="checked"] * { color: var(--ace-white) !important; -webkit-text-fill-color: var(--ace-white) !important; }
+:is(.App, [role="dialog"], [role="alertdialog"]) [role="switch"][data-state="checked"] > span { background: var(--ace-white) !important; }

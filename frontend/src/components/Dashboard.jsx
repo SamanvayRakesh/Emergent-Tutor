@@ -138,7 +138,7 @@ export default function Dashboard() {
         </div>
 
         {/* Quick CTA */}
-        <button onClick={() => nav('/chat')} data-testid="start-learning-btn"
+        <button data-ace-primary="true" onClick={() => nav('/chat')} data-testid="start-learning-btn"
           className="mt-4 flex items-center gap-2 px-5 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-black font-heading font-bold text-sm transition-all">
           <Play size={16} fill="currentColor" />
           Start AI Tutoring

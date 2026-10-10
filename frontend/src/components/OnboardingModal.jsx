@@ -98,7 +98,7 @@ export default function OnboardingModal({ onComplete }) {
       content: (
         <div className="grid grid-cols-2 gap-2">
           {EXAM_GOALS.map(g => (
-            <button key={g} data-testid={`onb-goal-${g}`}
+            <button aria-pressed={form.exam_goal === g} key={g} data-testid={`onb-goal-${g}`}
               onClick={() => setForm(f => ({ ...f, exam_goal: g }))}
               className={`py-3 px-3 rounded-xl text-sm font-body font-semibold text-left transition-all border-2 ${form.exam_goal === g ? 'bg-red-500 text-white border-red-300' : 'bg-zinc-900/40 border-red-400/20 hover:border-red-400/50'}`}>
               {g}
@@ -139,7 +139,7 @@ export default function OnboardingModal({ onComplete }) {
       content: (
         <div className="space-y-2">
           {STYLES.map(s => (
-            <button key={s.id} data-testid={`onb-style-${s.id}`}
+            <button aria-pressed={form.learning_style === s.id} key={s.id} data-testid={`onb-style-${s.id}`}
               onClick={() => setForm(f => ({ ...f, learning_style: s.id }))}
               className={`w-full py-3 px-4 rounded-xl text-left transition-all border-2 ${form.learning_style === s.id ? 'bg-violet-500 text-white border-violet-300' : 'bg-zinc-900/40 border-violet-400/20 hover:border-violet-400/50'}`}>
               <p className="font-heading font-bold text-sm">{s.label}</p>

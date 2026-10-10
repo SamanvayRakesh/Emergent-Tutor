@@ -132,7 +132,7 @@ export default function PricingPage() {
         {/* Billing toggle */}
         <div className="inline-flex items-center gap-1 mt-6 p-1 rounded-full bg-zinc-900/60 border border-amber-400/20" data-testid="billing-toggle">
           {['monthly', 'yearly'].map(c => (
-            <button key={c} onClick={() => setBilling(c)} data-testid={`billing-${c}`}
+            <button aria-pressed={billing === c} key={c} onClick={() => setBilling(c)} data-testid={`billing-${c}`}
               className={`px-4 py-2 rounded-full text-sm font-body font-semibold transition-all relative ${billing === c ? 'bg-amber-500 text-black' : 'text-zinc-400 hover:text-white'}`}>
               {c === 'monthly' ? 'Monthly' : 'Yearly'}
               {c === 'yearly' && (
@@ -339,7 +339,7 @@ export default function PricingPage() {
                 <p className="text-zinc-400 text-sm font-body mb-4">
                   ₹{success.amount_inr} • {success.billing_cycle === 'yearly' ? '1 year' : '1 month'} of premium learning
                 </p>
-                <button onClick={() => { setSuccess(null); nav('/'); }} data-testid="upgrade-success-cta"
+                <button data-ace-primary="true" onClick={() => { setSuccess(null); nav('/'); }} data-testid="upgrade-success-cta"
                   className="px-5 py-2.5 rounded-xl bg-amber-500 text-black font-heading font-bold text-sm">
                   Start Learning →
                 </button>

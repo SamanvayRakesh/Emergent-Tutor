@@ -274,7 +274,7 @@ export default function ProfilePage() {
             const isCurrent = cls === user?.class_level;
             const isComingSoon = COMING_SOON_GRADES.includes(cls);
             return (
-              <button key={cls} onClick={() => !isComingSoon && setSelectedClass(cls)}
+              <button aria-pressed={selectedClass === cls} key={cls} onClick={() => !isComingSoon && setSelectedClass(cls)}
                 disabled={isComingSoon}
                 data-testid={`class-select-${cls}`}
                 title={isComingSoon ? 'Coming Soon' : `Select Grade ${cls}`}
@@ -335,7 +335,7 @@ export default function ProfilePage() {
               <label className="block text-zinc-500 text-xs font-body uppercase tracking-wider mb-1">Desired class</label>
               <div className="flex flex-wrap gap-2 mb-3">
                 {appealableClasses.map(c => (
-                  <button key={c} data-testid={`appeal-class-${c}`}
+                  <button aria-pressed={appealForm.desired_class === c} key={c} data-testid={`appeal-class-${c}`}
                     onClick={() => setAppealForm(p => ({ ...p, desired_class: c }))}
                     className={`w-10 h-10 rounded-lg text-sm font-heading font-bold transition-all ${appealForm.desired_class === c ? 'bg-rose-500 text-white' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}`}>
                     {c}
@@ -350,7 +350,7 @@ export default function ProfilePage() {
                 className="w-full rounded-xl bg-zinc-900/60 border border-rose-400/20 px-3 py-2 text-white text-sm font-body focus:outline-none focus:border-rose-400/60 mb-1" />
               <p className="text-zinc-600 text-xs font-body mb-4">{appealForm.reason.length}/400 — minimum 10 characters</p>
 
-              <button onClick={submitAppeal}
+              <button data-ace-primary="true" onClick={submitAppeal}
                 disabled={!appealForm.desired_class || appealForm.reason.trim().length < 10 || appealSubmitting}
                 data-testid="submit-appeal-btn"
                 className="w-full py-2.5 rounded-xl bg-rose-500 hover:bg-rose-400 text-white font-heading font-bold text-sm flex items-center justify-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
@@ -451,7 +451,7 @@ export default function ProfilePage() {
         {/* Actions */}
         <div className="flex gap-3 flex-wrap">
           {plan?.plan_id === 'free' || !plan?.plan_id ? (
-            <button onClick={() => nav('/pricing')}
+            <button data-ace-primary="true" onClick={() => nav('/pricing')}
               data-testid="upgrade-plan-btn"
               className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-violet-500 hover:bg-violet-400 text-white font-heading font-bold text-sm transition-all">
               <Crown size={15} /> Upgrade Plan <ArrowRight size={14} />

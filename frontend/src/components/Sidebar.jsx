@@ -139,7 +139,7 @@ export default function Sidebar({ onClose, onFeedbackOpen }) {
       <div className="px-3 mt-2 space-y-2">
         {/* Upgrade CTA — only for free users */}
         {plan && !isPaid && (
-          <button onClick={() => nav('/upgrade')} data-testid="sidebar-upgrade-btn"
+          <button data-ace-primary="true" onClick={() => nav('/upgrade')} data-testid="sidebar-upgrade-btn"
             className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-amber-300 bg-gradient-to-r from-amber-500/15 via-rose-500/15 to-violet-500/15 border border-amber-400/30 hover:border-amber-400/60 transition-all text-sm font-body font-bold relative overflow-hidden group">
             <motion.div className="absolute inset-0 bg-gradient-to-r from-transparent via-amber-400/10 to-transparent"
               animate={{ x: ['-100%', '100%'] }} transition={{ duration: 2.5, repeat: Infinity, ease: 'linear' }} />

@@ -252,7 +252,7 @@ export default function AuthPage() {
           {/* Sign In / Sign Up tabs */}
           <div className="flex rounded-xl bg-zinc-900 p-1 mb-6 gap-1">
             {['login', 'register'].map((t) => (
-              <button
+              <button aria-pressed={tab === t}
                 key={t}
                 type="button"
                 data-testid={`auth-tab-${t}`}
@@ -467,7 +467,7 @@ export default function AuthPage() {
                 </p>
 
                 {schools.map((s) => (
-                  <button
+                  <button aria-pressed={form.school === s.id}
                     key={s.id}
                     type="button"
                     data-testid={`school-card-${s.id}`}
@@ -650,7 +650,7 @@ export default function AuthPage() {
             )}
 
             {/* Submit */}
-            <button
+            <button data-ace-primary="true"
               type="submit"
               data-testid="auth-submit-btn"
               disabled={

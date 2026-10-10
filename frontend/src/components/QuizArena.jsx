@@ -227,7 +227,7 @@ export default function QuizArena() {
                 </div>
               </div>
 
-              <button onClick={generateQuiz} disabled={!form.subject || !form.chapter || loading}
+              <button data-ace-primary="true" onClick={generateQuiz} disabled={!form.subject || !form.chapter || loading}
                 data-testid="generate-quiz-btn"
                 className="w-full py-3 rounded-xl bg-amber-400 hover:bg-amber-300 disabled:opacity-40 text-black font-heading font-bold text-sm transition-all flex items-center justify-center gap-2">
                 {loading
@@ -305,7 +305,7 @@ export default function QuizArena() {
                     const letter = opt.charAt(0);
                     const isSelected = answers[current] === letter;
                     return (
-                      <button key={opt} onClick={() => !result && setAnswers(p => ({ ...p, [current]: letter }))}
+                      <button aria-pressed={isSelected} key={opt} onClick={() => !result && setAnswers(p => ({ ...p, [current]: letter }))}
                         data-testid={`quiz-option-${letter}`}
                         className={`w-full text-left px-4 py-3 rounded-xl border text-sm font-body transition-all flex items-center gap-3
                           ${isSelected ? 'border-cyan-500/50 bg-cyan-500/10 text-white' : 'border-white/10 bg-zinc-900/50 text-zinc-300 hover:border-white/20 hover:bg-zinc-800/50'}`}>
@@ -332,7 +332,7 @@ export default function QuizArena() {
                   Next <ArrowRight size={14} />
                 </button>
               ) : (
-                <button onClick={submitQuiz} disabled={Object.keys(answers).length < quiz.questions.length || loading}
+                <button data-ace-primary="true" onClick={submitQuiz} disabled={Object.keys(answers).length < quiz.questions.length || loading}
                   data-testid="submit-quiz-btn"
                   className="px-5 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 disabled:opacity-40 text-black font-heading font-bold text-sm transition-all flex items-center gap-2">
                   {loading ? <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" /> : <><CheckCircle size={14} /> Submit Quiz</>}

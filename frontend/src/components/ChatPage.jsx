@@ -534,7 +534,7 @@ function SessionSetup({ onCreated, prefill }) {
             </div>
           )}
 
-          <button onClick={handleStart} disabled={!sel.chapterId || loading} data-testid="start-chat-btn"
+          <button data-ace-primary="true" onClick={handleStart} disabled={!sel.chapterId || loading} data-testid="start-chat-btn"
             className="w-full py-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 disabled:opacity-40 text-black font-heading font-bold text-sm transition-all flex items-center justify-center gap-2">
             {loading ? <div className="w-4 h-4 border-2 border-black/30 border-t-black rounded-full animate-spin" /> : <><Sparkles size={16} /> Start Learning</>}
           </button>
@@ -1062,12 +1062,12 @@ export default function ChatPage() {
             />
           </div>
           {streaming ? (
-            <button onClick={stopReply} data-testid="stop-response-btn" aria-label="Stop generating response" title="Stop response"
+            <button data-ace-primary="true" onClick={stopReply} data-testid="stop-response-btn" aria-label="Stop generating response" title="Stop response"
               className="w-11 h-11 rounded-xl bg-rose-500 hover:bg-rose-400 flex items-center justify-center transition-all flex-shrink-0">
               <Square size={16} fill="currentColor" className="text-white" />
             </button>
           ) : (
-          <button onClick={() => sendMessage()} disabled={!input.trim()} data-testid="send-message-btn"
+          <button data-ace-primary="true" onClick={() => sendMessage()} disabled={!input.trim()} data-testid="send-message-btn"
             className="w-11 h-11 rounded-xl bg-cyan-500 hover:bg-cyan-400 disabled:opacity-40 flex items-center justify-center transition-all flex-shrink-0">
             <Send size={18} className="text-black" />
           </button>

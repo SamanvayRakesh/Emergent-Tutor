@@ -534,7 +534,7 @@ export default function MockExamPage() {
                 const name = chapter.name || chapter;
                 const selected = form.selectedChapters.includes(name);
                 const disabled = !selected && form.selectedChapters.length >= 7;
-                return <button key={name} onClick={() => !disabled && toggleChapter(name)} disabled={disabled || Boolean(generationJob)} className={`px-3 py-1.5 rounded-full text-xs font-body font-medium border transition-all ${selected ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50' : disabled ? 'opacity-30 text-zinc-600 border-zinc-700' : 'text-zinc-400 border-zinc-700 hover:border-zinc-500 hover:text-zinc-300'}`}>
+                return <button aria-pressed={selected} key={name} onClick={() => !disabled && toggleChapter(name)} disabled={disabled || Boolean(generationJob)} className={`px-3 py-1.5 rounded-full text-xs font-body font-medium border transition-all ${selected ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50' : disabled ? 'opacity-30 text-zinc-600 border-zinc-700' : 'text-zinc-400 border-zinc-700 hover:border-zinc-500 hover:text-zinc-300'}`}>
                             {name}
                           </button>;
               })}
@@ -676,7 +676,7 @@ export default function MockExamPage() {
                 </div>}
 
 
-              <button onClick={generateExam} disabled={!form.class || !form.subject || loading || Boolean(generationJob)} className="w-full py-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 disabled:opacity-40 text-black font-heading font-bold flex items-center justify-center gap-2">
+              <button data-ace-primary="true" onClick={generateExam} disabled={!form.class || !form.subject || loading || Boolean(generationJob)} className="w-full py-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 disabled:opacity-40 text-black font-heading font-bold flex items-center justify-center gap-2">
 
                 {loading || generationJob ? <>
                     <RefreshCw size={16} className="animate-spin" />
@@ -816,7 +816,7 @@ export default function MockExamPage() {
 
             <div className="flex gap-2 mb-4 overflow-x-auto">
 
-              {exam.sections?.map((section, index) => <button key={section.section} onClick={() => setCurrentSection(index)} className={`flex-shrink-0 px-4 py-2 rounded-xl text-sm font-body font-semibold ${currentSection === index ? 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/30' : 'bg-zinc-900/50 text-zinc-500 border border-white/5'}`}>
+              {exam.sections?.map((section, index) => <button aria-pressed={currentSection === index} key={section.section} onClick={() => setCurrentSection(index)} className={`flex-shrink-0 px-4 py-2 rounded-xl text-sm font-body font-semibold ${currentSection === index ? 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/30' : 'bg-zinc-900/50 text-zinc-500 border border-white/5'}`}>
 
                     Section
                     {' '}
@@ -870,7 +870,7 @@ export default function MockExamPage() {
                       {question.options?.map((option, optionIndex) => {
                 const letter = option.charAt(0);
                 const selected = answers[question.id] === letter;
-                return <button key={optionIndex} onClick={() => setAnswers(previous => ({
+                return <button aria-pressed={selected} key={optionIndex} onClick={() => setAnswers(previous => ({
                   ...previous,
                   [question.id]: letter
                 }))} className={`text-left px-3 py-2.5 rounded-xl border flex items-center gap-2 ${selected ? 'border-cyan-500/50 bg-cyan-500/10 text-white' : 'border-white/8 bg-zinc-900/30 text-zinc-300'}`}>
@@ -902,7 +902,7 @@ export default function MockExamPage() {
               </p>
 
 
-              <button onClick={submitExam} disabled={loading} className="px-6 py-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 disabled:opacity-50 text-black font-heading font-bold flex items-center gap-2">
+              <button data-ace-primary="true" onClick={submitExam} disabled={loading} className="px-6 py-3 rounded-xl bg-cyan-500 hover:bg-cyan-400 disabled:opacity-50 text-black font-heading font-bold flex items-center gap-2">
 
                 {loading ? <RefreshCw size={15} className="animate-spin" /> : <CheckCircle size={16} />}
 
@@ -1040,7 +1040,7 @@ export default function MockExamPage() {
                         {question.options?.map((option, optionIndex) => {
                 const letter = option.charAt(0);
                 const selected = followUp.answers[String(index)] === letter;
-                return <button key={optionIndex} onClick={() => setFollowUp(previous => ({
+                return <button aria-pressed={selected} key={optionIndex} onClick={() => setFollowUp(previous => ({
                   ...previous,
                   answers: {
                     ...previous.answers,
@@ -1062,7 +1062,7 @@ export default function MockExamPage() {
                     </div>)}
 
 
-                <button onClick={submitFollowUp} disabled={followUpLoading || Object.keys(followUp.answers).length === 0} className="w-full py-2.5 rounded-xl bg-orange-500 text-black font-heading font-bold flex items-center justify-center gap-2">
+                <button data-ace-primary="true" onClick={submitFollowUp} disabled={followUpLoading || Object.keys(followUp.answers).length === 0} className="w-full py-2.5 rounded-xl bg-orange-500 text-black font-heading font-bold flex items-center justify-center gap-2">
 
                   {followUpLoading ? <RefreshCw size={15} className="animate-spin" /> : <CheckCircle size={15} />}
 

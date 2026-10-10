@@ -116,7 +116,7 @@ export default function LeaderboardPage() {
           const T = t.icon;
           const active = scope === t.id;
           return (
-            <button key={t.id} onClick={() => setScope(t.id)} data-testid={`tab-${t.id}`}
+            <button aria-pressed={active} key={t.id} onClick={() => setScope(t.id)} data-testid={`tab-${t.id}`}
               className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-body font-semibold transition-all ${active ? 'text-white' : 'text-zinc-500 hover:text-zinc-300'}`}
               style={active ? { background: t.color + '20', border: `1px solid ${t.color}40` } : {}}>
               <T size={14} style={active ? { color: t.color } : {}} />

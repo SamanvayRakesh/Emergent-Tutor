@@ -63,7 +63,7 @@ export default function UpgradePromptModal() {
               ))}
             </div>
 
-            <button onClick={() => { dismissUpgrade(); nav('/upgrade'); }} data-testid="upgrade-prompt-cta"
+            <button data-ace-primary="true" onClick={() => { dismissUpgrade(); nav('/upgrade'); }} data-testid="upgrade-prompt-cta"
               className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-400 to-rose-500 text-white font-heading font-bold text-sm flex items-center justify-center gap-2 hover:scale-[1.02] transition-transform">
               See Plans <ArrowRight size={14} />
             </button>

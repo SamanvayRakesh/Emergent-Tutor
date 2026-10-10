@@ -91,13 +91,13 @@ export default function FeedbackModal({ externalOpen, onExternalClose }) {
 
               {/* Tab switcher */}
               <div className="flex border-b border-white/5">
-                <button
+                <button aria-pressed={tab === 'send'}
                   data-testid="tab-send-feedback"
                   onClick={() => setTab('send')}
                   className={`flex-1 py-2.5 text-xs font-body font-semibold transition-all ${tab === 'send' ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-zinc-500 hover:text-zinc-300'}`}>
                   Send Feedback
                 </button>
-                <button
+                <button aria-pressed={tab === 'replies'}
                   data-testid="tab-my-replies"
                   onClick={() => setTab('replies')}
                   className={`flex-1 py-2.5 text-xs font-body font-semibold transition-all flex items-center justify-center gap-1 ${tab === 'replies' ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-zinc-500 hover:text-zinc-300'}`}>
@@ -148,7 +148,7 @@ export default function FeedbackModal({ externalOpen, onExternalClose }) {
                       />
                       <p className="text-zinc-600 text-xs font-body text-right mb-4">{message.length}/2000</p>
 
-                      <button
+                      <button data-ace-primary="true"
                         onClick={submit}
                         disabled={submitting || message.trim().length < 5}
                         data-testid="feedback-submit-btn"
