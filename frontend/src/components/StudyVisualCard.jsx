@@ -125,25 +125,25 @@ function TopicVisual({ visual }) {
     </div>
     <div className="overflow-auto max-h-[440px] mt-2">
       <svg ref={svgRef} viewBox={`0 0 ${layout.width} ${layout.height}`} className="w-full min-w-[540px]"
-        role="group" aria-label={`${visual.type}: ${visual.title}`} style={{ background: '#e8dfd0' }}>
-        <title>{visual.title}</title><rect width={layout.width} height={layout.height} fill="#e8dfd0" />
-        <defs><marker id={arrow} markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 z" fill="#303030" /></marker></defs>
-        {layout.hub && <><circle cx="350" cy={layout.height / 2} r="38" fill="#f2bfa5" stroke="#303030" />
-          <text x="350" y={layout.height / 2 + 5} textAnchor="middle" fill="#171717" fontSize="14">Concept</text></>}
+        role="group" aria-label={`${visual.type}: ${visual.title}`} style={{ background: '#ffffff' }}>
+        <title>{visual.title}</title><rect width={layout.width} height={layout.height} fill="#ffffff" />
+        <defs><marker id={arrow} markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto"><path d="M0,0 L0,6 L6,3 z" fill="#3159cd" /></marker></defs>
+        {layout.hub && <><circle cx="350" cy={layout.height / 2} r="38" fill="#eaf0ff" stroke="#3159cd" />
+          <text x="350" y={layout.height / 2 + 5} textAnchor="middle" fill="#172033" fontSize="14">Concept</text></>}
         {layout.hub && layout.nodes.map((n, i) => <line key={`hub-${i}`} x1="350" y1={layout.height / 2}
-          x2={n.x} y2={n.y} stroke="#686868" strokeWidth="2" />)}
+          x2={n.x} y2={n.y} stroke="#7b879a" strokeWidth="2" />)}
         {layout.edges.map(([a, b], i) => {
           const [x1, y1, x2, y2] = edgeEnds(layout.nodes[a], layout.nodes[b]);
-          return <line key={`edge-${i}`} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#303030" strokeWidth="2" markerEnd={`url(#${arrow})`} />;
+          return <line key={`edge-${i}`} x1={x1} y1={y1} x2={x2} y2={y2} stroke="#3159cd" strokeWidth="2" markerEnd={`url(#${arrow})`} />;
         })}
         {layout.nodes.map((n, i) => <g key={i} role="button" tabIndex={0} aria-pressed={active === i}
           aria-label={n.label} onClick={() => setSelected(i)}
           onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelected(i); } }} style={{ cursor: 'pointer' }}>
           <rect x={n.x - n.w / 2} y={n.y - n.h / 2} width={n.w} height={n.h} rx={visual.type === 'formula' ? 6 : 14}
-            fill={active === i ? '#f2bfa5' : '#e8dfd0'} stroke={active === i ? '#303030' : '#686868'} strokeWidth="2" />
+            fill={active === i ? '#eaf0ff' : '#ffffff'} stroke={active === i ? '#3159cd' : '#7b879a'} strokeWidth="2" />
           <title>{n.detail}</title>
           {wrapText(n.label, visual.type === 'cycle' ? 17 : (n.w > 400 ? 48 : 27)).slice(0, 3).map((line, j, all) =>
-            <text key={j} x={n.x} y={n.y + 5 + (j - (all.length - 1) / 2) * 18} textAnchor="middle" fill="#171717" fontSize="14" fontFamily="Arial, sans-serif">{line}</text>)}
+            <text key={j} x={n.x} y={n.y + 5 + (j - (all.length - 1) / 2) * 18} textAnchor="middle" fill="#172033" fontSize="14" fontFamily="Arial, sans-serif">{line}</text>)}
         </g>)}
       </svg>
     </div>
@@ -182,29 +182,29 @@ function GraphVisual({ data: d }) {
       {d.chartType === 'line' && <label className="flex gap-2 items-center text-xs text-zinc-300"><input type="checkbox" checked={connect} onChange={e => setConnect(e.target.checked)} />Connect points</label>}
     </div>
     <div className="overflow-x-auto">
-      <svg ref={svgRef} viewBox="0 0 720 435" className="w-full min-w-[540px]" role="group" aria-label={`${d.title}: ${d.xLabel} versus ${d.yLabel}`} style={{ background: '#e8dfd0' }}>
-        <title>{d.title}</title><desc>{d.summary} Choose a point to see its exact value.</desc><rect width="720" height="435" fill="#e8dfd0" />
+      <svg ref={svgRef} viewBox="0 0 720 435" className="w-full min-w-[540px]" role="group" aria-label={`${d.title}: ${d.xLabel} versus ${d.yLabel}`} style={{ background: '#ffffff' }}>
+        <title>{d.title}</title><desc>{d.summary} Choose a point to see its exact value.</desc><rect width="720" height="435" fill="#ffffff" />
         {[0, 1, 2, 3, 4].map(i => { const v = g.low + i * (g.high - g.low) / 4; return <g key={i}>
-          <line x1={g.left} x2={g.right} y1={g.y(v)} y2={g.y(v)} stroke="#d9d9d9" />
-          <text x={g.left - 10} y={g.y(v) + 4} textAnchor="end" fill="#686868" fontSize="12">{formatNumber(v)}</text></g>; })}
-        <path d={`M${g.left} ${g.top} V${g.bottom} H${g.right}`} fill="none" stroke="#686868" />
-        {g.low < 0 && g.high > 0 && <line x1={g.left} x2={g.right} y1={g.y(0)} y2={g.y(0)} stroke="#686868" />}
-        {d.chartType === 'line' && connect && <polyline points={g.shown.map((point, i) => `${g.x(point, i)},${g.y(point.y)}`).join(' ')} fill="none" stroke="#303030" strokeWidth="2" />}
+          <line x1={g.left} x2={g.right} y1={g.y(v)} y2={g.y(v)} stroke="#e4e9f1" />
+          <text x={g.left - 10} y={g.y(v) + 4} textAnchor="end" fill="#7b879a" fontSize="12">{formatNumber(v)}</text></g>; })}
+        <path d={`M${g.left} ${g.top} V${g.bottom} H${g.right}`} fill="none" stroke="#7b879a" />
+        {g.low < 0 && g.high > 0 && <line x1={g.left} x2={g.right} y1={g.y(0)} y2={g.y(0)} stroke="#7b879a" />}
+        {d.chartType === 'line' && connect && <polyline points={g.shown.map((point, i) => `${g.x(point, i)},${g.y(point.y)}`).join(' ')} fill="none" stroke="#3159cd" strokeWidth="2" />}
         {g.shown.map((point, i) => {
           const original = range[0] + i, cx = g.x(point, i), cy = g.y(point.y), width = Math.min(44, 360 / g.shown.length);
           return <g key={original} role="button" tabIndex={0} aria-pressed={active === original}
             aria-label={`${point.label}: ${isBar ? '' : `${d.xLabel} ${point.x}, `}${d.yLabel} ${point.y}`}
             onClick={() => setSelected(original)} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelected(original); } }} style={{ cursor: 'pointer' }}>
             <title>{point.label}: {point.y}</title>
-            {isBar ? <rect x={cx - width / 2} y={Math.min(cy, g.y(0))} width={width} height={Math.max(2, Math.abs(cy - g.y(0)))} fill={active === original ? '#171717' : '#303030'} /> :
-              <circle cx={cx} cy={cy} r={active === original ? 7 : 5} fill={active === original ? '#171717' : '#303030'} />}
+            {isBar ? <rect x={cx - width / 2} y={Math.min(cy, g.y(0))} width={width} height={Math.max(2, Math.abs(cy - g.y(0)))} fill={active === original ? '#172033' : '#3159cd'} /> :
+              <circle cx={cx} cy={cy} r={active === original ? 7 : 5} fill={active === original ? '#172033' : '#3159cd'} />}
             <circle cx={cx} cy={cy} r="18" fill="transparent" />
             {(g.shown.length <= 12 || i % Math.ceil(g.shown.length / 8) === 0 || i === g.shown.length - 1) &&
-              <text transform={`translate(${cx},329) rotate(25)`} fill="#686868" fontSize="11" textAnchor="middle">{isBar ? point.label.slice(0, 16) : formatNumber(point.x)}</text>}
+              <text transform={`translate(${cx},329) rotate(25)`} fill="#7b879a" fontSize="11" textAnchor="middle">{isBar ? point.label.slice(0, 16) : formatNumber(point.x)}</text>}
           </g>;
         })}
-        {wrapText(d.xLabel, 60).slice(0, 2).map((line, i) => <text key={i} x="375" y={395 + i * 16} textAnchor="middle" fill="#171717" fontSize="13">{line}</text>)}
-        <text transform="translate(20,185) rotate(-90)" textAnchor="middle" fill="#171717" fontSize="13">{d.yLabel.slice(0, 44)}</text>
+        {wrapText(d.xLabel, 60).slice(0, 2).map((line, i) => <text key={i} x="375" y={395 + i * 16} textAnchor="middle" fill="#172033" fontSize="13">{line}</text>)}
+        <text transform="translate(20,185) rotate(-90)" textAnchor="middle" fill="#172033" fontSize="13">{d.yLabel.slice(0, 44)}</text>
       </svg>
     </div>
     <div className="mt-3 rounded-xl bg-zinc-900 p-3 text-sm text-zinc-300" aria-live="polite">
@@ -255,15 +255,15 @@ export async function makeStudyPdf(data) {
     canvas = document.createElement('canvas'); canvas.width = 1190; canvas.height = 1684;
     ctx = canvas.getContext('2d'); if (!ctx) throw new Error('PDF rendering is unavailable in this browser.');
     ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, 1190, 1684);
-    ctx.fillStyle = '#303030'; ctx.font = 'bold 24px Arial'; ctx.fillText('ACE-IT • CHAPTER REVISION', 72, 66);
-    ctx.fillStyle = '#686868'; ctx.font = '20px Arial'; ctx.fillText(`Page ${++page}`, 1020, 1620); y = 125;
+    ctx.fillStyle = '#3159cd'; ctx.font = 'bold 24px Arial'; ctx.fillText('ACE-IT • CHAPTER REVISION', 72, 66);
+    ctx.fillStyle = '#7b879a'; ctx.font = '20px Arial'; ctx.fillText(`Page ${++page}`, 1020, 1620); y = 125;
   };
   const finish = () => {
     const raw = atob(canvas.toDataURL('image/jpeg', 0.94).split(',')[1]);
     images.push(Uint8Array.from(raw, c => c.charCodeAt(0)));
   };
   const ensure = height => { if (y + height > 1550) { finish(); newPage(); } };
-  const line = (value, size = 24, bold = false, color = '#171717') => {
+  const line = (value, size = 24, bold = false, color = '#172033') => {
     const font = `${bold ? 'bold ' : ''}${size}px Arial`;
     ctx.font = font; let current = '';
     const flush = () => { ensure(size * 1.5); ctx.font = font; ctx.fillStyle = color; ctx.fillText(current.trimEnd(), 72, y); y += size * 1.5; current = ''; };
@@ -281,33 +281,33 @@ export async function makeStudyPdf(data) {
     const layout = topicLayout(visual), scale = Math.min(1046 / layout.width, 620 / layout.height);
     const height = layout.height * scale;
     ensure(height + 30); ctx.save(); ctx.translate(72 + (1046 - layout.width * scale) / 2, y); ctx.scale(scale, scale);
-    ctx.lineWidth = 2; ctx.strokeStyle = '#303030';
+    ctx.lineWidth = 2; ctx.strokeStyle = '#3159cd';
     const arrow = (x1, y1, x2, y2) => {
       ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
       const angle = Math.atan2(y2 - y1, x2 - x1); ctx.beginPath(); ctx.moveTo(x2, y2);
       ctx.lineTo(x2 - 9 * Math.cos(angle - 0.5), y2 - 9 * Math.sin(angle - 0.5));
-      ctx.lineTo(x2 - 9 * Math.cos(angle + 0.5), y2 - 9 * Math.sin(angle + 0.5)); ctx.closePath(); ctx.fillStyle = '#303030'; ctx.fill();
+      ctx.lineTo(x2 - 9 * Math.cos(angle + 0.5), y2 - 9 * Math.sin(angle + 0.5)); ctx.closePath(); ctx.fillStyle = '#3159cd'; ctx.fill();
     };
     if (layout.hub) {
       layout.nodes.forEach(n => { ctx.beginPath(); ctx.moveTo(350, layout.height / 2); ctx.lineTo(n.x, n.y); ctx.stroke(); });
-      ctx.beginPath(); ctx.arc(350, layout.height / 2, 38, 0, Math.PI * 2); ctx.fillStyle = '#e8dfd0'; ctx.fill(); ctx.stroke();
-      ctx.font = '14px Arial'; ctx.textAlign = 'center'; ctx.fillStyle = '#303030'; ctx.fillText('Concept', 350, layout.height / 2 + 5);
+      ctx.beginPath(); ctx.arc(350, layout.height / 2, 38, 0, Math.PI * 2); ctx.fillStyle = '#ffffff'; ctx.fill(); ctx.stroke();
+      ctx.font = '14px Arial'; ctx.textAlign = 'center'; ctx.fillStyle = '#3159cd'; ctx.fillText('Concept', 350, layout.height / 2 + 5);
     }
     layout.edges.forEach(([a, b]) => arrow(...edgeEnds(layout.nodes[a], layout.nodes[b])));
     layout.nodes.forEach(n => {
-      ctx.fillStyle = '#e8dfd0'; ctx.fillRect(n.x - n.w / 2, n.y - n.h / 2, n.w, n.h);
-      ctx.strokeStyle = '#303030'; ctx.strokeRect(n.x - n.w / 2, n.y - n.h / 2, n.w, n.h);
-      ctx.fillStyle = '#171717'; ctx.font = '15px Arial'; ctx.textAlign = 'center';
+      ctx.fillStyle = '#ffffff'; ctx.fillRect(n.x - n.w / 2, n.y - n.h / 2, n.w, n.h);
+      ctx.strokeStyle = '#3159cd'; ctx.strokeRect(n.x - n.w / 2, n.y - n.h / 2, n.w, n.h);
+      ctx.fillStyle = '#172033'; ctx.font = '15px Arial'; ctx.textAlign = 'center';
       const lines = wrapText(n.label, visual.type === 'cycle' ? 17 : (n.w > 400 ? 48 : 27)).slice(0, 3);
       lines.forEach((value, i) => ctx.fillText(value, n.x, n.y + 5 + (i - (lines.length - 1) / 2) * 18));
     });
     ctx.restore(); y += height + 25;
   };
   newPage(); line(d.title, 36, true); line(d.summary); y += 15;
-  if (d.coverage) { line(`${d.coverage.status === 'complete' ? 'Chapter coverage' : 'Partial source coverage'}: ${d.coverage.note}`, 21, false, '#303030'); y += 15; }
+  if (d.coverage) { line(`${d.coverage.status === 'complete' ? 'Chapter coverage' : 'Partial source coverage'}: ${d.coverage.note}`, 21, false, '#3159cd'); y += 15; }
   line('Topic index', 28, true); d.sections.forEach((s, i) => line(`${i + 1}. ${s.heading}`, 22)); y += 25;
   for (const [i, section] of d.sections.entries()) {
-    ensure(170); line(`${i + 1}. ${section.heading}`, 29, true, '#303030');
+    ensure(170); line(`${i + 1}. ${section.heading}`, 29, true, '#3159cd');
     section.points.forEach(point => line(`• ${point}`)); y += 15;
     line(section.visual.title, 23, true); drawVisual(section.visual);
     // Export every explanation, including details hidden behind interactive nodes.

@@ -42,25 +42,25 @@ export default function FlowchartCard({ data }) {
     <p className="px-4 pb-2 text-xs text-violet-300">Arrows show the recommended learning order.</p>
     {chart.summary && <p className="px-4 pb-3 text-sm text-zinc-400">{chart.summary}</p>}
     <div className="overflow-x-auto max-h-[650px] overflow-y-auto">
-      <svg viewBox={'0 0 600 ' + height} role="img" aria-label={'Flowchart: ' + chart.title} className="w-full min-w-[320px]" style={{ background: '#e8dfd0' }}>
-        <rect width="600" height={height} fill="#e8dfd0" />
+      <svg viewBox={'0 0 600 ' + height} role="img" aria-label={'Flowchart: ' + chart.title} className="w-full min-w-[320px]" style={{ background: '#ffffff' }}>
+        <rect width="600" height={height} fill="#ffffff" />
         <defs><marker id={marker} markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
-          <path d="M0,0 L0,6 L9,3 z" fill="#303030" /></marker></defs>
+          <path d="M0,0 L0,6 L9,3 z" fill="#3159cd" /></marker></defs>
         {chart.steps.map((step, i) => {
           const y = 25 + i * 155;
           return <g key={i}>
             {i < chart.steps.length - 1 && <line x1="300" y1={y + 112} x2="300" y2={y + 146}
-              stroke="#303030" strokeWidth="2" markerEnd={'url(#' + marker + ')'} />}
+              stroke="#3159cd" strokeWidth="2" markerEnd={'url(#' + marker + ')'} />}
             <g role="button" tabIndex={0} aria-label={'Step ' + (i + 1) + ': ' + step.label}
               style={{ cursor: 'pointer' }} onClick={() => setSelected(i)}
               onKeyDown={event => { if (['Enter', ' '].includes(event.key)) { event.preventDefault(); setSelected(i); } }}>
               <rect x="80" y={y} width="440" height="112" rx={i === 0 || i === chart.steps.length - 1 ? 38 : 14}
-                fill={active === i ? '#f2bfa5' : '#e8dfd0'} stroke={active === i ? '#303030' : '#686868'} strokeWidth="2" />
-              <text x="105" y={y + 22} fill="#303030" fontSize="11" fontFamily="Arial, sans-serif">{i + 1}</text>
+                fill={active === i ? '#eaf0ff' : '#ffffff'} stroke={active === i ? '#3159cd' : '#7b879a'} strokeWidth="2" />
+              <text x="105" y={y + 22} fill="#3159cd" fontSize="11" fontFamily="Arial, sans-serif">{i + 1}</text>
               {wrapVisualText(step.label, 43).slice(0, 2).map((line, j) => <text key={j} x="300" y={y + 31 + j * 18}
-                textAnchor="middle" fill="#171717" fontSize="15" fontFamily="Arial, sans-serif">{line}</text>)}
+                textAnchor="middle" fill="#172033" fontSize="15" fontFamily="Arial, sans-serif">{line}</text>)}
               {wrapVisualText(step.detail, 58).slice(0, 2).map((line, j) => <text key={'detail-' + j} x="300" y={y + 78 + j * 14}
-                textAnchor="middle" fill="#686868" fontSize="11" fontFamily="Arial, sans-serif">{line}</text>)}
+                textAnchor="middle" fill="#7b879a" fontSize="11" fontFamily="Arial, sans-serif">{line}</text>)}
             </g>
           </g>;
         })}

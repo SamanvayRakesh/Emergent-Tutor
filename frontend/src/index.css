@@ -4,41 +4,48 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Ace-it flat palette: one opaque colour per surface role. */
+/* Ace-it professional palette: neutral surfaces and one restrained blue accent. */
 :root {
-  --ace-black: #171717;
+  --ace-black: #172033;
   --ace-white: #ffffff;
-  --ace-beige: #e8dfd0;
-  --ace-grey: #686868;
-  --ace-peach: #f2bfa5;
-  --ace-charcoal: #303030;
-  --ace-cloud: #d9d9d9;
-  --ace-cotton: #f7f4ef;
+  --ace-beige: #ffffff;
+  --ace-grey: #5d6675;
+  --ace-border: #dde3ec;
+  --ace-accent: #3159cd;
+  --ace-accent-hover: #2547ad;
+  --ace-accent-soft: #eaf0ff;
+  --ace-sidebar: #152238;
+  --ace-sidebar-panel: #20324e;
+  --ace-sidebar-border: #2d3f5b;
+  --ace-peach: var(--ace-accent); /* compatibility for existing component hooks */
+  --ace-charcoal: #152238;
+  --ace-cloud: #c3cedf;
+  --ace-cotton: #f4f6f9;
   --neon-cyan: var(--ace-charcoal);
   --neon-magenta: var(--ace-charcoal);
   --neon-violet: var(--ace-charcoal);
   --neon-green: var(--ace-charcoal);
   --bg-dark: var(--ace-cotton);
   --bg-surface: var(--ace-beige);
-  --background: 38 33% 95%;
-  --foreground: 0 0% 9%;
-  --card: 38 34% 86%;
+  --background: 216 29% 97%;
+  --foreground: 221 38% 15%;
+  --card: 0 0% 100%;
   --card-foreground: 0 0% 9%;
-  --popover: 38 34% 86%;
+  --popover: 0 0% 100%;
   --popover-foreground: 0 0% 9%;
-  --primary: 21 75% 80%;
-  --primary-foreground: 0 0% 9%;
+  --primary: 225 61% 50%;
+  --primary-foreground: 0 0% 100%;
   --secondary: 0 0% 85%;
   --secondary-foreground: 0 0% 9%;
   --muted: 0 0% 85%;
   --muted-foreground: 0 0% 41%;
-  --accent: 21 75% 80%;
+  --accent: 225 100% 96%;
   --accent-foreground: 0 0% 9%;
   --destructive: 0 0% 19%;
   --destructive-foreground: 0 0% 100%;
-  --border: 0 0% 41%;
-  --input: 0 0% 41%;
-  --ring: 0 0% 19%;
+  --border: 216 28% 90%;
+  --input: 216 28% 90%;
+  --ring: 225 61% 50%;
   --radius: 0.75rem;
 }
 
@@ -58,7 +65,7 @@ code, pre { font-family: 'JetBrains Mono', monospace; }
   text-shadow: none !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
-  border-color: var(--ace-grey) !important;
+  border-color: var(--ace-border) !important;
   --tw-ring-color: var(--ace-charcoal) !important;
 }
 .App { background: var(--ace-cotton) !important; color: var(--ace-black); }
@@ -78,9 +85,9 @@ code, pre { font-family: 'JetBrains Mono', monospace; }
 .App [class*="h-1"][class*="bg-"], .App [class*="h-2"][class*="bg-"], .App [class*="h-3"][class*="bg-"] { background-color: var(--ace-cloud) !important; }
 .App [style*="width:"][style*="background:"], .App [class*="h-full"][class*="bg-gradient"] { background-color: var(--ace-charcoal) !important; }
 
-/* Feature UI: beige. Chat bubbles use the same feature colour. */
-.glass, .glass-surface { background: var(--ace-beige); border: 1px solid var(--ace-grey); }
-.message-user, .message-ai { background: var(--ace-beige) !important; border: 1px solid var(--ace-grey); color: var(--ace-black); }
+/* White feature panels, with quiet dividers rather than heavy outlines. */
+.glass, .glass-surface { background: var(--ace-beige); border: 1px solid var(--ace-border); }
+.message-user, .message-ai { background: var(--ace-beige) !important; border: 1px solid var(--ace-border); color: var(--ace-black); }
 .message-user { border-radius: 18px 18px 4px 18px; }
 .message-ai { border-radius: 4px 18px 18px 18px; }
 .App .message-user *, .App .message-ai * { color: var(--ace-black) !important; }
@@ -91,7 +98,7 @@ code, pre { font-family: 'JetBrains Mono', monospace; }
 .App input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
 .App select, .App textarea, .App [role="combobox"] {
   background: var(--ace-white) !important; color: var(--ace-black) !important;
-  border-color: var(--ace-grey) !important;
+  border-color: var(--ace-border) !important;
 }
 .App input::placeholder, .App textarea::placeholder { color: var(--ace-grey) !important; opacity: 1; }
 .App input[type="checkbox"], .App input[type="radio"], .App input[type="range"] { accent-color: var(--ace-charcoal) !important; }
@@ -99,30 +106,33 @@ code, pre { font-family: 'JetBrains Mono', monospace; }
 .App :focus-visible { outline: 2px solid var(--ace-charcoal) !important; outline-offset: 3px; }
 .App [aria-selected="true"], .App [aria-pressed="true"], .App [data-state="checked"] { outline: 2px solid var(--ace-charcoal); outline-offset: 2px; }
 
-/* Buttons: peach for primary, secondary, hover and active states. */
+/* Secondary controls are white; blue is reserved for primary actions. */
 .App button[class], .App button:not([class]), .App [role="button"]:not(svg g), .App input[type="submit"],
 .App a[class*="bg-"], .App .al-btn, .App .al-btn-outline {
-  background: var(--ace-peach) !important; color: var(--ace-black) !important;
-  -webkit-text-fill-color: var(--ace-black) !important; border-color: var(--ace-grey) !important;
+  background: var(--ace-white) !important; color: var(--ace-black) !important;
+  -webkit-text-fill-color: var(--ace-black) !important; border-color: var(--ace-border) !important;
 }
 .App button[class] *, .App button:not([class]) *, .App a[class*="bg-"] *, .App .al-btn * { color: var(--ace-black) !important; }
-.App button:hover, .App .al-btn:hover { background: var(--ace-peach) !important; text-decoration: underline; text-underline-offset: 3px; }
+.App button:hover, .App .al-btn:hover { background: var(--ace-white) !important; border-color: var(--ace-accent) !important; text-decoration: none; }
 .App button:disabled { opacity: 1 !important; color: var(--ace-grey) !important; cursor: not-allowed; }
 .App button:disabled * { color: var(--ace-grey) !important; }
 .App button [class*="absolute"][class*="bg-gradient"] { display: none !important; }
 
-/* Sidebar: charcoal throughout, with cloud text and peach action buttons. */
+/* Navy sidebar with muted text and a clearly marked active destination. */
 .App .ace-sidebar, .App .ace-sidebar [class*="bg-"], .App .ace-sidebar [style*="background:"],
-.App .ace-sidebar .glass-surface { background: var(--ace-charcoal) !important; }
+.App .ace-sidebar .glass-surface { background: var(--ace-sidebar) !important; border-color: var(--ace-sidebar-border) !important; }
 .App .ace-sidebar, .App .ace-sidebar [class*="text-"], .App .ace-sidebar p,
 .App .ace-sidebar span, .App .ace-sidebar a, .App .ace-sidebar svg, .App .ace-sidebar strong { color: var(--ace-cloud) !important; -webkit-text-fill-color: var(--ace-cloud) !important; }
 .App .ace-sidebar .ace-avatar { background: var(--ace-cloud) !important; color: var(--ace-black) !important; }
-.App .ace-sidebar nav a:hover { outline: 1px solid var(--ace-cloud); }
-.App .ace-sidebar nav a[aria-current="page"], .App .ace-sidebar button[class] { background: var(--ace-peach) !important; color: var(--ace-black) !important; }
-.App .ace-sidebar nav a[aria-current="page"], .App .ace-sidebar nav a[aria-current="page"] *, .App .ace-sidebar button[class] * { color: var(--ace-black) !important; -webkit-text-fill-color: var(--ace-black) !important; }
+.App .ace-sidebar nav a:hover { background: var(--ace-sidebar-panel) !important; outline: none; }
+.App .ace-sidebar nav a[aria-current="page"] { background: var(--ace-sidebar-panel) !important; border-color: var(--ace-sidebar-border) !important; border-left: 3px solid var(--ace-accent) !important; }
+.App .ace-sidebar nav a[aria-current="page"], .App .ace-sidebar nav a[aria-current="page"] * { color: var(--ace-white) !important; -webkit-text-fill-color: var(--ace-white) !important; }
+.App .ace-sidebar button[class] { background: var(--ace-sidebar) !important; color: var(--ace-cloud) !important; border: 0; }
+.App .ace-sidebar button[class] * { color: var(--ace-cloud) !important; -webkit-text-fill-color: var(--ace-cloud) !important; }
+.App .ace-sidebar button[class]:hover { background: var(--ace-sidebar-panel) !important; }
 .App .ace-sidebar :focus-visible { outline-color: var(--ace-cloud) !important; }
-.App .ace-sidebar .ace-xp-track { background: var(--ace-grey) !important; }
-.App .ace-sidebar .ace-xp-fill { background: var(--ace-cloud) !important; }
+.App .ace-sidebar .ace-xp-track { background: var(--ace-sidebar-panel) !important; }
+.App .ace-sidebar .ace-xp-fill { background: var(--ace-accent) !important; }
 
 /* Public landing page uses the same roles as the signed-in app. */
 .App .al { --bg: var(--ace-cotton); --ink: var(--ace-black); --muted: var(--ace-grey); --cyan: var(--ace-charcoal); --lav: var(--ace-charcoal); --mint: var(--ace-charcoal); --peach: var(--ace-peach); background: var(--ace-cotton) !important; color: var(--ace-black) !important; }
@@ -136,10 +146,10 @@ code, pre { font-family: 'JetBrains Mono', monospace; }
 [data-sonner-toaster], [data-radix-popper-content-wrapper] { color: var(--ace-black); }
 [data-sonner-toast], [data-radix-popper-content-wrapper] > * {
   background: var(--ace-beige) !important; color: var(--ace-black) !important;
-  border-color: var(--ace-grey) !important; box-shadow: none !important; background-image: none !important;
+  border-color: var(--ace-border) !important; box-shadow: none !important; background-image: none !important;
 }
 [data-sonner-toast] *, [data-radix-popper-content-wrapper] [class*="text-"] { color: var(--ace-black) !important; }
-[data-sonner-toast] button, [data-radix-popper-content-wrapper] [role="option"][data-highlighted] { background: var(--ace-peach) !important; color: var(--ace-black) !important; }
+[data-sonner-toast] button, [data-radix-popper-content-wrapper] [role="option"][data-highlighted] { background: var(--ace-white) !important; color: var(--ace-black) !important; }
 
 /* Charts stay legible; individual series use solid neutral fills, never gradients. */
 .App .recharts-text, .App .recharts-label { fill: var(--ace-charcoal) !important; }
@@ -149,13 +159,13 @@ code, pre { font-family: 'JetBrains Mono', monospace; }
 .App .recharts-pie-sector:nth-child(3n + 1) path { fill: var(--ace-charcoal) !important; }
 .App .recharts-pie-sector:nth-child(3n + 2) path { fill: var(--ace-grey) !important; }
 .App .recharts-pie-sector:nth-child(3n) path { fill: var(--ace-cloud) !important; }
-.App .recharts-tooltip-wrapper .recharts-default-tooltip { background: var(--ace-beige) !important; border-color: var(--ace-grey) !important; }
+.App .recharts-tooltip-wrapper .recharts-default-tooltip { background: var(--ace-beige) !important; border-color: var(--ace-border) !important; }
 
 .markdown-content p, .markdown-content li { line-height: 1.7; margin-bottom: 0.5em; }
 .markdown-content h1, .markdown-content h2, .markdown-content h3 { margin: 1em 0 0.5em; }
 .markdown-content ul, .markdown-content ol { padding-left: 1.5em; margin-bottom: 0.75em; }
 .markdown-content strong { font-weight: 700; }
-.App .markdown-content code, .App .markdown-content pre { background: var(--ace-cloud) !important; color: var(--ace-black) !important; border: 1px solid var(--ace-grey); border-radius: 6px; }
+.App .markdown-content code, .App .markdown-content pre { background: var(--ace-cloud) !important; color: var(--ace-black) !important; border: 1px solid var(--ace-border); border-radius: 6px; }
 .markdown-content pre { padding: 1em; overflow-x: auto; }
 .App .markdown-content pre code { background: none !important; border: 0; }
 .markdown-content blockquote { border-left: 3px solid var(--ace-grey); padding-left: 1em; margin: 0.75em 0; }
@@ -181,7 +191,7 @@ code, pre { font-family: 'JetBrains Mono', monospace; }
 /* Opaque surfaces for the landing page’s embedded component styles. */
 .App .al { background-color: var(--ace-cotton) !important; }
 .App .al-header { background-color: var(--ace-cotton) !important; }
-.App .al-btn { background-color: var(--ace-peach) !important; }
+.App .al-btn { background-color: var(--ace-accent) !important; }
 .App .al-btn-outline { background-color: var(--ace-peach) !important; }
 .App .al-hero { background-color: var(--ace-cotton) !important; }
 .App .al-dot { background-color: var(--ace-charcoal) !important; }
@@ -224,11 +234,46 @@ code, pre { font-family: 'JetBrains Mono', monospace; }
 
 /* Dialogs can be mounted outside .App through a portal. */
 [role="dialog"], [role="alertdialog"] { background: var(--ace-beige) !important; color: var(--ace-black) !important; }
-[role="dialog"] *, [role="alertdialog"] * { background-image: none !important; box-shadow: none !important; text-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; border-color: var(--ace-grey) !important; }
+[role="dialog"] *, [role="alertdialog"] * { background-image: none !important; box-shadow: none !important; text-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; border-color: var(--ace-border) !important; }
 [role="dialog"] [class*="text-"], [role="alertdialog"] [class*="text-"] { color: var(--ace-black) !important; }
 [role="dialog"] [class*="bg-"], [role="alertdialog"] [class*="bg-"] { background-color: var(--ace-beige) !important; }
-[role="dialog"] button, [role="alertdialog"] button { background: var(--ace-peach) !important; color: var(--ace-black) !important; }
+[role="dialog"] button, [role="alertdialog"] button { background: var(--ace-white) !important; color: var(--ace-black) !important; }
 [role="dialog"] input, [role="dialog"] textarea, [role="dialog"] select { background: var(--ace-white) !important; color: var(--ace-black) !important; }
 
 .App img[src*="aceit-logo"] { filter: brightness(0); }
 .App .ace-sidebar img[src*="aceit-logo"] { filter: brightness(0) invert(0.85); }
+
+/* Final semantic rules keep accent usage consistent across existing pages. */
+.App button { border-radius: 9px; }
+.App .message-ai { background: none !important; border: 0; }
+.App .message-user { background: var(--ace-accent-soft) !important; border-color: var(--ace-accent-soft) !important; }
+.App .ace-feature { border-color: var(--ace-border) !important; }
+.App .ace-feature article { border-color: var(--ace-border) !important; }
+.App .ace-feature [role="button"][aria-pressed="true"] { outline: 2px solid var(--ace-accent); outline-offset: 2px; }
+.App button[aria-pressed="true"], .App button[aria-selected="true"] { background: var(--ace-accent-soft) !important; color: var(--ace-accent) !important; outline: 1px solid var(--ace-accent) !important; }
+.App button[data-testid="send-message-btn"], .App button[data-testid="sidebar-upgrade-btn"],
+.App button.bg-cyan-500, .App button.bg-cyan-400, .App button.bg-violet-500,
+.App button.bg-orange-500, .App .al .al-btn:not(.al-btn-outline),
+.App [data-testid="start-session-btn"], .App [data-testid="login-btn"], .App [data-testid="signup-btn"] {
+  background: var(--ace-accent) !important; color: var(--ace-white) !important;
+  -webkit-text-fill-color: var(--ace-white) !important; border-color: var(--ace-accent) !important;
+}
+.App button[data-testid="send-message-btn"] *, .App button[data-testid="sidebar-upgrade-btn"] *,
+.App button.bg-cyan-500 *, .App button.bg-cyan-400 *, .App button.bg-violet-500 *,
+.App button.bg-orange-500 *, .App .al .al-btn:not(.al-btn-outline) * {
+  color: var(--ace-white) !important; -webkit-text-fill-color: var(--ace-white) !important;
+}
+.App button[data-testid="send-message-btn"]:hover, .App button.bg-cyan-500:hover,
+.App .al .al-btn:not(.al-btn-outline):hover { background: var(--ace-accent-hover) !important; }
+.App button:disabled, .App button:disabled:hover { background: #edf0f5 !important; color: var(--ace-grey) !important; -webkit-text-fill-color: var(--ace-grey) !important; border-color: var(--ace-border) !important; }
+.App button:disabled * { color: var(--ace-grey) !important; -webkit-text-fill-color: var(--ace-grey) !important; }
+.App .ace-sidebar [class*="border"] { border-color: var(--ace-sidebar-border) !important; }
+.App .ace-prompt { border: 0 !important; border-top: 1px solid var(--ace-border) !important; }
+.App .ace-prompt textarea { border-color: var(--ace-border) !important; }
+.App :focus-visible { outline-color: var(--ace-accent) !important; }
+.App .ace-sidebar :focus-visible { outline-color: var(--ace-cloud) !important; }
+.App .markdown-content pre, .App .markdown-content code { background: #edf0f5 !important; }
+.App .ace-sidebar .ace-avatar { color: var(--ace-black) !important; -webkit-text-fill-color: var(--ace-black) !important; }
+.App .ace-sidebar nav a:not([aria-current="page"]) * { color: var(--ace-cloud) !important; -webkit-text-fill-color: var(--ace-cloud) !important; }
+.App .ace-feature svg g[aria-pressed="true"] { outline: none !important; }
+.App .ace-feature svg g:focus-visible { outline: 2px solid var(--ace-accent) !important; outline-offset: 3px; }

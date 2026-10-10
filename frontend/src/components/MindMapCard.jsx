@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-const COLORS = Array(6).fill('#303030');
+const COLORS = Array(6).fill('#3159cd');
 const clean = (value, limit) => typeof value === 'string' ? value.trim().slice(0, limit) : '';
 export function validateMindMap(value) {
   if (!value || !Array.isArray(value.branches) || !clean(value.title, 100)) return null;
@@ -63,8 +63,8 @@ export default function MindMapCard({ data }) {
     <p className="px-4 pb-2 text-xs text-zinc-500">Topic → concept groups → key points. Scroll to explore the full map.</p>
     <div className="overflow-auto max-h-[650px]">
       <svg viewBox={'0 0 1280 ' + height} role="img" aria-label={'Mind map: ' + map.title}
-        className="w-full min-w-[960px]" style={{ background: '#e8dfd0' }}>
-        <rect width="1280" height={height} fill="#e8dfd0" />
+        className="w-full min-w-[960px]" style={{ background: '#ffffff' }}>
+        <rect width="1280" height={height} fill="#ffffff" />
         {positions.map((p, i) => <path key={'main-link-' + i}
           d={curve(p.left ? 530 : 750, centerY, p.left ? 440 : 840, p.y)}
           fill="none" stroke={COLORS[i]} strokeWidth="3" opacity="1" />)}
@@ -73,27 +73,27 @@ export default function MindMapCard({ data }) {
           return <path key={'point-link-' + i + '-' + j} d={curve(p.left ? 260 : 1020, p.y, p.left ? 230 : 1050, y)}
             fill="none" stroke={COLORS[i]} strokeWidth="1.5" opacity="1" />;
         }))}
-        <rect x="530" y={centerY - 60} width="220" height="120" rx="28" fill="#f2bfa5" stroke="#303030" strokeWidth="2" />
-        <text x="640" y={centerY - 34} textAnchor="middle" fill="#171717" fontSize="10" letterSpacing="2" fontFamily="Arial, sans-serif">MAIN TOPIC</text>
+        <rect x="530" y={centerY - 60} width="220" height="120" rx="28" fill="#eaf0ff" stroke="#3159cd" strokeWidth="2" />
+        <text x="640" y={centerY - 34} textAnchor="middle" fill="#172033" fontSize="10" letterSpacing="2" fontFamily="Arial, sans-serif">MAIN TOPIC</text>
         {wrapVisualText(map.title, 24).map((line, i, all) => <text key={i} x="640" y={centerY + 7 + (i - (all.length - 1) / 2) * 20}
-          textAnchor="middle" fill="#171717" fontSize="16" fontWeight="bold" fontFamily="Arial, sans-serif">{line}</text>)}
+          textAnchor="middle" fill="#172033" fontSize="16" fontWeight="bold" fontFamily="Arial, sans-serif">{line}</text>)}
         {map.branches.map((branch, i) => {
           const p = positions[i];
           return <g key={i}>
             <g role="button" tabIndex={0} aria-label={'Explore ' + branch.label} style={{ cursor: 'pointer' }}
               onClick={() => setSelected(i)} onKeyDown={event => { if (['Enter', ' '].includes(event.key)) { event.preventDefault(); setSelected(i); } }}>
               <rect x={p.x - 90} y={p.y - 54} width="180" height="108" rx="18"
-                fill={active === i ? '#f2bfa5' : '#e8dfd0'} stroke={COLORS[i]} strokeWidth={active === i ? 3 : 1.5} />
+                fill={active === i ? '#eaf0ff' : '#ffffff'} stroke={COLORS[i]} strokeWidth={active === i ? 3 : 1.5} />
               <text x={p.x} y={p.y - 33} textAnchor="middle" fill={COLORS[i]} fontSize="10" fontFamily="Arial, sans-serif">{branch.relation}</text>
               {wrapVisualText(branch.label, 20).map((line, j, all) => <text key={j} x={p.x} y={p.y + 7 + (j - (all.length - 1) / 2) * 18}
-                textAnchor="middle" fill="#171717" fontSize="14" fontWeight="bold" fontFamily="Arial, sans-serif">{line}</text>)}
+                textAnchor="middle" fill="#172033" fontSize="14" fontWeight="bold" fontFamily="Arial, sans-serif">{line}</text>)}
             </g>
             {branch.points.map((point, j) => {
               const x = p.left ? 120 : 1160, y = p.y + (j - (branch.points.length - 1) / 2) * 98;
               return <g key={j}>
-                <rect x={x - 110} y={y - 42} width="220" height="84" rx="14" fill="#e8dfd0" stroke={COLORS[i]} strokeOpacity="1" />
+                <rect x={x - 110} y={y - 42} width="220" height="84" rx="14" fill="#ffffff" stroke={COLORS[i]} strokeOpacity="1" />
                 {wrapVisualText(point, 32).map((line, k, all) => <text key={k} x={x} y={y + 4 + (k - (all.length - 1) / 2) * 16}
-                  textAnchor="middle" fill="#171717" fontSize="12" fontFamily="Arial, sans-serif">{line}</text>)}
+                  textAnchor="middle" fill="#172033" fontSize="12" fontFamily="Arial, sans-serif">{line}</text>)}
               </g>;
             })}
           </g>;
@@ -104,7 +104,7 @@ export default function MindMapCard({ data }) {
       <div className="flex flex-wrap gap-2 mb-4">{map.branches.map((branch, i) =>
         <button type="button" key={i} aria-pressed={active === i} onClick={() => setSelected(i)}
           className="rounded-lg border px-3 py-2 text-xs" style={{ color: COLORS[i], borderColor: COLORS[i],
-            background: active === i ? '#f2bfa5' : 'transparent' }}>{branch.label}</button>)}</div>
+            background: active === i ? '#eaf0ff' : 'transparent' }}>{branch.label}</button>)}</div>
       <h4 className="font-semibold text-white mb-2">{map.branches[active].label}</h4>
       <ul className="list-disc pl-5 text-zinc-300 space-y-2 text-sm">
         {map.branches[active].points.map((point, i) => <li key={i}>{point}</li>)}
