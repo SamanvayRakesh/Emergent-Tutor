@@ -576,6 +576,7 @@ export default function ChatPage() {
   const streamBufferRef = useRef('');
   const rafRef = useRef(null);
   const sendingRef = useRef(false);
+  const failedRequestRef = useRef('');
   const activeRequestRef = useRef(null);
   const stoppedRef = useRef(false);
   const readyVisualRef = useRef('');
@@ -648,7 +649,7 @@ export default function ChatPage() {
       const body = await res.json().catch(() => ({}));
       const detail = body.detail;
       throw new Error(typeof detail === 'string' ? detail : detail?.message ||
-        (res.status === 401 ? 'Your session expired. Please sign in again.' : 'The tutor request failed. Please try again.'));
+        (res.status === 401 ? 'Your session expired. Please sign in again.' : `The tutor server returned HTTP ${res.status}. Please retry your question.`));
     }
     if (!res.body) throw new Error('The tutor response was missing. Please try again.');
     const reader = res.body.getReader();
@@ -854,7 +855,8 @@ export default function ChatPage() {
       }
       console.error(e);
       if (e.code === 'SESSION_EXPIRED') setMessages(p => p.slice(0, -1));
-      setInput(text);
+      failedRequestRef.current = text;
+      setInput(cleanVisualFocus(text));
       setReplyError(e.name === 'AbortError' ? 'The tutor timed out. Retry your question.' : e.message || 'The tutor could not reply.');
       toast.error(e.name === 'AbortError' ? 'The tutor took too long to respond. Please try again.' :
         e.message || 'The tutor could not reply. Please try again.', { id: 'tutor-error', duration: 6000 });
@@ -1023,7 +1025,7 @@ export default function ChatPage() {
       )}
 
       {replyError && <div role="alert" className="mx-4 mb-2 rounded-xl border border-amber-400/30 p-3 text-sm text-amber-200">
-        {replyError} <button onClick={() => sendMessage()} disabled={streaming} className="ml-2 underline">Retry question</button>
+        {replyError} <button onClick={() => sendMessage(failedRequestRef.current || undefined)} disabled={streaming} className="ml-2 underline">Retry question</button>
       </div>}
       {/* Input */}
       <div className="ace-prompt ace-tutor-composer p-4 border-t border-white/5 glass">
