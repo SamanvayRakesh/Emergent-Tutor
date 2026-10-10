@@ -7,6 +7,13 @@
 /* Ace-it professional palette: neutral surfaces and one restrained blue accent. */
 :root {
   --ace-black: #172033;
+  --ace-body: #34445d;
+  --ace-heading: #20365a;
+  --ace-label: #52627b;
+  --ace-teal: #176b65;
+  --ace-violet: #65508f;
+  --ace-amber: #855b16;
+  --ace-danger: #aa3547;
   --ace-white: #ffffff;
   --ace-beige: #ffffff;
   --ace-grey: #5d6675;
@@ -356,3 +363,35 @@ code, pre { font-family: 'JetBrains Mono', monospace; }
 :is(.App, [role="dialog"], [role="alertdialog"]) [role="checkbox"][data-state="checked"] { background: var(--ace-accent) !important; color: var(--ace-white) !important; border-color: var(--ace-accent) !important; }
 :is(.App, [role="dialog"], [role="alertdialog"]) [role="checkbox"][data-state="checked"] * { color: var(--ace-white) !important; -webkit-text-fill-color: var(--ace-white) !important; }
 :is(.App, [role="dialog"], [role="alertdialog"]) [role="switch"][data-state="checked"] > span { background: var(--ace-white) !important; }
+
+/* Restrained text hierarchy: navy titles, slate reading text, muted labels,
+   with related jewel tones for existing semantic accents. */
+:is(.App, [role="dialog"], [role="alertdialog"]) { color: var(--ace-body); }
+:is(.App, [role="dialog"], [role="alertdialog"]) :is(p, li, td, .markdown-content):not(:where(button, button *, [role="button"], [role="button"] *, .ace-sidebar, .ace-sidebar *)) { color: var(--ace-body) !important; }
+:is(.App, [role="dialog"], [role="alertdialog"]) :is(h1, h2, h3, h4, h5, h6, .gradient-text, .gradient-text-cyan, [class*="bg-clip-text"]):not(:where(button, button *, [role="button"], [role="button"] *, .ace-sidebar, .ace-sidebar *)) {
+  color: var(--ace-heading) !important; -webkit-text-fill-color: var(--ace-heading) !important;
+}
+:is(.App, [role="dialog"], [role="alertdialog"]) :is(label, caption, th, [class*="text-zinc-4"], [class*="text-zinc-5"], [class*="text-zinc-6"], [class*="text-muted"]):not(:where(button, button *, [role="button"], [role="button"] *, .ace-sidebar, .ace-sidebar *)) {
+  color: var(--ace-label) !important; -webkit-text-fill-color: var(--ace-label) !important;
+}
+:is(.App, [role="dialog"], [role="alertdialog"]) :is([class*="text-cyan-"], [class*="text-teal-"], [class*="text-emerald-"], [class*="text-green-"]):not(:where(button, button *, [role="button"], [role="button"] *, .ace-sidebar, .ace-sidebar *)) {
+  color: var(--ace-teal) !important; -webkit-text-fill-color: var(--ace-teal) !important;
+}
+:is(.App, [role="dialog"], [role="alertdialog"]) :is([class*="text-violet-"], [class*="text-purple-"], [class*="text-fuchsia-"]):not(:where(button, button *, [role="button"], [role="button"] *, .ace-sidebar, .ace-sidebar *)) {
+  color: var(--ace-violet) !important; -webkit-text-fill-color: var(--ace-violet) !important;
+}
+:is(.App, [role="dialog"], [role="alertdialog"]) :is([class*="text-amber-"], [class*="text-yellow-"], [class*="text-orange-"]):not(:where(button, button *, [role="button"], [role="button"] *, .ace-sidebar, .ace-sidebar *)) {
+  color: var(--ace-amber) !important; -webkit-text-fill-color: var(--ace-amber) !important;
+}
+:is(.App, [role="dialog"], [role="alertdialog"]) :is([class*="text-red-"], [class*="text-rose-"]):not(:where(button, button *, [role="button"], [role="button"] *, .ace-sidebar, .ace-sidebar *)) {
+  color: var(--ace-danger) !important; -webkit-text-fill-color: var(--ace-danger) !important;
+}
+:is(.App, [role="dialog"], [role="alertdialog"]) :is([class*="text-blue-"], [class*="text-indigo-"]):not(:where(button, button *, [role="button"], [role="button"] *, .ace-sidebar, .ace-sidebar *)) {
+  color: var(--ace-accent-hover) !important; -webkit-text-fill-color: var(--ace-accent-hover) !important;
+}
+:is(.App, [role="dialog"], [role="alertdialog"]) a:not([class*="bg-"]):not(.ace-sidebar a) { color: var(--ace-accent-hover) !important; }
+:is(.App, [role="dialog"], [role="alertdialog"]) a:not([class*="bg-"]):not(.ace-sidebar a):hover { color: #1d3c99 !important; }
+:is(.App, [role="dialog"], [role="alertdialog"]) :is(input, textarea)::placeholder { color: var(--ace-label) !important; opacity: 1; }
+:is(.App, [role="dialog"], [role="alertdialog"]) .markdown-content :is(strong, b) { color: var(--ace-heading) !important; }
+:is(.App, [role="dialog"], [role="alertdialog"]) .markdown-content blockquote { color: var(--ace-teal) !important; border-left-color: var(--ace-teal) !important; }
+.App .ace-sidebar :is(h1, h2, h3, h4, h5, h6) { color: #ffffff !important; }
