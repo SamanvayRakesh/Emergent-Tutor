@@ -8,7 +8,7 @@
 :root {
   --ace-black: #172033;
   --ace-body: #34445d;
-  --ace-heading: #20365a;
+  --ace-heading: #244da1;
   --ace-label: #52627b;
   --ace-teal: #176b65;
   --ace-violet: #65508f;
@@ -84,7 +84,7 @@ code, pre { font-family: 'JetBrains Mono', monospace; }
   --tw-ring-color: var(--ace-charcoal) !important;
 }
 .App { background: var(--ace-cotton) !important; color: var(--ace-black); }
-.App [class*="text-"], .App [style*="color:"], .App [style*="color :"] { color: var(--ace-black) !important; }
+.App [class*="text-"], .App [style*="color:"], .App [style*="color :"] { color: var(--ace-body) !important; }
 .App [class*="text-zinc-4"], .App [class*="text-zinc-5"], .App [class*="text-zinc-6"], .App [class*="text-muted"] { color: var(--ace-grey) !important; }
 .App [class*="bg-"], .App [style*="background:"], .App [style*="background-color:"],
 .App .glass, .App .glass-surface, .App .xp-badge { background-color: var(--ace-beige) !important; }
@@ -105,7 +105,7 @@ code, pre { font-family: 'JetBrains Mono', monospace; }
 .message-user, .message-ai { background: var(--ace-beige) !important; border: 1px solid var(--ace-border); color: var(--ace-black); }
 .message-user { border-radius: 18px 18px 4px 18px; }
 .message-ai { border-radius: 4px 18px 18px 18px; }
-.App .message-user *, .App .message-ai * { color: var(--ace-black) !important; }
+.App .message-user, .App .message-ai { color: var(--ace-body) !important; }
 .App .ace-feature { background-color: var(--ace-beige) !important; }
 
 /* Prompt box and form fields: white, opaque, without glass effects. */
@@ -395,3 +395,20 @@ code, pre { font-family: 'JetBrains Mono', monospace; }
 :is(.App, [role="dialog"], [role="alertdialog"]) .markdown-content :is(strong, b) { color: var(--ace-heading) !important; }
 :is(.App, [role="dialog"], [role="alertdialog"]) .markdown-content blockquote { color: var(--ace-teal) !important; border-left-color: var(--ace-teal) !important; }
 .App .ace-sidebar :is(h1, h2, h3, h4, h5, h6) { color: #ffffff !important; }
+
+/* Many page titles/stat values are spans or paragraphs rather than h-tags.
+   Match their existing typography roles and keep text paint tied to color. */
+:is(.App, [role="dialog"], [role="alertdialog"]) :is(p, span, div, li, td, label, h1, h2, h3, h4, h5, h6, strong, a):not(:where(button, button *, [role="button"], [role="button"] *, .ace-sidebar, .ace-sidebar *)) {
+  -webkit-text-fill-color: currentColor !important;
+}
+:is(.App, [role="dialog"], [role="alertdialog"]) :is(.font-heading, h1, h2, h3, h4, h5, h6, .gradient-text, .gradient-text-cyan):not(:where(button, button *, [role="button"], [role="button"] *, .ace-sidebar, .ace-sidebar *)) {
+  color: var(--ace-heading) !important;
+}
+:is(.App, [role="dialog"], [role="alertdialog"]) :is(.text-zinc-300, .text-zinc-400, .text-zinc-500, .text-zinc-600, .text-slate-400, .text-slate-500, .text-gray-400, .text-gray-500, .text-muted-foreground):not(:where(button, button *, [role="button"], [role="button"] *, .ace-sidebar, .ace-sidebar *)) {
+  color: var(--ace-label) !important;
+}
+:is(.App, [role="dialog"], [role="alertdialog"]) :is(.font-heading, .font-bold, .font-semibold)[class*="text-cyan-"]:not(:where(button, button *, [role="button"], [role="button"] *, .ace-sidebar, .ace-sidebar *)),
+:is(.App, [role="dialog"], [role="alertdialog"]) :is([class*="text-teal-"], [class*="text-emerald-"], [class*="text-green-"]):not(:where(button, button *, [role="button"], [role="button"] *, .ace-sidebar, .ace-sidebar *)) { color: var(--ace-teal) !important; }
+:is(.App, [role="dialog"], [role="alertdialog"]) :is([class*="text-purple-"], [class*="text-violet-"], [class*="text-fuchsia-"]):not(:where(button, button *, [role="button"], [role="button"] *, .ace-sidebar, .ace-sidebar *)) { color: var(--ace-violet) !important; }
+:is(.App, [role="dialog"], [role="alertdialog"]) :is([class*="text-amber-"], [class*="text-yellow-"], [class*="text-orange-"]):not(:where(button, button *, [role="button"], [role="button"] *, .ace-sidebar, .ace-sidebar *)) { color: var(--ace-amber) !important; }
+:is(.App, [role="dialog"], [role="alertdialog"]) :is([class*="text-red-"], [class*="text-rose-"]):not(:where(button, button *, [role="button"], [role="button"] *, .ace-sidebar, .ace-sidebar *)) { color: var(--ace-danger) !important; }
