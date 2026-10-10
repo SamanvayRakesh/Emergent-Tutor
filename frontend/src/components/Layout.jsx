@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { Menu } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import SchoolSelectModal from './SchoolSelectModal';
@@ -10,6 +10,7 @@ import FeedbackModal from './FeedbackModal';
 
 export default function Layout() {
   const { user } = useAuth();
+  const reduceMotion = useReducedMotion();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
@@ -40,10 +41,10 @@ export default function Layout() {
               onClick={() => setSidebarOpen(false)}
             />
             <motion.div
-              initial={{ x: -280 }}
+              initial={{ x: reduceMotion ? 0 : -280 }}
               animate={{ x: 0 }}
-              exit={{ x: -280 }}
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              exit={{ x: reduceMotion ? 0 : -280 }}
+              transition={reduceMotion ? { duration: 0 } : { type: 'spring', damping: 29, stiffness: 320, mass: 0.8 }}
               className="fixed left-0 top-0 bottom-0 w-64 z-50 lg:hidden"
             >
               <Sidebar
@@ -84,11 +85,11 @@ export default function Layout() {
           <AnimatePresence mode="wait">
             <motion.div
               key={`${user.user_id}:${user.school}:${user.class_level}:${location.pathname}`}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.25 }}
-              className="h-full"
+              initial={reduceMotion ? false : { opacity: 0, y: 18, scale: 0.992 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={reduceMotion ? { opacity: 1 } : { opacity: 0, y: -8, scale: 0.996 }}
+              transition={reduceMotion ? { duration: 0 } : { type: 'spring', stiffness: 290, damping: 30, mass: 0.65, opacity: { duration: 0.16 } }}
+              className="ace-route h-full"
             >
               <Outlet />
             </motion.div>
