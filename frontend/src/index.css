@@ -98,7 +98,7 @@ code, pre { font-family: 'JetBrains Mono', monospace; }
 .App .shimmer { background: var(--ace-cloud) !important; animation: cursor-blink 1.8s ease-in-out infinite; }
 .App .pulse-glow { animation: none; }
 .App [class*="h-1"][class*="bg-"], .App [class*="h-2"][class*="bg-"], .App [class*="h-3"][class*="bg-"] { background-color: var(--ace-cloud) !important; }
-.App [style*="width:"][style*="background:"], .App [class*="h-full"][class*="bg-gradient"] { background-color: var(--ace-charcoal) !important; }
+.App [style*="width:"][style*="background:"], .App [class*="h-full"][class*="bg-gradient"] { background-color: #438e88 !important; }
 
 /* White feature panels, with quiet dividers rather than heavy outlines. */
 .glass, .glass-surface { background: var(--ace-beige); border: 1px solid var(--ace-border); }
@@ -412,3 +412,36 @@ code, pre { font-family: 'JetBrains Mono', monospace; }
 :is(.App, [role="dialog"], [role="alertdialog"]) :is([class*="text-purple-"], [class*="text-violet-"], [class*="text-fuchsia-"]):not(:where(button, button *, [role="button"], [role="button"] *, .ace-sidebar, .ace-sidebar *)) { color: var(--ace-violet) !important; }
 :is(.App, [role="dialog"], [role="alertdialog"]) :is([class*="text-amber-"], [class*="text-yellow-"], [class*="text-orange-"]):not(:where(button, button *, [role="button"], [role="button"] *, .ace-sidebar, .ace-sidebar *)) { color: var(--ace-amber) !important; }
 :is(.App, [role="dialog"], [role="alertdialog"]) :is([class*="text-red-"], [class*="text-rose-"]):not(:where(button, button *, [role="button"], [role="button"] *, .ace-sidebar, .ace-sidebar *)) { color: var(--ace-danger) !important; }
+
+/* Related, muted accent family restores the dashboard's visual landmarks. */
+:root {
+  --ace-xp: #ad813a;
+  --ace-xp-track: #ede4d3;
+  --ace-progress: #438e88;
+  --ace-sidebar-muted: #91a5c1;
+}
+.App .ace-xp-track { background: var(--ace-xp-track) !important; }
+.App .ace-xp-track > .ace-xp-fill { background: var(--ace-xp) !important; }
+.App .ace-sidebar .ace-xp-track { background: #344153 !important; }
+.App .ace-sidebar .ace-xp-track > .ace-xp-fill { background: #c5a167 !important; }
+.App [data-ace-accent] .ace-stat-value,
+.App [data-ace-accent] svg[style*="color"] {
+  color: var(--ace-card-accent) !important; -webkit-text-fill-color: currentColor !important;
+}
+.App [data-ace-accent] :is(.p-2, .w-10, .w-8)[style*="background"] {
+  background: color-mix(in srgb, var(--ace-card-accent) 12%, white) !important;
+}
+.App :is([class*="bg-amber-"][class*="/"], [class*="bg-yellow-"][class*="/"]):not(:where(button, button *, .ace-sidebar *)) { background-color: #f4ecdc !important; }
+.App :is([class*="bg-violet-"][class*="/"], [class*="bg-purple-"][class*="/"]):not(:where(button, button *, .ace-sidebar *)) { background-color: #eee9f5 !important; }
+.App :is([class*="bg-cyan-"][class*="/"], [class*="bg-teal-"][class*="/"], [class*="bg-emerald-"][class*="/"]):not(:where(button, button *, .ace-sidebar *)) { background-color: #e4efed !important; }
+.App .ace-sidebar :is(p.text-white, strong.text-white) { color: #eef3fc !important; -webkit-text-fill-color: #eef3fc !important; }
+.App .ace-sidebar :is(.text-zinc-500, .text-zinc-600) { color: var(--ace-sidebar-muted) !important; -webkit-text-fill-color: var(--ace-sidebar-muted) !important; }
+.App .ace-sidebar nav a:not([aria-current="page"]) span { color: #c2cee0 !important; -webkit-text-fill-color: #c2cee0 !important; }
+.App .ace-sidebar nav a[aria-current="page"] :is(span, svg) { color: #9fc6ee !important; -webkit-text-fill-color: #9fc6ee !important; }
+.App .ace-sidebar :is([class*="text-amber-"], [class*="text-yellow-"]) { color: #d9bb85 !important; -webkit-text-fill-color: #d9bb85 !important; }
+.App .ace-sidebar [class*="text-orange-"] { color: #d9a18a !important; -webkit-text-fill-color: #d9a18a !important; }
+.App .ace-sidebar :is([class*="text-violet-"], [class*="text-purple-"]) { color: #baa9d6 !important; -webkit-text-fill-color: #baa9d6 !important; }
+.App .ace-sidebar [class*="bg-amber-"] { background: #343447 !important; }
+.App .ace-sidebar #sidebar-upgrade-btn,
+.App .ace-sidebar [data-testid="sidebar-upgrade-btn"] *,
+.App .ace-sidebar button[data-ace-primary="true"] * { color: white !important; -webkit-text-fill-color: white !important; }

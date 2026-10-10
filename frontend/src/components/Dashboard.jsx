@@ -9,29 +9,29 @@ import StreakReminderBanner from './StreakReminderBanner';
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const SUBJECT_COLORS = {
-  Mathematics: '#22d3ee', Science: '#8b5cf6', Physics: '#06b6d4',
-  Chemistry: '#d946ef', Biology: '#10b981', English: '#f59e0b',
-  'Social Science': '#3b82f6', 'Computer Science': '#ef4444'
+  Mathematics: '#267a89', Science: '#75609c', Physics: '#267a89',
+  Chemistry: '#75609c', Biology: '#34796b', English: '#9a702d',
+  'Social Science': '#4269a5', 'Computer Science': '#a45c61'
 };
 
 // Map recommendation icon/action names to lucide icons + accent colours
 const REC_META = {
-  play:    { Icon: Play,        color: '#22d3ee' },
-  refresh: { Icon: RefreshCw,   color: '#f59e0b' },
-  target:  { Icon: Target,      color: '#ef4444' },
-  trophy:  { Icon: FileText,    color: '#8b5cf6' },
-  book:    { Icon: Compass,     color: '#10b981' },
+  play:    { Icon: Play,        color: '#267a89' },
+  refresh: { Icon: RefreshCw,   color: '#9a702d' },
+  target:  { Icon: Target,      color: '#a45c61' },
+  trophy:  { Icon: FileText,    color: '#75609c' },
+  book:    { Icon: Compass,     color: '#34796b' },
 };
 
 function MissionCard({ rec, onClick, delay }) {
-  const meta = REC_META[rec.icon] || { Icon: Sparkles, color: '#22d3ee' };
+  const meta = REC_META[rec.icon] || { Icon: Sparkles, color: '#267a89' };
   const { Icon, color } = meta;
   return (
     <motion.button
       initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay }}
-      onClick={onClick} data-testid={`mission-${rec.type}`}
+      data-ace-accent="true" onClick={onClick} data-testid={`mission-${rec.type}`}
       className="group relative overflow-hidden rounded-2xl p-4 border text-left transition-all hover:-translate-y-0.5 card-3d"
-      style={{ background: color + '0d', borderColor: color + '30' }}>
+      style={{ '--ace-card-accent': color, background: color + '0d', borderColor: color + '30' }}>
       <div className="absolute -top-8 -right-8 w-24 h-24 rounded-full blur-2xl opacity-40 pointer-events-none" style={{ background: color }} />
       <div className="relative z-10 flex items-start gap-3">
         <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: color + '25', border: `1px solid ${color}40` }}>
@@ -50,6 +50,7 @@ function MissionCard({ rec, onClick, delay }) {
 function StatCard({ icon: Icon, label, value, color, delay = 0 }) {
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay }}
+      data-ace-accent="true" style={{ '--ace-card-accent': color }}
       className="glass-surface rounded-2xl p-4 border border-white/5 hover:border-white/10 transition-all card-3d">
       <div className="flex items-center gap-3 mb-2">
         <div className="p-2 rounded-xl" style={{ background: color + '20' }}>
@@ -57,7 +58,7 @@ function StatCard({ icon: Icon, label, value, color, delay = 0 }) {
         </div>
         <p className="text-zinc-500 text-sm font-body">{label}</p>
       </div>
-      <p className="text-white text-2xl font-heading font-bold">{value}</p>
+      <p className="ace-stat-value text-white text-2xl font-heading font-bold">{value}</p>
     </motion.div>
   );
 }
@@ -147,10 +148,10 @@ export default function Dashboard() {
 
       {/* Stats row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatCard icon={Zap} label="Total XP" value={stats?.xp || 0} color="#f59e0b" delay={0.1} />
-        <StatCard icon={Flame} label="Day Streak" value={stats?.streak || 0} color="#ef4444" delay={0.15} />
-        <StatCard icon={MessageSquare} label="AI Sessions" value={stats?.session_count || 0} color="#22d3ee" delay={0.2} />
-        <StatCard icon={Trophy} label="Quizzes Done" value={stats?.quiz_count || 0} color="#8b5cf6" delay={0.25} />
+        <StatCard icon={Zap} label="Total XP" value={stats?.xp || 0} color="#9a702d" delay={0.1} />
+        <StatCard icon={Flame} label="Day Streak" value={stats?.streak || 0} color="#a45c61" delay={0.15} />
+        <StatCard icon={MessageSquare} label="AI Sessions" value={stats?.session_count || 0} color="#267a89" delay={0.2} />
+        <StatCard icon={Trophy} label="Quizzes Done" value={stats?.quiz_count || 0} color="#75609c" delay={0.25} />
       </div>
 
       {/* Level Progress */}
@@ -164,9 +165,9 @@ export default function Dashboard() {
             </div>
             <span className="text-zinc-500 text-sm font-body">{stats.xp_in_level} / 500 XP</span>
           </div>
-          <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
-            <motion.div className="h-full rounded-full"
-              style={{ background: 'linear-gradient(90deg, #f59e0b, #d946ef)' }}
+          <div className="ace-xp-track h-2 bg-zinc-800 rounded-full overflow-hidden">
+            <motion.div className="ace-xp-fill h-full rounded-full"
+              style={{ background: 'linear-gradient(90deg, #9a702d, #75609c)' }}
               initial={{ width: 0 }}
               animate={{ width: `${(stats.xp_in_level / 500) * 100}%` }}
               transition={{ duration: 1.2, delay: 0.4 }} />
@@ -257,8 +258,8 @@ export default function Dashboard() {
                 onClick={() => nav(`/chat/${s.session_id}`)} data-testid={`recent-session-${i}`}
                 className="flex items-center gap-3 p-3 rounded-xl glass-surface border border-white/5 hover:border-white/10 transition-all text-left group">
                 <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-                  style={{ background: (SUBJECT_COLORS[s.subject] || '#22d3ee') + '20' }}>
-                  <BookOpen size={18} style={{ color: SUBJECT_COLORS[s.subject] || '#22d3ee' }} />
+                  style={{ background: (SUBJECT_COLORS[s.subject] || '#267a89') + '20' }}>
+                  <BookOpen size={18} style={{ color: SUBJECT_COLORS[s.subject] || '#267a89' }} />
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-white text-sm font-body font-semibold truncate">{s.subject}</p>
@@ -280,7 +281,7 @@ export default function Dashboard() {
               <motion.button key={subj} initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.5 + i * 0.05 }}
                 onClick={() => nav('/syllabus')} data-testid={`subject-card-${subj}`}
                 className="p-4 rounded-2xl border transition-all hover:-translate-y-1 text-left card-3d"
-                style={{ background: color + '10', borderColor: color + '30' }}>
+                data-ace-accent="true" style={{ '--ace-card-accent': color, background: color + '10', borderColor: color + '30' }}>
                 <div className="w-8 h-8 rounded-lg mb-2 flex items-center justify-center" style={{ background: color + '25' }}>
                   <BookOpen size={16} style={{ color }} />
                 </div>
