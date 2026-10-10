@@ -10,14 +10,14 @@ const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
 const SUBJECT_COLORS = {
   Mathematics: '#267a89', Science: '#75609c', Physics: '#267a89',
-  Chemistry: '#75609c', Biology: '#34796b', English: '#9a702d',
+  Chemistry: '#75609c', Biology: '#34796b', English: '#705c80',
   'Social Science': '#4269a5', 'Computer Science': '#a45c61'
 };
 
 // Map recommendation icon/action names to lucide icons + accent colours
 const REC_META = {
   play:    { Icon: Play,        color: '#267a89' },
-  refresh: { Icon: RefreshCw,   color: '#9a702d' },
+  refresh: { Icon: RefreshCw,   color: '#705c80' },
   target:  { Icon: Target,      color: '#a45c61' },
   trophy:  { Icon: FileText,    color: '#75609c' },
   book:    { Icon: Compass,     color: '#34796b' },
@@ -148,7 +148,7 @@ export default function Dashboard() {
 
       {/* Stats row */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatCard icon={Zap} label="Total XP" value={stats?.xp || 0} color="#9a702d" delay={0.1} />
+        <StatCard icon={Zap} label="Total XP" value={stats?.xp || 0} color="#705c80" delay={0.1} />
         <StatCard icon={Flame} label="Day Streak" value={stats?.streak || 0} color="#a45c61" delay={0.15} />
         <StatCard icon={MessageSquare} label="AI Sessions" value={stats?.session_count || 0} color="#267a89" delay={0.2} />
         <StatCard icon={Trophy} label="Quizzes Done" value={stats?.quiz_count || 0} color="#75609c" delay={0.25} />
@@ -167,7 +167,7 @@ export default function Dashboard() {
           </div>
           <div className="ace-xp-track h-2 bg-zinc-800 rounded-full overflow-hidden">
             <motion.div className="ace-xp-fill h-full rounded-full"
-              style={{ background: 'linear-gradient(90deg, #9a702d, #75609c)' }}
+              style={{ background: 'linear-gradient(90deg, #705c80, #75609c)' }}
               initial={{ width: 0 }}
               animate={{ width: `${(stats.xp_in_level / 500) * 100}%` }}
               transition={{ duration: 1.2, delay: 0.4 }} />

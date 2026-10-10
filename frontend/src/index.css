@@ -1,22 +1,21 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Manrope:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 /* Ace-it professional palette: neutral surfaces and one restrained blue accent. */
 :root {
+  --ace-font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   --ace-black: #172033;
-  --ace-body: #34445d;
-  --ace-heading: #244da1;
-  --ace-label: #52627b;
+  --ace-body: #444650;
+  --ace-heading: #292b33;
+  --ace-label: #686976;
   --ace-teal: #176b65;
-  --ace-violet: #65508f;
-  --ace-amber: #855b16;
+  --ace-violet: #705c80;
+  --ace-amber: #705c80;
   --ace-danger: #aa3547;
   --ace-white: #ffffff;
   --ace-beige: #ffffff;
-  --ace-grey: #5d6675;
+  --ace-grey: #686976;
   --ace-border: #7c8aa3;
   --ace-accent: #3159cd;
   --ace-accent-hover: #2547ad;
@@ -25,7 +24,7 @@
   --ace-control-hover: #dce6f7;
   --ace-control-active: #cfddf5;
   --ace-control-border: #647da4;
-  --ace-control-text: #264582;
+  --ace-control-text: #34445b;
   --ace-field: #f8faff;
   --ace-sidebar-control: #1e304b;
   --ace-sidebar-control-hover: #283d5c;
@@ -68,9 +67,9 @@
 *::-webkit-scrollbar { width: 5px; height: 5px; }
 *::-webkit-scrollbar-track { background: var(--ace-cloud); }
 *::-webkit-scrollbar-thumb { background: var(--ace-grey); border-radius: 20px; }
-body { margin: 0; font-family: 'Manrope', sans-serif; -webkit-font-smoothing: antialiased; background: var(--ace-cotton); color: var(--ace-black); overflow-x: hidden; }
-h1, h2, h3, h4, h5, h6 { font-family: 'Outfit', sans-serif; }
-code, pre { font-family: 'JetBrains Mono', monospace; }
+body { margin: 0; font-family: var(--ace-font-sans); -webkit-font-smoothing: antialiased; background: var(--ace-cotton); color: var(--ace-black); overflow-x: hidden; }
+h1, h2, h3, h4, h5, h6 { font-family: var(--ace-font-sans); }
+code, pre { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
 
 /* Existing Tailwind and inline colour hooks share the same flat theme.
    Keep this in one place instead of rebuilding every page's interactions. */
@@ -185,8 +184,8 @@ code, pre { font-family: 'JetBrains Mono', monospace; }
 .App .markdown-content pre code { background: none !important; border: 0; }
 .markdown-content blockquote { border-left: 3px solid var(--ace-grey); padding-left: 1em; margin: 0.75em 0; }
 .subject-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 1rem; }
-.heading-xl { font-family: 'Outfit', sans-serif; font-weight: 900; letter-spacing: -0.03em; }
-.heading-lg { font-family: 'Outfit', sans-serif; font-weight: 700; letter-spacing: -0.02em; }
+.heading-xl { font-family: var(--ace-font-sans); font-weight: 900; letter-spacing: -0.03em; }
+.heading-lg { font-family: var(--ace-font-sans); font-weight: 700; letter-spacing: -0.02em; }
 .card-3d { transition: transform 0.2s ease; }
 .card-3d:hover { transform: translateY(-3px); }
 @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
@@ -415,15 +414,15 @@ code, pre { font-family: 'JetBrains Mono', monospace; }
 
 /* Related, muted accent family restores the dashboard's visual landmarks. */
 :root {
-  --ace-xp: #ad813a;
-  --ace-xp-track: #ede4d3;
+  --ace-xp: #827092;
+  --ace-xp-track: #eae5ee;
   --ace-progress: #438e88;
   --ace-sidebar-muted: #91a5c1;
 }
 .App .ace-xp-track { background: var(--ace-xp-track) !important; }
 .App .ace-xp-track > .ace-xp-fill { background: var(--ace-xp) !important; }
 .App .ace-sidebar .ace-xp-track { background: #344153 !important; }
-.App .ace-sidebar .ace-xp-track > .ace-xp-fill { background: #c5a167 !important; }
+.App .ace-sidebar .ace-xp-track > .ace-xp-fill { background: #b4a3c7 !important; }
 .App [data-ace-accent] .ace-stat-value,
 .App [data-ace-accent] svg[style*="color"] {
   color: var(--ace-card-accent) !important; -webkit-text-fill-color: currentColor !important;
@@ -431,17 +430,26 @@ code, pre { font-family: 'JetBrains Mono', monospace; }
 .App [data-ace-accent] :is(.p-2, .w-10, .w-8)[style*="background"] {
   background: color-mix(in srgb, var(--ace-card-accent) 12%, white) !important;
 }
-.App :is([class*="bg-amber-"][class*="/"], [class*="bg-yellow-"][class*="/"]):not(:where(button, button *, .ace-sidebar *)) { background-color: #f4ecdc !important; }
+.App :is([class*="bg-amber-"][class*="/"], [class*="bg-yellow-"][class*="/"]):not(:where(button, button *, .ace-sidebar *)) { background-color: #eee9f2 !important; }
 .App :is([class*="bg-violet-"][class*="/"], [class*="bg-purple-"][class*="/"]):not(:where(button, button *, .ace-sidebar *)) { background-color: #eee9f5 !important; }
 .App :is([class*="bg-cyan-"][class*="/"], [class*="bg-teal-"][class*="/"], [class*="bg-emerald-"][class*="/"]):not(:where(button, button *, .ace-sidebar *)) { background-color: #e4efed !important; }
 .App .ace-sidebar :is(p.text-white, strong.text-white) { color: #eef3fc !important; -webkit-text-fill-color: #eef3fc !important; }
 .App .ace-sidebar :is(.text-zinc-500, .text-zinc-600) { color: var(--ace-sidebar-muted) !important; -webkit-text-fill-color: var(--ace-sidebar-muted) !important; }
 .App .ace-sidebar nav a:not([aria-current="page"]) span { color: #c2cee0 !important; -webkit-text-fill-color: #c2cee0 !important; }
 .App .ace-sidebar nav a[aria-current="page"] :is(span, svg) { color: #9fc6ee !important; -webkit-text-fill-color: #9fc6ee !important; }
-.App .ace-sidebar :is([class*="text-amber-"], [class*="text-yellow-"]) { color: #d9bb85 !important; -webkit-text-fill-color: #d9bb85 !important; }
-.App .ace-sidebar [class*="text-orange-"] { color: #d9a18a !important; -webkit-text-fill-color: #d9a18a !important; }
+.App .ace-sidebar :is([class*="text-amber-"], [class*="text-yellow-"]) { color: #c6b6d7 !important; -webkit-text-fill-color: #c6b6d7 !important; }
+.App .ace-sidebar [class*="text-orange-"] { color: #a5cfca !important; -webkit-text-fill-color: #a5cfca !important; }
 .App .ace-sidebar :is([class*="text-violet-"], [class*="text-purple-"]) { color: #baa9d6 !important; -webkit-text-fill-color: #baa9d6 !important; }
 .App .ace-sidebar [class*="bg-amber-"] { background: #343447 !important; }
 .App .ace-sidebar #sidebar-upgrade-btn,
 .App .ace-sidebar [data-testid="sidebar-upgrade-btn"] *,
 .App .ace-sidebar button[data-ace-primary="true"] * { color: white !important; -webkit-text-fill-color: white !important; }
+
+/* One neutral UI typeface across pages, controls, charts and portal content. */
+:is(.App, [role="dialog"], [role="alertdialog"], [data-radix-popper-content-wrapper], [data-sonner-toaster]),
+:is(.App, [role="dialog"], [role="alertdialog"], [data-radix-popper-content-wrapper], [data-sonner-toaster]) *:not(:where(code, pre, code *, pre *, .font-mono, .font-mono *)) {
+  font-family: var(--ace-font-sans) !important;
+}
+:is(.App, [role="dialog"], [role="alertdialog"]) :is(h1, h2, h3, h4, h5, h6, .font-heading) { letter-spacing: -0.015em; }
+:is(.App, [role="dialog"], [role="alertdialog"]) :is(.font-black, .font-extrabold, .heading-xl) { font-weight: 700 !important; }
+.App .ace-sidebar .ace-avatar { color: #292b33 !important; -webkit-text-fill-color: #292b33 !important; }
