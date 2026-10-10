@@ -120,7 +120,7 @@ export default function Dashboard() {
 
       {/* Hero greeting */}
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-        className="relative overflow-hidden rounded-2xl p-6 glass border border-white/5"
+        className="ace-welcome relative overflow-hidden rounded-2xl p-6 glass border border-white/5"
         style={{ background: 'linear-gradient(135deg, rgba(34,211,238,0.08), rgba(139,92,246,0.06))' }}>
         <div className="absolute top-0 right-0 w-64 h-64 bg-cyan-500/5 rounded-full blur-3xl pointer-events-none" />
         <div className="flex items-center justify-between">
@@ -132,7 +132,7 @@ export default function Dashboard() {
             </p>
           </div>
           <div className="hidden sm:flex flex-col items-center gap-1">
-            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-cyan-400 to-violet-600 flex items-center justify-center text-black font-heading font-black text-2xl">
+            <div className="ace-welcome-avatar w-16 h-16 rounded-full bg-gradient-to-br from-cyan-400 to-violet-600 flex items-center justify-center text-black font-heading font-black text-2xl">
               {user?.name?.[0]?.toUpperCase() || 'S'}
             </div>
           </div>
