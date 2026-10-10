@@ -6,6 +6,7 @@ import axios from 'axios';
 import { toast } from 'sonner';
 import { useSubscription } from '../contexts/SubscriptionContext';
 import { useCredits } from '../contexts/CreditsContext';
+import { MONTHLY_ORIGINAL_PRICES } from '../lib/pricingOffers';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
@@ -14,7 +15,6 @@ import {
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
-const MONTHLY_ORIGINAL_PRICES = { starter: 499, pro: 999 };
 
 const PLAN_VISUALS = {
   free:    { gradient: 'from-slate-700 to-slate-900',             glow: '#64748b', icon: Sparkles, accent: '#94a3b8' },

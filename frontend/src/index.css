@@ -686,3 +686,50 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
   .App .ace-tutor-intro h1 { font-size: 25px; }
   .App .ace-tutor-setup { padding: 24px 16px; }
 }
+
+/* Dashboard polish uses shared surfaces and preserves content/action wiring. */
+.App:where(:not(:has(.al))) .ace-dashboard { container-type: inline-size; }
+.App .ace-dashboard .ace-missions-grid { grid-template-columns: minmax(0, 1fr); grid-auto-rows: 1fr; gap: 14px; align-items: stretch; }
+@container (min-width: 560px) { .App .ace-dashboard .ace-missions-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@container (min-width: 840px) { .App .ace-dashboard .ace-missions-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.App .ace-dashboard button.ace-mission-card[class] {
+  display: flex; align-items: flex-start; height: 100%; min-height: 132px; padding: 20px; border-radius: var(--ace-radius) !important;
+  background: var(--ace-beige) !important; color: var(--ace-body) !important;
+  border: 1px solid var(--ace-border) !important; box-shadow: var(--ace-shadow-card) !important;
+}
+.App .ace-dashboard button.ace-mission-card[class]:hover { background: var(--ace-beige) !important; border-color: var(--ace-control-border) !important; box-shadow: var(--ace-shadow-hover) !important; }
+.App .ace-dashboard .ace-mission-content { width: 100%; }
+.App .ace-dashboard .ace-mission-content p { overflow-wrap: anywhere; line-height: 1.5; -webkit-text-fill-color: currentColor !important; }
+.App .ace-dashboard .ace-mission-content p:first-child { color: var(--ace-heading) !important; font-weight: 650; }
+.App .ace-dashboard .ace-mission-content p:nth-child(2) { color: var(--ace-label) !important; }
+.App .ace-dashboard button.ace-mission-card[class] svg { color: var(--ace-accent) !important; }
+.App .ace-dashboard .ace-stat-card { padding: 20px; }
+.App .ace-dashboard .ace-stat-value { font-size: 28px; line-height: 1.15; font-weight: 700; font-variant-numeric: tabular-nums; }
+.App .ace-dashboard .ace-welcome { padding: 24px; }
+.App .ace-dashboard .ace-welcome h1 { margin-block: 2px 6px; }
+.App .ace-dashboard .ace-dashboard-offer {
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 20px;
+  padding: 20px 24px; border: 1px solid var(--ace-border) !important; border-radius: var(--ace-radius);
+  background: var(--ace-beige) !important; box-shadow: var(--ace-shadow-card) !important;
+}
+.App .ace-dashboard .ace-offer-icon { width: 44px; height: 44px; border-radius: 12px; display: grid; place-items: center; background: var(--ace-accent-soft) !important; color: var(--ace-link) !important; }
+.App .ace-dashboard .ace-offer-copy { min-width: 0; }
+.App .ace-dashboard .ace-offer-eyebrow { font-size: 10px; font-weight: 700; letter-spacing: .1em; color: var(--ace-label) !important; }
+.App .ace-dashboard .ace-offer-copy h2 { margin: 3px 0 4px; font-size: 18px; line-height: 1.3; font-weight: 650; }
+.App .ace-dashboard .ace-offer-copy p { font-size: 12px; line-height: 1.5; color: var(--ace-label) !important; }
+.App .ace-dashboard .ace-offer-price { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.App .ace-dashboard .ace-offer-price strong { font-size: 23px; font-weight: 700; color: var(--ace-heading) !important; }
+.App .ace-dashboard .ace-offer-price span, .App .ace-dashboard .ace-offer-price p { font-size: 12px; color: var(--ace-label) !important; }
+.App .ace-dashboard .ace-offer-price p { margin-top: 3px; }
+.App .ace-dashboard .ace-offer-price del { margin-right: 5px; }
+.App .ace-dashboard .ace-offer-cta { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 11px 15px; font-size: 12px; font-weight: 650; white-space: nowrap; }
+@container (max-width: 839px) {
+  .App .ace-dashboard .ace-dashboard-offer { grid-template-columns: auto minmax(0, 1fr); gap: 14px; padding: 20px; }
+  .App .ace-dashboard .ace-offer-price { grid-column: 2; }
+  .App .ace-dashboard .ace-offer-cta { grid-column: 2; justify-self: start; }
+}
+@container (max-width: 400px) {
+  .App .ace-dashboard .ace-dashboard-offer { grid-template-columns: minmax(0, 1fr); }
+  .App .ace-dashboard .ace-offer-icon { display: none; }
+  .App .ace-dashboard .ace-offer-price, .App .ace-dashboard .ace-offer-cta { grid-column: 1; }
+}
