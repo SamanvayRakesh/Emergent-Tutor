@@ -7,6 +7,8 @@ import {
   useLocation,
 } from 'react-router-dom';
 
+import { MotionConfig } from 'framer-motion';
+
 import './App.css';
 import './index.css';
 import 'katex/dist/katex.min.css';
@@ -401,6 +403,7 @@ function App() {
    *     Dashboard
    */
   return (
+    <MotionConfig reducedMotion="user">
     <div className="App">
 
       <BrowserRouter>
@@ -428,6 +431,7 @@ function App() {
       </BrowserRouter>
 
     </div>
+    </MotionConfig>
   );
 }
 

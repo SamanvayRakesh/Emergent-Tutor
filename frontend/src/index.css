@@ -7,11 +7,11 @@
   --ace-font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   --ace-black: #172033;
   --ace-body: #444650;
-  --ace-heading: #292b33;
+  --ace-heading: #563f78;
   --ace-label: #686976;
-  --ace-teal: #176b65;
-  --ace-violet: #705c80;
-  --ace-amber: #705c80;
+  --ace-teal: #156d70;
+  --ace-violet: #67468b;
+  --ace-amber: #8a466e;
   --ace-danger: #aa3547;
   --ace-white: #ffffff;
   --ace-beige: #ffffff;
@@ -453,3 +453,49 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
 :is(.App, [role="dialog"], [role="alertdialog"]) :is(h1, h2, h3, h4, h5, h6, .font-heading) { letter-spacing: -0.015em; }
 :is(.App, [role="dialog"], [role="alertdialog"]) :is(.font-black, .font-extrabold, .heading-xl) { font-weight: 700 !important; }
 .App .ace-sidebar .ace-avatar { color: #292b33 !important; -webkit-text-fill-color: #292b33 !important; }
+
+/* Distinct, restrained text accents on the existing neutral surfaces. */
+:is(.App, [role="dialog"], [role="alertdialog"]) h2:not(.ace-sidebar h2) { color: var(--ace-teal) !important; }
+:is(.App, [role="dialog"], [role="alertdialog"]) h3:not(.ace-sidebar h3) { color: #42475b !important; }
+.App img[src*="aceit-logo"] {
+  filter: brightness(0) saturate(100%) invert(31%) sepia(32%) saturate(1013%) hue-rotate(229deg) brightness(92%) contrast(92%);
+}
+.App .ace-sidebar img[src*="aceit-logo"] {
+  filter: brightness(0) saturate(100%) invert(81%) sepia(19%) saturate(463%) hue-rotate(217deg) brightness(100%) contrast(92%);
+}
+.App .ace-sidebar [class*="text-violet-"], .App .ace-sidebar [class*="text-purple-"] { color: #c9b8ec !important; -webkit-text-fill-color: #c9b8ec !important; }
+.App .ace-sidebar nav a[aria-current="page"] :is(span, svg) { color: #9ed7d2 !important; -webkit-text-fill-color: #9ed7d2 !important; }
+
+/* Short UI motion; avoid continuously moving reading content.
+   Individual translate/scale properties preserve existing Framer transforms. */
+@keyframes ace-surface-in {
+  from { opacity: 0.65; translate: 0 5px; }
+  to { opacity: 1; translate: 0 0; }
+}
+@keyframes ace-menu-in {
+  from { opacity: 0.65; scale: 0.98; }
+  to { opacity: 1; scale: 1; }
+}
+:is(.App, [role="dialog"], [role="alertdialog"], [data-radix-popper-content-wrapper], [data-sonner-toaster])
+:is(button, [role="button"], a, input, textarea, select, [role="checkbox"], [role="switch"], [role="slider"]) {
+  transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease, outline-color 160ms ease, translate 160ms ease, scale 120ms ease !important;
+}
+.App :is(.glass-surface, .ace-feature, .message-user, .message-ai) { animation: ace-surface-in 240ms ease-out both; }
+:is([role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"], [data-sonner-toast]) { animation: ace-menu-in 180ms ease-out both; }
+.App .ace-sidebar nav a { transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease, translate 160ms ease !important; }
+.App .ace-sidebar nav a:hover { translate: 2px 0; }
+:is(.App, [role="dialog"], [role="alertdialog"]) :is(button, [role="button"]):not(:disabled):active { scale: 0.98; }
+.App img[src*="aceit-logo"] { transition: filter 180ms ease, scale 180ms ease; }
+.App img[src*="aceit-logo"]:hover { scale: 1.025; }
+.App :is(.ace-xp-fill, [role="progressbar"], .progress-animated) { transition: width 500ms ease, background-color 180ms ease !important; }
+@media (hover: hover) and (pointer: fine) {
+  :is(.App, [role="dialog"], [role="alertdialog"]) :is(button, [role="button"]):not(:disabled):hover { translate: 0 -1px; }
+  .App .card-3d { transition: translate 180ms ease, border-color 180ms ease !important; }
+  .App .card-3d:hover { translate: 0 -2px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  :is(.App, [role="dialog"], [role="alertdialog"], [data-radix-popper-content-wrapper], [data-sonner-toaster]),
+  :is(.App, [role="dialog"], [role="alertdialog"], [data-radix-popper-content-wrapper], [data-sonner-toaster]) * {
+    animation: none !important; transition: none !important; translate: none !important; scale: none !important; scroll-behavior: auto !important;
+  }
+}
