@@ -10,21 +10,21 @@
   --ace-white: #ffffff;
   --ace-beige: #ffffff;
   --ace-grey: #5d6675;
-  --ace-border: #dde3ec;
+  --ace-border: #7c8aa3;
   --ace-accent: #3159cd;
   --ace-accent-hover: #2547ad;
   --ace-accent-soft: #d9e4fa;
   --ace-control: #e7edf8;
   --ace-control-hover: #dce6f7;
   --ace-control-active: #cfddf5;
-  --ace-control-border: #bfceea;
+  --ace-control-border: #647da4;
   --ace-control-text: #264582;
   --ace-field: #f8faff;
   --ace-sidebar-control: #1e304b;
   --ace-sidebar-control-hover: #283d5c;
   --ace-sidebar: #152238;
   --ace-sidebar-panel: #20324e;
-  --ace-sidebar-border: #2d3f5b;
+  --ace-sidebar-border: #657d9e;
   --ace-peach: var(--ace-accent); /* compatibility for existing component hooks */
   --ace-charcoal: #152238;
   --ace-cloud: #c3cedf;
@@ -51,8 +51,8 @@
   --accent-foreground: 0 0% 9%;
   --destructive: 0 0% 19%;
   --destructive-foreground: 0 0% 100%;
-  --border: 216 28% 90%;
-  --input: 216 28% 90%;
+  --border: 220 18% 56%;
+  --input: 220 18% 56%;
   --ring: 225 61% 50%;
   --radius: 0.75rem;
 }
@@ -254,7 +254,7 @@ code, pre { font-family: 'JetBrains Mono', monospace; }
 /* Final semantic rules keep accent usage consistent across existing pages. */
 .App button { border-radius: 9px; }
 .App .message-ai { background: none !important; border: 0; }
-.App .message-user { background: var(--ace-accent-soft) !important; border-color: var(--ace-accent-soft) !important; }
+.App .message-user { background: var(--ace-accent-soft) !important; border-color: var(--ace-control-border) !important; }
 .App .ace-feature { border-color: var(--ace-border) !important; }
 .App .ace-feature article { border-color: var(--ace-border) !important; }
 .App .ace-feature [role="button"][aria-pressed="true"] { outline: 2px solid var(--ace-accent); outline-offset: 2px; }
@@ -343,7 +343,7 @@ code, pre { font-family: 'JetBrains Mono', monospace; }
 :is(.App, [role="dialog"], [role="alertdialog"], [data-radix-popper-content-wrapper], [data-sonner-toaster]) button[class]:disabled:hover,
 .App .ace-sidebar button:disabled, .App .al button:disabled {
   background: #e3e8f0 !important; color: #596477 !important; -webkit-text-fill-color: #596477 !important;
-  border: 1px solid #c5cfdd !important; outline: none !important; cursor: not-allowed;
+  border: 1px solid #8997ad !important; outline: none !important; cursor: not-allowed;
 }
 :is(.App, [role="dialog"], [role="alertdialog"]) button:disabled * { color: inherit !important; -webkit-text-fill-color: inherit !important; }
 .App input[type="range"] { background: #d6e1f4 !important; }
