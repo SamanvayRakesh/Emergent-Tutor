@@ -6,16 +6,16 @@
 :root {
   --ace-font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
   --ace-black: #172033;
-  --ace-body: #444650;
-  --ace-heading: #563f78;
-  --ace-label: #686976;
-  --ace-teal: #156d70;
-  --ace-violet: #67468b;
-  --ace-amber: #8a466e;
+  --ace-body: #30323b;
+  --ace-heading: #4b286e;
+  --ace-label: #4e505b;
+  --ace-teal: #075b5d;
+  --ace-violet: #593677;
+  --ace-amber: #783055;
   --ace-danger: #aa3547;
   --ace-white: #ffffff;
   --ace-beige: #ffffff;
-  --ace-grey: #686976;
+  --ace-grey: #4e505b;
   --ace-border: #7c8aa3;
   --ace-accent: #3159cd;
   --ace-accent-hover: #2547ad;
@@ -24,7 +24,7 @@
   --ace-control-hover: #dce6f7;
   --ace-control-active: #cfddf5;
   --ace-control-border: #647da4;
-  --ace-control-text: #34445b;
+  --ace-control-text: #273b54;
   --ace-field: #f8faff;
   --ace-sidebar-control: #1e304b;
   --ace-sidebar-control-hover: #283d5c;
@@ -73,7 +73,7 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
 
 /* Existing Tailwind and inline colour hooks share the same flat theme.
    Keep this in one place instead of rebuilding every page's interactions. */
-.App, .App *, .App *::before, .App *::after {
+.App:where(:not(:has(.al))), .App:where(:not(:has(.al))) *, .App:where(:not(:has(.al))) *::before, .App:where(:not(:has(.al))) *::after {
   background-image: none !important;
   box-shadow: none !important;
   text-shadow: none !important;
@@ -82,79 +82,79 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
   border-color: var(--ace-border) !important;
   --tw-ring-color: var(--ace-charcoal) !important;
 }
-.App { background: var(--ace-cotton) !important; color: var(--ace-black); }
-.App [class*="text-"], .App [style*="color:"], .App [style*="color :"] { color: var(--ace-body) !important; }
-.App [class*="text-zinc-4"], .App [class*="text-zinc-5"], .App [class*="text-zinc-6"], .App [class*="text-muted"] { color: var(--ace-grey) !important; }
-.App [class*="bg-"], .App [style*="background:"], .App [style*="background-color:"],
-.App .glass, .App .glass-surface, .App .xp-badge { background-color: var(--ace-beige) !important; }
-.App .min-h-screen, .App .ace-app-shell, .App .animated-gradient { background-color: var(--ace-cotton) !important; }
-.App .gradient-text, .App .gradient-text-cyan, .App [class*="bg-clip-text"] {
+.App:where(:not(:has(.al))) { background: var(--ace-cotton) !important; color: var(--ace-black); }
+.App:where(:not(:has(.al))) [class*="text-"], .App:where(:not(:has(.al))) [style*="color:"], .App:where(:not(:has(.al))) [style*="color :"] { color: var(--ace-body) !important; }
+.App:where(:not(:has(.al))) [class*="text-zinc-4"], .App:where(:not(:has(.al))) [class*="text-zinc-5"], .App:where(:not(:has(.al))) [class*="text-zinc-6"], .App:where(:not(:has(.al))) [class*="text-muted"] { color: var(--ace-grey) !important; }
+.App:where(:not(:has(.al))) [class*="bg-"], .App:where(:not(:has(.al))) [style*="background:"], .App:where(:not(:has(.al))) [style*="background-color:"],
+.App:where(:not(:has(.al))) .glass, .App:where(:not(:has(.al))) .glass-surface, .App:where(:not(:has(.al))) .xp-badge { background-color: var(--ace-beige) !important; }
+.App:where(:not(:has(.al))) .min-h-screen, .App:where(:not(:has(.al))) .ace-app-shell, .App:where(:not(:has(.al))) .animated-gradient { background-color: var(--ace-cotton) !important; }
+.App:where(:not(:has(.al))) .gradient-text, .App:where(:not(:has(.al))) .gradient-text-cyan, .App:where(:not(:has(.al))) [class*="bg-clip-text"] {
   background: none !important; color: var(--ace-black) !important;
   -webkit-text-fill-color: var(--ace-black) !important;
 }
-.App [class*="orb-"], .App [class*="blur-"][class*="pointer-events-none"],
-.App .al-stage-glow, .App .al-hero::before, .App .streak-anim::after { display: none !important; }
-.App .shimmer { background: var(--ace-cloud) !important; animation: cursor-blink 1.8s ease-in-out infinite; }
-.App .pulse-glow { animation: none; }
-.App [class*="h-1"][class*="bg-"], .App [class*="h-2"][class*="bg-"], .App [class*="h-3"][class*="bg-"] { background-color: var(--ace-cloud) !important; }
-.App [style*="width:"][style*="background:"], .App [class*="h-full"][class*="bg-gradient"] { background-color: #438e88 !important; }
+.App:where(:not(:has(.al))) [class*="orb-"], .App:where(:not(:has(.al))) [class*="blur-"][class*="pointer-events-none"],
+.App:where(:not(:has(.al))) .al-stage-glow, .App:where(:not(:has(.al))) .al-hero::before, .App:where(:not(:has(.al))) .streak-anim::after { display: none !important; }
+.App:where(:not(:has(.al))) .shimmer { background: var(--ace-cloud) !important; animation: cursor-blink 1.8s ease-in-out infinite; }
+.App:where(:not(:has(.al))) .pulse-glow { animation: none; }
+.App:where(:not(:has(.al))) [class*="h-1"][class*="bg-"], .App:where(:not(:has(.al))) [class*="h-2"][class*="bg-"], .App:where(:not(:has(.al))) [class*="h-3"][class*="bg-"] { background-color: var(--ace-cloud) !important; }
+.App:where(:not(:has(.al))) [style*="width:"][style*="background:"], .App:where(:not(:has(.al))) [class*="h-full"][class*="bg-gradient"] { background-color: #438e88 !important; }
 
 /* White feature panels, with quiet dividers rather than heavy outlines. */
 .glass, .glass-surface { background: var(--ace-beige); border: 1px solid var(--ace-border); }
 .message-user, .message-ai { background: var(--ace-beige) !important; border: 1px solid var(--ace-border); color: var(--ace-black); }
 .message-user { border-radius: 18px 18px 4px 18px; }
 .message-ai { border-radius: 4px 18px 18px 18px; }
-.App .message-user, .App .message-ai { color: var(--ace-body) !important; }
-.App .ace-feature { background-color: var(--ace-beige) !important; }
+.App:where(:not(:has(.al))) .message-user, .App:where(:not(:has(.al))) .message-ai { color: var(--ace-body) !important; }
+.App:where(:not(:has(.al))) .ace-feature { background-color: var(--ace-beige) !important; }
 
 /* Prompt box and form fields: white, opaque, without glass effects. */
-.App .ace-prompt { background-color: var(--ace-white) !important; }
-.App input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
-.App select, .App textarea, .App [role="combobox"] {
+.App:where(:not(:has(.al))) .ace-prompt { background-color: var(--ace-white) !important; }
+.App:where(:not(:has(.al))) input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+.App:where(:not(:has(.al))) select, .App:where(:not(:has(.al))) textarea, .App:where(:not(:has(.al))) [role="combobox"] {
   background: var(--ace-field) !important; color: var(--ace-black) !important;
   border-color: var(--ace-control-border) !important;
 }
-.App input::placeholder, .App textarea::placeholder { color: var(--ace-grey) !important; opacity: 1; }
-.App input[type="checkbox"], .App input[type="radio"], .App input[type="range"] { accent-color: var(--ace-charcoal) !important; }
-.App input[type="range"] { background: var(--ace-cloud) !important; }
-.App :focus-visible { outline: 2px solid var(--ace-charcoal) !important; outline-offset: 3px; }
-.App [aria-selected="true"], .App [aria-pressed="true"], .App [data-state="checked"] { outline: 2px solid var(--ace-charcoal); outline-offset: 2px; }
+.App:where(:not(:has(.al))) input::placeholder, .App:where(:not(:has(.al))) textarea::placeholder { color: var(--ace-grey) !important; opacity: 1; }
+.App:where(:not(:has(.al))) input[type="checkbox"], .App:where(:not(:has(.al))) input[type="radio"], .App:where(:not(:has(.al))) input[type="range"] { accent-color: var(--ace-charcoal) !important; }
+.App:where(:not(:has(.al))) input[type="range"] { background: var(--ace-cloud) !important; }
+.App:where(:not(:has(.al))) :focus-visible { outline: 2px solid var(--ace-charcoal) !important; outline-offset: 3px; }
+.App:where(:not(:has(.al))) [aria-selected="true"], .App:where(:not(:has(.al))) [aria-pressed="true"], .App:where(:not(:has(.al))) [data-state="checked"] { outline: 2px solid var(--ace-charcoal); outline-offset: 2px; }
 
 /* Secondary controls use a visible blue-grey fill; primary actions use solid blue. */
-.App button[class], .App button:not([class]), .App [role="button"]:not(svg g), .App input[type="submit"],
-.App a[class*="bg-"], .App .al-btn, .App .al-btn-outline {
+.App:where(:not(:has(.al))) button[class], .App:where(:not(:has(.al))) button:not([class]), .App:where(:not(:has(.al))) [role="button"]:not(svg g), .App:where(:not(:has(.al))) input[type="submit"],
+.App:where(:not(:has(.al))) a[class*="bg-"], .App:where(:not(:has(.al))) .al-btn, .App:where(:not(:has(.al))) .al-btn-outline {
   background: var(--ace-control) !important; color: var(--ace-control-text) !important;
   -webkit-text-fill-color: var(--ace-black) !important; border-color: var(--ace-border) !important;
 }
-.App button[class] *, .App button:not([class]) *, .App a[class*="bg-"] *, .App .al-btn * { color: var(--ace-black) !important; }
-.App button:hover, .App .al-btn:hover { background: var(--ace-control-hover) !important; border-color: var(--ace-accent) !important; text-decoration: none; }
-.App button:disabled { opacity: 1 !important; color: var(--ace-grey) !important; cursor: not-allowed; }
-.App button:disabled * { color: var(--ace-grey) !important; }
-.App button [class*="absolute"][class*="bg-gradient"] { display: none !important; }
+.App:where(:not(:has(.al))) button[class] *, .App:where(:not(:has(.al))) button:not([class]) *, .App:where(:not(:has(.al))) a[class*="bg-"] *, .App:where(:not(:has(.al))) .al-btn * { color: var(--ace-black) !important; }
+.App:where(:not(:has(.al))) button:hover, .App:where(:not(:has(.al))) .al-btn:hover { background: var(--ace-control-hover) !important; border-color: var(--ace-accent) !important; text-decoration: none; }
+.App:where(:not(:has(.al))) button:disabled { opacity: 1 !important; color: var(--ace-grey) !important; cursor: not-allowed; }
+.App:where(:not(:has(.al))) button:disabled * { color: var(--ace-grey) !important; }
+.App:where(:not(:has(.al))) button [class*="absolute"][class*="bg-gradient"] { display: none !important; }
 
 /* Navy sidebar with muted text and a clearly marked active destination. */
-.App .ace-sidebar, .App .ace-sidebar [class*="bg-"], .App .ace-sidebar [style*="background:"],
-.App .ace-sidebar .glass-surface { background: var(--ace-sidebar) !important; border-color: var(--ace-sidebar-border) !important; }
-.App .ace-sidebar, .App .ace-sidebar [class*="text-"], .App .ace-sidebar p,
-.App .ace-sidebar span, .App .ace-sidebar a, .App .ace-sidebar svg, .App .ace-sidebar strong { color: var(--ace-cloud) !important; -webkit-text-fill-color: var(--ace-cloud) !important; }
-.App .ace-sidebar .ace-avatar { background: var(--ace-cloud) !important; color: var(--ace-black) !important; }
-.App .ace-sidebar nav a:hover { background: var(--ace-sidebar-panel) !important; outline: none; }
-.App .ace-sidebar nav a[aria-current="page"] { background: var(--ace-sidebar-panel) !important; border-color: var(--ace-sidebar-border) !important; border-left: 3px solid var(--ace-accent) !important; }
-.App .ace-sidebar nav a[aria-current="page"], .App .ace-sidebar nav a[aria-current="page"] * { color: var(--ace-white) !important; -webkit-text-fill-color: var(--ace-white) !important; }
-.App .ace-sidebar button[class] { background: var(--ace-sidebar) !important; color: var(--ace-cloud) !important; border: 0; }
-.App .ace-sidebar button[class] * { color: var(--ace-cloud) !important; -webkit-text-fill-color: var(--ace-cloud) !important; }
-.App .ace-sidebar button[class]:hover { background: var(--ace-sidebar-panel) !important; }
-.App .ace-sidebar :focus-visible { outline-color: var(--ace-cloud) !important; }
-.App .ace-sidebar .ace-xp-track { background: var(--ace-sidebar-panel) !important; }
-.App .ace-sidebar .ace-xp-fill { background: var(--ace-accent) !important; }
+.App:where(:not(:has(.al))) .ace-sidebar, .App:where(:not(:has(.al))) .ace-sidebar [class*="bg-"], .App:where(:not(:has(.al))) .ace-sidebar [style*="background:"],
+.App:where(:not(:has(.al))) .ace-sidebar .glass-surface { background: var(--ace-sidebar) !important; border-color: var(--ace-sidebar-border) !important; }
+.App:where(:not(:has(.al))) .ace-sidebar, .App:where(:not(:has(.al))) .ace-sidebar [class*="text-"], .App:where(:not(:has(.al))) .ace-sidebar p,
+.App:where(:not(:has(.al))) .ace-sidebar span, .App:where(:not(:has(.al))) .ace-sidebar a, .App:where(:not(:has(.al))) .ace-sidebar svg, .App:where(:not(:has(.al))) .ace-sidebar strong { color: var(--ace-cloud) !important; -webkit-text-fill-color: var(--ace-cloud) !important; }
+.App:where(:not(:has(.al))) .ace-sidebar .ace-avatar { background: var(--ace-cloud) !important; color: var(--ace-black) !important; }
+.App:where(:not(:has(.al))) .ace-sidebar nav a:hover { background: var(--ace-sidebar-panel) !important; outline: none; }
+.App:where(:not(:has(.al))) .ace-sidebar nav a[aria-current="page"] { background: var(--ace-sidebar-panel) !important; border-color: var(--ace-sidebar-border) !important; border-left: 3px solid var(--ace-accent) !important; }
+.App:where(:not(:has(.al))) .ace-sidebar nav a[aria-current="page"], .App:where(:not(:has(.al))) .ace-sidebar nav a[aria-current="page"] * { color: var(--ace-white) !important; -webkit-text-fill-color: var(--ace-white) !important; }
+.App:where(:not(:has(.al))) .ace-sidebar button[class] { background: var(--ace-sidebar) !important; color: var(--ace-cloud) !important; border: 0; }
+.App:where(:not(:has(.al))) .ace-sidebar button[class] * { color: var(--ace-cloud) !important; -webkit-text-fill-color: var(--ace-cloud) !important; }
+.App:where(:not(:has(.al))) .ace-sidebar button[class]:hover { background: var(--ace-sidebar-panel) !important; }
+.App:where(:not(:has(.al))) .ace-sidebar :focus-visible { outline-color: var(--ace-cloud) !important; }
+.App:where(:not(:has(.al))) .ace-sidebar .ace-xp-track { background: var(--ace-sidebar-panel) !important; }
+.App:where(:not(:has(.al))) .ace-sidebar .ace-xp-fill { background: var(--ace-accent) !important; }
 
 /* Public landing page uses the same roles as the signed-in app. */
-.App .al { --bg: var(--ace-cotton); --ink: var(--ace-black); --muted: var(--ace-grey); --cyan: var(--ace-charcoal); --lav: var(--ace-charcoal); --mint: var(--ace-charcoal); --peach: var(--ace-peach); background: var(--ace-cotton) !important; color: var(--ace-black) !important; }
-.App .al *, .App .al a { color: var(--ace-black) !important; }
-.App .al-header, .App .al-hero, .App .al-final, .App .al-footer { background: var(--ace-cotton) !important; }
-.App .al-workspace, .App .al-float, .App .al-strip, .App .al-card, .App .al-feature,
-.App .al-window-bar, .App .al-equation, .App .al-student-msg, .App .al-pill, .App .al-mini-actions span { background: var(--ace-beige) !important; }
-.App .al [class*="copy"], .App .al [class*="note"], .App .al [class*="caption"] { color: var(--ace-grey) !important; }
+.App:where(:not(:has(.al))) .al { --bg: var(--ace-cotton); --ink: var(--ace-black); --muted: var(--ace-grey); --cyan: var(--ace-charcoal); --lav: var(--ace-charcoal); --mint: var(--ace-charcoal); --peach: var(--ace-peach); background: var(--ace-cotton) !important; color: var(--ace-black) !important; }
+.App:where(:not(:has(.al))) .al *, .App:where(:not(:has(.al))) .al a { color: var(--ace-black) !important; }
+.App:where(:not(:has(.al))) .al-header, .App:where(:not(:has(.al))) .al-hero, .App:where(:not(:has(.al))) .al-final, .App:where(:not(:has(.al))) .al-footer { background: var(--ace-cotton) !important; }
+.App:where(:not(:has(.al))) .al-workspace, .App:where(:not(:has(.al))) .al-float, .App:where(:not(:has(.al))) .al-strip, .App:where(:not(:has(.al))) .al-card, .App:where(:not(:has(.al))) .al-feature,
+.App:where(:not(:has(.al))) .al-window-bar, .App:where(:not(:has(.al))) .al-equation, .App:where(:not(:has(.al))) .al-student-msg, .App:where(:not(:has(.al))) .al-pill, .App:where(:not(:has(.al))) .al-mini-actions span { background: var(--ace-beige) !important; }
+.App:where(:not(:has(.al))) .al [class*="copy"], .App:where(:not(:has(.al))) .al [class*="note"], .App:where(:not(:has(.al))) .al [class*="caption"] { color: var(--ace-grey) !important; }
 
 /* Portalled menus and toasts inherit the same opaque palette. */
 [data-sonner-toaster], [data-radix-popper-content-wrapper] { color: var(--ace-black); }
@@ -166,22 +166,22 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
 [data-sonner-toast] button, [data-radix-popper-content-wrapper] [role="option"][data-highlighted] { background: var(--ace-control) !important; color: var(--ace-control-text) !important; }
 
 /* Charts stay legible; individual series use solid neutral fills, never gradients. */
-.App .recharts-text, .App .recharts-label { fill: var(--ace-charcoal) !important; }
-.App .recharts-cartesian-axis-line, .App .recharts-cartesian-axis-tick-line, .App .recharts-cartesian-grid line { stroke: var(--ace-grey) !important; }
-.App .recharts-bar-rectangle path, .App .recharts-area-area { fill: var(--ace-charcoal) !important; }
-.App .recharts-line-curve { stroke: var(--ace-charcoal) !important; }
-.App .recharts-pie-sector:nth-child(3n + 1) path { fill: var(--ace-charcoal) !important; }
-.App .recharts-pie-sector:nth-child(3n + 2) path { fill: var(--ace-grey) !important; }
-.App .recharts-pie-sector:nth-child(3n) path { fill: var(--ace-cloud) !important; }
-.App .recharts-tooltip-wrapper .recharts-default-tooltip { background: var(--ace-beige) !important; border-color: var(--ace-border) !important; }
+.App:where(:not(:has(.al))) .recharts-text, .App:where(:not(:has(.al))) .recharts-label { fill: var(--ace-charcoal) !important; }
+.App:where(:not(:has(.al))) .recharts-cartesian-axis-line, .App:where(:not(:has(.al))) .recharts-cartesian-axis-tick-line, .App:where(:not(:has(.al))) .recharts-cartesian-grid line { stroke: var(--ace-grey) !important; }
+.App:where(:not(:has(.al))) .recharts-bar-rectangle path, .App:where(:not(:has(.al))) .recharts-area-area { fill: var(--ace-charcoal) !important; }
+.App:where(:not(:has(.al))) .recharts-line-curve { stroke: var(--ace-charcoal) !important; }
+.App:where(:not(:has(.al))) .recharts-pie-sector:nth-child(3n + 1) path { fill: var(--ace-charcoal) !important; }
+.App:where(:not(:has(.al))) .recharts-pie-sector:nth-child(3n + 2) path { fill: var(--ace-grey) !important; }
+.App:where(:not(:has(.al))) .recharts-pie-sector:nth-child(3n) path { fill: var(--ace-cloud) !important; }
+.App:where(:not(:has(.al))) .recharts-tooltip-wrapper .recharts-default-tooltip { background: var(--ace-beige) !important; border-color: var(--ace-border) !important; }
 
 .markdown-content p, .markdown-content li { line-height: 1.7; margin-bottom: 0.5em; }
 .markdown-content h1, .markdown-content h2, .markdown-content h3 { margin: 1em 0 0.5em; }
 .markdown-content ul, .markdown-content ol { padding-left: 1.5em; margin-bottom: 0.75em; }
 .markdown-content strong { font-weight: 700; }
-.App .markdown-content code, .App .markdown-content pre { background: var(--ace-cloud) !important; color: var(--ace-black) !important; border: 1px solid var(--ace-border); border-radius: 6px; }
+.App:where(:not(:has(.al))) .markdown-content code, .App:where(:not(:has(.al))) .markdown-content pre { background: var(--ace-cloud) !important; color: var(--ace-black) !important; border: 1px solid var(--ace-border); border-radius: 6px; }
 .markdown-content pre { padding: 1em; overflow-x: auto; }
-.App .markdown-content pre code { background: none !important; border: 0; }
+.App:where(:not(:has(.al))) .markdown-content pre code { background: none !important; border: 0; }
 .markdown-content blockquote { border-left: 3px solid var(--ace-grey); padding-left: 1em; margin: 0.75em 0; }
 .subject-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 1rem; }
 .heading-xl { font-family: var(--ace-font-sans); font-weight: 900; letter-spacing: -0.03em; }
@@ -203,50 +203,50 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
 }
 
 /* Opaque surfaces for the landing page’s embedded component styles. */
-.App .al { background-color: var(--ace-cotton) !important; }
-.App .al-header { background-color: var(--ace-cotton) !important; }
-.App .al-btn { background-color: var(--ace-accent) !important; }
-.App .al-btn-outline { background-color: var(--ace-peach) !important; }
-.App .al-hero { background-color: var(--ace-cotton) !important; }
-.App .al-dot { background-color: var(--ace-charcoal) !important; }
-.App .al-stage-glow { background-color: var(--ace-beige) !important; }
-.App .al-workspace { background-color: var(--ace-beige) !important; }
-.App .al-window-bar { background-color: var(--ace-beige) !important; }
-.App .al-window-dot { background-color: var(--ace-charcoal) !important; }
-.App .al-window-dot:nth-child(2) { background-color: var(--ace-charcoal) !important; }
-.App .al-window-dot:nth-child(3) { background-color: var(--ace-charcoal) !important; }
-.App .al-pill { background-color: var(--ace-beige) !important; }
-.App .al-student-msg { background-color: var(--ace-beige) !important; }
-.App .al-equation { background-color: var(--ace-beige) !important; }
-.App .al-mini-actions span { background-color: var(--ace-beige) !important; }
-.App .al-float { background-color: var(--ace-beige) !important; }
-.App .al-strip { background-color: var(--ace-beige) !important; }
-.App .al-demo-shell { background-color: var(--ace-beige) !important; }
-.App .al-demo-tabs { background-color: var(--ace-peach) !important; }
-.App .al-demo-tab { background-color: var(--ace-peach) !important; }
-.App .al-demo-tab[aria-selected=true] { background-color: var(--ace-peach) !important; }
-.App .al-example-question { background-color: var(--ace-beige) !important; }
-.App .al-choice { background-color: var(--ace-peach) !important; }
-.App .al-choice[aria-pressed=true] { background-color: var(--ace-peach) !important; }
-.App .al-quiz-option { background-color: var(--ace-peach) !important; }
-.App .al-quiz-option.is-selected { background-color: var(--ace-peach) !important; }
-.App .al-feedback { background-color: var(--ace-beige) !important; }
-.App .al-feedback.is-wrong { background-color: var(--ace-beige) !important; }
-.App .al-demo-bottom { background-color: var(--ace-beige) !important; }
-.App .al-text-btn { background-color: var(--ace-peach) !important; }
-.App .al-track { background-color: var(--ace-cloud) !important; }
-.App .al-progress-note { background-color: var(--ace-beige) !important; }
-.App .al-features { background-color: var(--ace-beige) !important; }
-.App .al-feature { background-color: var(--ace-beige) !important; }
-.App .al-feature:hover { background-color: var(--ace-beige) !important; }
-.App .al-band { background-color: var(--ace-beige) !important; }
-.App .al-final { background-color: var(--ace-cotton) !important; }
-.App .al-transition { background-color: var(--ace-cotton) !important; }
-.App .al-transition-mark { background-color: var(--ace-beige) !important; }
-.App .al-transition-line { background-color: var(--ace-cloud) !important; }
-.App .al-transition-line span { background-color: var(--ace-charcoal) !important; }
+.App:where(:not(:has(.al))) .al { background-color: var(--ace-cotton) !important; }
+.App:where(:not(:has(.al))) .al-header { background-color: var(--ace-cotton) !important; }
+.App:where(:not(:has(.al))) .al-btn { background-color: var(--ace-accent) !important; }
+.App:where(:not(:has(.al))) .al-btn-outline { background-color: var(--ace-peach) !important; }
+.App:where(:not(:has(.al))) .al-hero { background-color: var(--ace-cotton) !important; }
+.App:where(:not(:has(.al))) .al-dot { background-color: var(--ace-charcoal) !important; }
+.App:where(:not(:has(.al))) .al-stage-glow { background-color: var(--ace-beige) !important; }
+.App:where(:not(:has(.al))) .al-workspace { background-color: var(--ace-beige) !important; }
+.App:where(:not(:has(.al))) .al-window-bar { background-color: var(--ace-beige) !important; }
+.App:where(:not(:has(.al))) .al-window-dot { background-color: var(--ace-charcoal) !important; }
+.App:where(:not(:has(.al))) .al-window-dot:nth-child(2) { background-color: var(--ace-charcoal) !important; }
+.App:where(:not(:has(.al))) .al-window-dot:nth-child(3) { background-color: var(--ace-charcoal) !important; }
+.App:where(:not(:has(.al))) .al-pill { background-color: var(--ace-beige) !important; }
+.App:where(:not(:has(.al))) .al-student-msg { background-color: var(--ace-beige) !important; }
+.App:where(:not(:has(.al))) .al-equation { background-color: var(--ace-beige) !important; }
+.App:where(:not(:has(.al))) .al-mini-actions span { background-color: var(--ace-beige) !important; }
+.App:where(:not(:has(.al))) .al-float { background-color: var(--ace-beige) !important; }
+.App:where(:not(:has(.al))) .al-strip { background-color: var(--ace-beige) !important; }
+.App:where(:not(:has(.al))) .al-demo-shell { background-color: var(--ace-beige) !important; }
+.App:where(:not(:has(.al))) .al-demo-tabs { background-color: var(--ace-peach) !important; }
+.App:where(:not(:has(.al))) .al-demo-tab { background-color: var(--ace-peach) !important; }
+.App:where(:not(:has(.al))) .al-demo-tab[aria-selected=true] { background-color: var(--ace-peach) !important; }
+.App:where(:not(:has(.al))) .al-example-question { background-color: var(--ace-beige) !important; }
+.App:where(:not(:has(.al))) .al-choice { background-color: var(--ace-peach) !important; }
+.App:where(:not(:has(.al))) .al-choice[aria-pressed=true] { background-color: var(--ace-peach) !important; }
+.App:where(:not(:has(.al))) .al-quiz-option { background-color: var(--ace-peach) !important; }
+.App:where(:not(:has(.al))) .al-quiz-option.is-selected { background-color: var(--ace-peach) !important; }
+.App:where(:not(:has(.al))) .al-feedback { background-color: var(--ace-beige) !important; }
+.App:where(:not(:has(.al))) .al-feedback.is-wrong { background-color: var(--ace-beige) !important; }
+.App:where(:not(:has(.al))) .al-demo-bottom { background-color: var(--ace-beige) !important; }
+.App:where(:not(:has(.al))) .al-text-btn { background-color: var(--ace-peach) !important; }
+.App:where(:not(:has(.al))) .al-track { background-color: var(--ace-cloud) !important; }
+.App:where(:not(:has(.al))) .al-progress-note { background-color: var(--ace-beige) !important; }
+.App:where(:not(:has(.al))) .al-features { background-color: var(--ace-beige) !important; }
+.App:where(:not(:has(.al))) .al-feature { background-color: var(--ace-beige) !important; }
+.App:where(:not(:has(.al))) .al-feature:hover { background-color: var(--ace-beige) !important; }
+.App:where(:not(:has(.al))) .al-band { background-color: var(--ace-beige) !important; }
+.App:where(:not(:has(.al))) .al-final { background-color: var(--ace-cotton) !important; }
+.App:where(:not(:has(.al))) .al-transition { background-color: var(--ace-cotton) !important; }
+.App:where(:not(:has(.al))) .al-transition-mark { background-color: var(--ace-beige) !important; }
+.App:where(:not(:has(.al))) .al-transition-line { background-color: var(--ace-cloud) !important; }
+.App:where(:not(:has(.al))) .al-transition-line span { background-color: var(--ace-charcoal) !important; }
 
-/* Dialogs can be mounted outside .App through a portal. */
+/* Dialogs can be mounted outside .App:where(:not(:has(.al))) through a portal. */
 [role="dialog"], [role="alertdialog"] { background: var(--ace-beige) !important; color: var(--ace-black) !important; }
 [role="dialog"] *, [role="alertdialog"] * { background-image: none !important; box-shadow: none !important; text-shadow: none !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; border-color: var(--ace-border) !important; }
 [role="dialog"] [class*="text-"], [role="alertdialog"] [class*="text-"] { color: var(--ace-black) !important; }
@@ -254,217 +254,217 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
 [role="dialog"] button, [role="alertdialog"] button { background: var(--ace-control) !important; color: var(--ace-control-text) !important; }
 [role="dialog"] input, [role="dialog"] textarea, [role="dialog"] select { background: var(--ace-control) !important; color: var(--ace-control-text) !important; }
 
-.App img[src*="aceit-logo"] { filter: brightness(0); }
-.App .ace-sidebar img[src*="aceit-logo"] { filter: brightness(0) invert(0.85); }
+.App:where(:not(:has(.al))) img[src*="aceit-logo"] { filter: brightness(0); }
+.App:where(:not(:has(.al))) .ace-sidebar img[src*="aceit-logo"] { filter: brightness(0) invert(0.85); }
 
 /* Final semantic rules keep accent usage consistent across existing pages. */
-.App button { border-radius: 9px; }
-.App .message-ai { background: none !important; border: 0; }
-.App .message-user { background: var(--ace-accent-soft) !important; border-color: var(--ace-control-border) !important; }
-.App .ace-feature { border-color: var(--ace-border) !important; }
-.App .ace-feature article { border-color: var(--ace-border) !important; }
-.App .ace-feature [role="button"][aria-pressed="true"] { outline: 2px solid var(--ace-accent); outline-offset: 2px; }
-.App button[aria-pressed="true"], .App button[aria-selected="true"] { background: var(--ace-accent-soft) !important; color: var(--ace-accent) !important; outline: 1px solid var(--ace-accent) !important; }
-.App button[data-testid="send-message-btn"], .App button[data-testid="sidebar-upgrade-btn"],
-.App button.bg-cyan-500, .App button.bg-cyan-400, .App button.bg-violet-500,
-.App button.bg-orange-500, .App .al .al-btn:not(.al-btn-outline),
-.App [data-testid="start-session-btn"], .App [data-testid="login-btn"], .App [data-testid="signup-btn"] {
+.App:where(:not(:has(.al))) button { border-radius: 9px; }
+.App:where(:not(:has(.al))) .message-ai { background: none !important; border: 0; }
+.App:where(:not(:has(.al))) .message-user { background: var(--ace-accent-soft) !important; border-color: var(--ace-control-border) !important; }
+.App:where(:not(:has(.al))) .ace-feature { border-color: var(--ace-border) !important; }
+.App:where(:not(:has(.al))) .ace-feature article { border-color: var(--ace-border) !important; }
+.App:where(:not(:has(.al))) .ace-feature [role="button"][aria-pressed="true"] { outline: 2px solid var(--ace-accent); outline-offset: 2px; }
+.App:where(:not(:has(.al))) button[aria-pressed="true"], .App:where(:not(:has(.al))) button[aria-selected="true"] { background: var(--ace-accent-soft) !important; color: var(--ace-accent) !important; outline: 1px solid var(--ace-accent) !important; }
+.App:where(:not(:has(.al))) button[data-testid="send-message-btn"], .App:where(:not(:has(.al))) button[data-testid="sidebar-upgrade-btn"],
+.App:where(:not(:has(.al))) button.bg-cyan-500, .App:where(:not(:has(.al))) button.bg-cyan-400, .App:where(:not(:has(.al))) button.bg-violet-500,
+.App:where(:not(:has(.al))) button.bg-orange-500, .App:where(:not(:has(.al))) .al .al-btn:not(.al-btn-outline),
+.App:where(:not(:has(.al))) [data-testid="start-session-btn"], .App:where(:not(:has(.al))) [data-testid="login-btn"], .App:where(:not(:has(.al))) [data-testid="signup-btn"] {
   background: var(--ace-accent) !important; color: var(--ace-white) !important;
   -webkit-text-fill-color: var(--ace-white) !important; border-color: var(--ace-accent) !important;
 }
-.App button[data-testid="send-message-btn"] *, .App button[data-testid="sidebar-upgrade-btn"] *,
-.App button.bg-cyan-500 *, .App button.bg-cyan-400 *, .App button.bg-violet-500 *,
-.App button.bg-orange-500 *, .App .al .al-btn:not(.al-btn-outline) * {
+.App:where(:not(:has(.al))) button[data-testid="send-message-btn"] *, .App:where(:not(:has(.al))) button[data-testid="sidebar-upgrade-btn"] *,
+.App:where(:not(:has(.al))) button.bg-cyan-500 *, .App:where(:not(:has(.al))) button.bg-cyan-400 *, .App:where(:not(:has(.al))) button.bg-violet-500 *,
+.App:where(:not(:has(.al))) button.bg-orange-500 *, .App:where(:not(:has(.al))) .al .al-btn:not(.al-btn-outline) * {
   color: var(--ace-white) !important; -webkit-text-fill-color: var(--ace-white) !important;
 }
-.App button[data-testid="send-message-btn"]:hover, .App button.bg-cyan-500:hover,
-.App .al .al-btn:not(.al-btn-outline):hover { background: var(--ace-accent-hover) !important; }
-.App button:disabled, .App button:disabled:hover { background: #edf0f5 !important; color: var(--ace-grey) !important; -webkit-text-fill-color: var(--ace-grey) !important; border-color: var(--ace-border) !important; }
-.App button:disabled * { color: var(--ace-grey) !important; -webkit-text-fill-color: var(--ace-grey) !important; }
-.App .ace-sidebar [class*="border"] { border-color: var(--ace-sidebar-border) !important; }
-.App .ace-prompt { border: 0 !important; border-top: 1px solid var(--ace-border) !important; }
-.App .ace-prompt textarea { border-color: var(--ace-border) !important; }
-.App :focus-visible { outline-color: var(--ace-accent) !important; }
-.App .ace-sidebar :focus-visible { outline-color: var(--ace-cloud) !important; }
-.App .markdown-content pre, .App .markdown-content code { background: #edf0f5 !important; }
-.App .ace-sidebar .ace-avatar { color: var(--ace-black) !important; -webkit-text-fill-color: var(--ace-black) !important; }
-.App .ace-sidebar nav a:not([aria-current="page"]) * { color: var(--ace-cloud) !important; -webkit-text-fill-color: var(--ace-cloud) !important; }
-.App .ace-feature svg g[aria-pressed="true"] { outline: none !important; }
-.App .ace-feature svg g:focus-visible { outline: 2px solid var(--ace-accent) !important; outline-offset: 3px; }
+.App:where(:not(:has(.al))) button[data-testid="send-message-btn"]:hover, .App:where(:not(:has(.al))) button.bg-cyan-500:hover,
+.App:where(:not(:has(.al))) .al .al-btn:not(.al-btn-outline):hover { background: var(--ace-accent-hover) !important; }
+.App:where(:not(:has(.al))) button:disabled, .App:where(:not(:has(.al))) button:disabled:hover { background: #edf0f5 !important; color: var(--ace-grey) !important; -webkit-text-fill-color: var(--ace-grey) !important; border-color: var(--ace-border) !important; }
+.App:where(:not(:has(.al))) button:disabled * { color: var(--ace-grey) !important; -webkit-text-fill-color: var(--ace-grey) !important; }
+.App:where(:not(:has(.al))) .ace-sidebar [class*="border"] { border-color: var(--ace-sidebar-border) !important; }
+.App:where(:not(:has(.al))) .ace-prompt { border: 0 !important; border-top: 1px solid var(--ace-border) !important; }
+.App:where(:not(:has(.al))) .ace-prompt textarea { border-color: var(--ace-border) !important; }
+.App:where(:not(:has(.al))) :focus-visible { outline-color: var(--ace-accent) !important; }
+.App:where(:not(:has(.al))) .ace-sidebar :focus-visible { outline-color: var(--ace-cloud) !important; }
+.App:where(:not(:has(.al))) .markdown-content pre, .App:where(:not(:has(.al))) .markdown-content code { background: #edf0f5 !important; }
+.App:where(:not(:has(.al))) .ace-sidebar .ace-avatar { color: var(--ace-black) !important; -webkit-text-fill-color: var(--ace-black) !important; }
+.App:where(:not(:has(.al))) .ace-sidebar nav a:not([aria-current="page"]) * { color: var(--ace-cloud) !important; -webkit-text-fill-color: var(--ace-cloud) !important; }
+.App:where(:not(:has(.al))) .ace-feature svg g[aria-pressed="true"] { outline: none !important; }
+.App:where(:not(:has(.al))) .ace-feature svg g:focus-visible { outline: 2px solid var(--ace-accent) !important; outline-offset: 3px; }
 
 /* Every interactive surface uses the same normal / hover / selected / disabled scale,
    including controls portalled outside the application root. */
-:is(.App, [role="dialog"], [role="alertdialog"], [data-radix-popper-content-wrapper], [data-sonner-toaster]) :where(button, [role="button"]:not(svg g), input[type="submit"], input[type="button"])[class],
-:is(.App, [role="dialog"], [role="alertdialog"], [data-radix-popper-content-wrapper], [data-sonner-toaster]) button:not([class]) {
+:is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"], [data-radix-popper-content-wrapper], [data-sonner-toaster]) :where(button, [role="button"]:not(svg g), input[type="submit"], input[type="button"])[class],
+:is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"], [data-radix-popper-content-wrapper], [data-sonner-toaster]) button:not([class]) {
   background: var(--ace-control) !important; color: var(--ace-control-text) !important;
   -webkit-text-fill-color: var(--ace-control-text) !important;
   border: 1px solid var(--ace-control-border) !important;
   border-radius: 9px; transition: background-color 120ms ease, border-color 120ms ease;
 }
-:is(.App, [role="dialog"], [role="alertdialog"], [data-radix-popper-content-wrapper], [data-sonner-toaster]) button[class] * {
+:is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"], [data-radix-popper-content-wrapper], [data-sonner-toaster]) button[class] * {
   color: inherit !important; -webkit-text-fill-color: inherit !important;
 }
-:is(.App, [role="dialog"], [role="alertdialog"], [data-radix-popper-content-wrapper], [data-sonner-toaster]) button:hover:not(:disabled) {
+:is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"], [data-radix-popper-content-wrapper], [data-sonner-toaster]) button:hover:not(:disabled) {
   background: var(--ace-control-hover) !important; border-color: var(--ace-accent) !important;
 }
-:is(.App, [role="dialog"], [role="alertdialog"], [data-radix-popper-content-wrapper], [data-sonner-toaster]) :is(button, [role="tab"], [role="option"]):is([aria-pressed="true"], [aria-selected="true"], [data-state="active"], [data-state="on"]) {
+:is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"], [data-radix-popper-content-wrapper], [data-sonner-toaster]) :is(button, [role="tab"], [role="option"]):is([aria-pressed="true"], [aria-selected="true"], [data-state="active"], [data-state="on"]) {
   background: var(--ace-control-active) !important; color: var(--ace-control-text) !important;
   -webkit-text-fill-color: var(--ace-control-text) !important;
   border-color: var(--ace-accent) !important; outline: 1px solid var(--ace-accent) !important;
 }
-:is(.App, [role="dialog"], [role="alertdialog"], [data-radix-popper-content-wrapper]) :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea, select, [role="combobox"])[class] {
+:is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"], [data-radix-popper-content-wrapper]) :is(input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), textarea, select, [role="combobox"])[class] {
   background: var(--ace-field) !important; color: var(--ace-black) !important;
   border: 1px solid var(--ace-control-border) !important;
 }
-:is(.App, [role="dialog"], [role="alertdialog"], [data-radix-popper-content-wrapper]) :is(input, textarea, select, [role="combobox"]):focus-visible {
+:is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"], [data-radix-popper-content-wrapper]) :is(input, textarea, select, [role="combobox"]):focus-visible {
   outline: 2px solid var(--ace-accent) !important; outline-offset: 2px;
 }
-:is(.App, [role="dialog"], [role="alertdialog"]) :is(input[type="checkbox"], input[type="radio"], input[type="range"]) {
+:is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"]) :is(input[type="checkbox"], input[type="radio"], input[type="range"]) {
   accent-color: var(--ace-accent) !important;
 }
-:is(.App, [role="dialog"], [role="alertdialog"]) [role="switch"] { background: var(--ace-control-border) !important; border: 1px solid var(--ace-control-border) !important; }
-:is(.App, [role="dialog"], [role="alertdialog"]) [role="switch"][data-state="checked"] { background: var(--ace-accent) !important; }
-:is(.App, [role="dialog"], [role="alertdialog"]) [role="slider"] { background: var(--ace-accent) !important; border-color: var(--ace-accent) !important; }
+:is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"]) [role="switch"] { background: var(--ace-control-border) !important; border: 1px solid var(--ace-control-border) !important; }
+:is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"]) [role="switch"][data-state="checked"] { background: var(--ace-accent) !important; }
+:is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"]) [role="slider"] { background: var(--ace-accent) !important; border-color: var(--ace-accent) !important; }
 [data-radix-popper-content-wrapper] :is([role="option"], [role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"]):is([data-highlighted], [aria-selected="true"], [data-state="checked"]) { background: var(--ace-control-active) !important; color: var(--ace-control-text) !important; }
-.App :is(a[class*="bg-"], .al-btn-outline) { background: var(--ace-control) !important; color: var(--ace-control-text) !important; -webkit-text-fill-color: var(--ace-control-text) !important; border: 1px solid var(--ace-control-border) !important; }
-.App :is(a[class*="bg-"], .al-btn-outline):hover { background: var(--ace-control-hover) !important; }
-.App [role="button"]:not(svg g):hover { background: var(--ace-control-hover) !important; }
+.App:where(:not(:has(.al))) :is(a[class*="bg-"], .al-btn-outline) { background: var(--ace-control) !important; color: var(--ace-control-text) !important; -webkit-text-fill-color: var(--ace-control-text) !important; border: 1px solid var(--ace-control-border) !important; }
+.App:where(:not(:has(.al))) :is(a[class*="bg-"], .al-btn-outline):hover { background: var(--ace-control-hover) !important; }
+.App:where(:not(:has(.al))) [role="button"]:not(svg g):hover { background: var(--ace-control-hover) !important; }
 /* Preserve the sidebar's darker neighbouring shades. */
-.App .ace-sidebar button[class] { background: var(--ace-sidebar-control) !important; color: var(--ace-cloud) !important; -webkit-text-fill-color: var(--ace-cloud) !important; border: 1px solid var(--ace-sidebar-border) !important; }
-.App .ace-sidebar button[class]:hover { background: var(--ace-sidebar-control-hover) !important; }
-.App .ace-sidebar nav a:not([aria-current="page"]) { background: var(--ace-sidebar) !important; border: 1px solid transparent !important; }
-.App .ace-sidebar nav a:not([aria-current="page"]):hover { background: var(--ace-sidebar-control) !important; border-color: var(--ace-sidebar-border) !important; }
+.App:where(:not(:has(.al))) .ace-sidebar button[class] { background: var(--ace-sidebar-control) !important; color: var(--ace-cloud) !important; -webkit-text-fill-color: var(--ace-cloud) !important; border: 1px solid var(--ace-sidebar-border) !important; }
+.App:where(:not(:has(.al))) .ace-sidebar button[class]:hover { background: var(--ace-sidebar-control-hover) !important; }
+.App:where(:not(:has(.al))) .ace-sidebar nav a:not([aria-current="page"]) { background: var(--ace-sidebar) !important; border: 1px solid transparent !important; }
+.App:where(:not(:has(.al))) .ace-sidebar nav a:not([aria-current="page"]):hover { background: var(--ace-sidebar-control) !important; border-color: var(--ace-sidebar-border) !important; }
 /* A consistent blue for every primary action, including legacy colour utilities. */
-:is(.App, [role="dialog"], [role="alertdialog"], [data-radix-popper-content-wrapper]) button[data-ace-primary="true"],
-.App button[data-testid="send-message-btn"], .App .ace-sidebar button[data-testid="sidebar-upgrade-btn"],
-.App .al .al-btn:not(.al-btn-outline) {
+:is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"], [data-radix-popper-content-wrapper]) button[data-ace-primary="true"],
+.App:where(:not(:has(.al))) button[data-testid="send-message-btn"], .App:where(:not(:has(.al))) .ace-sidebar button[data-testid="sidebar-upgrade-btn"],
+.App:where(:not(:has(.al))) .al .al-btn:not(.al-btn-outline) {
   background: var(--ace-accent) !important; color: var(--ace-white) !important;
   -webkit-text-fill-color: var(--ace-white) !important; border-color: var(--ace-accent) !important;
 }
-:is(.App, [role="dialog"], [role="alertdialog"]) button[data-ace-primary="true"] *,
-.App button[data-testid="send-message-btn"] *, .App .ace-sidebar button[data-testid="sidebar-upgrade-btn"] *, .App .al .al-btn:not(.al-btn-outline) * { color: var(--ace-white) !important; -webkit-text-fill-color: var(--ace-white) !important; }
-:is(.App, [role="dialog"], [role="alertdialog"]) button[data-ace-primary="true"]:hover:not(:disabled),
-.App button[data-testid="send-message-btn"]:hover:not(:disabled), .App .al .al-btn:not(.al-btn-outline):hover { background: var(--ace-accent-hover) !important; }
-:is(.App, [role="dialog"], [role="alertdialog"], [data-radix-popper-content-wrapper], [data-sonner-toaster]) button[class]:disabled,
-:is(.App, [role="dialog"], [role="alertdialog"], [data-radix-popper-content-wrapper], [data-sonner-toaster]) button[class]:disabled:hover,
-.App .ace-sidebar button:disabled, .App .al button:disabled {
+:is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"]) button[data-ace-primary="true"] *,
+.App:where(:not(:has(.al))) button[data-testid="send-message-btn"] *, .App:where(:not(:has(.al))) .ace-sidebar button[data-testid="sidebar-upgrade-btn"] *, .App:where(:not(:has(.al))) .al .al-btn:not(.al-btn-outline) * { color: var(--ace-white) !important; -webkit-text-fill-color: var(--ace-white) !important; }
+:is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"]) button[data-ace-primary="true"]:hover:not(:disabled),
+.App:where(:not(:has(.al))) button[data-testid="send-message-btn"]:hover:not(:disabled), .App:where(:not(:has(.al))) .al .al-btn:not(.al-btn-outline):hover { background: var(--ace-accent-hover) !important; }
+:is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"], [data-radix-popper-content-wrapper], [data-sonner-toaster]) button[class]:disabled,
+:is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"], [data-radix-popper-content-wrapper], [data-sonner-toaster]) button[class]:disabled:hover,
+.App:where(:not(:has(.al))) .ace-sidebar button:disabled, .App:where(:not(:has(.al))) .al button:disabled {
   background: #e3e8f0 !important; color: #596477 !important; -webkit-text-fill-color: #596477 !important;
   border: 1px solid #8997ad !important; outline: none !important; cursor: not-allowed;
 }
-:is(.App, [role="dialog"], [role="alertdialog"]) button:disabled * { color: inherit !important; -webkit-text-fill-color: inherit !important; }
-.App input[type="range"] { background: #d6e1f4 !important; }
-.App .ace-prompt textarea { background: var(--ace-field) !important; border-color: var(--ace-control-border) !important; }
-:is(.App, [role="dialog"], [role="alertdialog"], [data-radix-popper-content-wrapper]) button:is([aria-pressed="true"], [aria-selected="true"]):hover:not(:disabled) { background: #c4d5f2 !important; border-color: var(--ace-accent) !important; }
-:is(.App, [role="dialog"], [role="alertdialog"]) button[class]:active:not(:disabled) { background: var(--ace-control-active) !important; }
-:is(.App, [role="dialog"], [role="alertdialog"]) button[data-ace-primary="true"]:active:not(:disabled), .App button[data-testid="send-message-btn"]:active:not(:disabled) { background: #1d3c99 !important; }
-.App .ace-sidebar button[class]:active:not(:disabled) { background: #304869 !important; }
-@media (prefers-reduced-motion: reduce) { .App button, [role="dialog"] button, [role="alertdialog"] button { transition: none !important; } }
-:is(.App, [role="dialog"], [role="alertdialog"]) [role="checkbox"][data-state="checked"] { background: var(--ace-accent) !important; color: var(--ace-white) !important; border-color: var(--ace-accent) !important; }
-:is(.App, [role="dialog"], [role="alertdialog"]) [role="checkbox"][data-state="checked"] * { color: var(--ace-white) !important; -webkit-text-fill-color: var(--ace-white) !important; }
-:is(.App, [role="dialog"], [role="alertdialog"]) [role="switch"][data-state="checked"] > span { background: var(--ace-white) !important; }
+:is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"]) button:disabled * { color: inherit !important; -webkit-text-fill-color: inherit !important; }
+.App:where(:not(:has(.al))) input[type="range"] { background: #d6e1f4 !important; }
+.App:where(:not(:has(.al))) .ace-prompt textarea { background: var(--ace-field) !important; border-color: var(--ace-control-border) !important; }
+:is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"], [data-radix-popper-content-wrapper]) button:is([aria-pressed="true"], [aria-selected="true"]):hover:not(:disabled) { background: #c4d5f2 !important; border-color: var(--ace-accent) !important; }
+:is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"]) button[class]:active:not(:disabled) { background: var(--ace-control-active) !important; }
+:is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"]) button[data-ace-primary="true"]:active:not(:disabled), .App:where(:not(:has(.al))) button[data-testid="send-message-btn"]:active:not(:disabled) { background: #1d3c99 !important; }
+.App:where(:not(:has(.al))) .ace-sidebar button[class]:active:not(:disabled) { background: #304869 !important; }
+@media (prefers-reduced-motion: reduce) { .App:where(:not(:has(.al))) button, [role="dialog"] button, [role="alertdialog"] button { transition: none !important; } }
+:is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"]) [role="checkbox"][data-state="checked"] { background: var(--ace-accent) !important; color: var(--ace-white) !important; border-color: var(--ace-accent) !important; }
+:is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"]) [role="checkbox"][data-state="checked"] * { color: var(--ace-white) !important; -webkit-text-fill-color: var(--ace-white) !important; }
+:is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"]) [role="switch"][data-state="checked"] > span { background: var(--ace-white) !important; }
 
 /* Restrained text hierarchy: navy titles, slate reading text, muted labels,
    with related jewel tones for existing semantic accents. */
-:is(.App, [role="dialog"], [role="alertdialog"]) { color: var(--ace-body); }
-:is(.App, [role="dialog"], [role="alertdialog"]) :is(p, li, td, .markdown-content):not(:where(button, button *, [role="button"], [role="button"] *, .ace-sidebar, .ace-sidebar *)) { color: var(--ace-body) !important; }
-:is(.App, [role="dialog"], [role="alertdialog"]) :is(h1, h2, h3, h4, h5, h6, .gradient-text, .gradient-text-cyan, [class*="bg-clip-text"]):not(:where(button, button *, [role="button"], [role="button"] *, .ace-sidebar, .ace-sidebar *)) {
+:is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"]) { color: var(--ace-body); }
+:is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"]) :is(p, li, td, .markdown-content):not(:where(button, button *, [role="button"], [role="button"] *, .ace-sidebar, .ace-sidebar *)) { color: var(--ace-body) !important; }
+:is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"]) :is(h1, h2, h3, h4, h5, h6, .gradient-text, .gradient-text-cyan, [class*="bg-clip-text"]):not(:where(button, button *, [role="button"], [role="button"] *, .ace-sidebar, .ace-sidebar *)) {
   color: var(--ace-heading) !important; -webkit-text-fill-color: var(--ace-heading) !important;
 }
-:is(.App, [role="dialog"], [role="alertdialog"]) :is(label, caption, th, [class*="text-zinc-4"], [class*="text-zinc-5"], [class*="text-zinc-6"], [class*="text-muted"]):not(:where(button, button *, [role="button"], [role="button"] *, .ace-sidebar, .ace-sidebar *)) {
+:is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"]) :is(label, caption, th, [class*="text-zinc-4"], [class*="text-zinc-5"], [class*="text-zinc-6"], [class*="text-muted"]):not(:where(button, button *, [role="button"], [role="button"] *, .ace-sidebar, .ace-sidebar *)) {
   color: var(--ace-label) !important; -webkit-text-fill-color: var(--ace-label) !important;
 }
-:is(.App, [role="dialog"], [role="alertdialog"]) :is([class*="text-cyan-"], [class*="text-teal-"], [class*="text-emerald-"], [class*="text-green-"]):not(:where(button, button *, [role="button"], [role="button"] *, .ace-sidebar, .ace-sidebar *)) {
+:is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"]) :is([class*="text-cyan-"], [class*="text-teal-"], [class*="text-emerald-"], [class*="text-green-"]):not(:where(button, button *, [role="button"], [role="button"] *, .ace-sidebar, .ace-sidebar *)) {
   color: var(--ace-teal) !important; -webkit-text-fill-color: var(--ace-teal) !important;
 }
-:is(.App, [role="dialog"], [role="alertdialog"]) :is([class*="text-violet-"], [class*="text-purple-"], [class*="text-fuchsia-"]):not(:where(button, button *, [role="button"], [role="button"] *, .ace-sidebar, .ace-sidebar *)) {
+:is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"]) :is([class*="text-violet-"], [class*="text-purple-"], [class*="text-fuchsia-"]):not(:where(button, button *, [role="button"], [role="button"] *, .ace-sidebar, .ace-sidebar *)) {
   color: var(--ace-violet) !important; -webkit-text-fill-color: var(--ace-violet) !important;
 }
-:is(.App, [role="dialog"], [role="alertdialog"]) :is([class*="text-amber-"], [class*="text-yellow-"], [class*="text-orange-"]):not(:where(button, button *, [role="button"], [role="button"] *, .ace-sidebar, .ace-sidebar *)) {
+:is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"]) :is([class*="text-amber-"], [class*="text-yellow-"], [class*="text-orange-"]):not(:where(button, button *, [role="button"], [role="button"] *, .ace-sidebar, .ace-sidebar *)) {
   color: var(--ace-amber) !important; -webkit-text-fill-color: var(--ace-amber) !important;
 }
-:is(.App, [role="dialog"], [role="alertdialog"]) :is([class*="text-red-"], [class*="text-rose-"]):not(:where(button, button *, [role="button"], [role="button"] *, .ace-sidebar, .ace-sidebar *)) {
+:is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"]) :is([class*="text-red-"], [class*="text-rose-"]):not(:where(button, button *, [role="button"], [role="button"] *, .ace-sidebar, .ace-sidebar *)) {
   color: var(--ace-danger) !important; -webkit-text-fill-color: var(--ace-danger) !important;
 }
-:is(.App, [role="dialog"], [role="alertdialog"]) :is([class*="text-blue-"], [class*="text-indigo-"]):not(:where(button, button *, [role="button"], [role="button"] *, .ace-sidebar, .ace-sidebar *)) {
+:is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"]) :is([class*="text-blue-"], [class*="text-indigo-"]):not(:where(button, button *, [role="button"], [role="button"] *, .ace-sidebar, .ace-sidebar *)) {
   color: var(--ace-accent-hover) !important; -webkit-text-fill-color: var(--ace-accent-hover) !important;
 }
-:is(.App, [role="dialog"], [role="alertdialog"]) a:not([class*="bg-"]):not(.ace-sidebar a) { color: var(--ace-accent-hover) !important; }
-:is(.App, [role="dialog"], [role="alertdialog"]) a:not([class*="bg-"]):not(.ace-sidebar a):hover { color: #1d3c99 !important; }
-:is(.App, [role="dialog"], [role="alertdialog"]) :is(input, textarea)::placeholder { color: var(--ace-label) !important; opacity: 1; }
-:is(.App, [role="dialog"], [role="alertdialog"]) .markdown-content :is(strong, b) { color: var(--ace-heading) !important; }
-:is(.App, [role="dialog"], [role="alertdialog"]) .markdown-content blockquote { color: var(--ace-teal) !important; border-left-color: var(--ace-teal) !important; }
-.App .ace-sidebar :is(h1, h2, h3, h4, h5, h6) { color: #ffffff !important; }
+:is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"]) a:not([class*="bg-"]):not(.ace-sidebar a) { color: var(--ace-accent-hover) !important; }
+:is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"]) a:not([class*="bg-"]):not(.ace-sidebar a):hover { color: #1d3c99 !important; }
+:is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"]) :is(input, textarea)::placeholder { color: var(--ace-label) !important; opacity: 1; }
+:is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"]) .markdown-content :is(strong, b) { color: var(--ace-heading) !important; }
+:is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"]) .markdown-content blockquote { color: var(--ace-teal) !important; border-left-color: var(--ace-teal) !important; }
+.App:where(:not(:has(.al))) .ace-sidebar :is(h1, h2, h3, h4, h5, h6) { color: #ffffff !important; }
 
 /* Many page titles/stat values are spans or paragraphs rather than h-tags.
    Match their existing typography roles and keep text paint tied to color. */
-:is(.App, [role="dialog"], [role="alertdialog"]) :is(p, span, div, li, td, label, h1, h2, h3, h4, h5, h6, strong, a):not(:where(button, button *, [role="button"], [role="button"] *, .ace-sidebar, .ace-sidebar *)) {
+:is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"]) :is(p, span, div, li, td, label, h1, h2, h3, h4, h5, h6, strong, a):not(:where(button, button *, [role="button"], [role="button"] *, .ace-sidebar, .ace-sidebar *)) {
   -webkit-text-fill-color: currentColor !important;
 }
-:is(.App, [role="dialog"], [role="alertdialog"]) :is(.font-heading, h1, h2, h3, h4, h5, h6, .gradient-text, .gradient-text-cyan):not(:where(button, button *, [role="button"], [role="button"] *, .ace-sidebar, .ace-sidebar *)) {
+:is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"]) :is(.font-heading, h1, h2, h3, h4, h5, h6, .gradient-text, .gradient-text-cyan):not(:where(button, button *, [role="button"], [role="button"] *, .ace-sidebar, .ace-sidebar *)) {
   color: var(--ace-heading) !important;
 }
-:is(.App, [role="dialog"], [role="alertdialog"]) :is(.text-zinc-300, .text-zinc-400, .text-zinc-500, .text-zinc-600, .text-slate-400, .text-slate-500, .text-gray-400, .text-gray-500, .text-muted-foreground):not(:where(button, button *, [role="button"], [role="button"] *, .ace-sidebar, .ace-sidebar *)) {
+:is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"]) :is(.text-zinc-300, .text-zinc-400, .text-zinc-500, .text-zinc-600, .text-slate-400, .text-slate-500, .text-gray-400, .text-gray-500, .text-muted-foreground):not(:where(button, button *, [role="button"], [role="button"] *, .ace-sidebar, .ace-sidebar *)) {
   color: var(--ace-label) !important;
 }
-:is(.App, [role="dialog"], [role="alertdialog"]) :is(.font-heading, .font-bold, .font-semibold)[class*="text-cyan-"]:not(:where(button, button *, [role="button"], [role="button"] *, .ace-sidebar, .ace-sidebar *)),
-:is(.App, [role="dialog"], [role="alertdialog"]) :is([class*="text-teal-"], [class*="text-emerald-"], [class*="text-green-"]):not(:where(button, button *, [role="button"], [role="button"] *, .ace-sidebar, .ace-sidebar *)) { color: var(--ace-teal) !important; }
-:is(.App, [role="dialog"], [role="alertdialog"]) :is([class*="text-purple-"], [class*="text-violet-"], [class*="text-fuchsia-"]):not(:where(button, button *, [role="button"], [role="button"] *, .ace-sidebar, .ace-sidebar *)) { color: var(--ace-violet) !important; }
-:is(.App, [role="dialog"], [role="alertdialog"]) :is([class*="text-amber-"], [class*="text-yellow-"], [class*="text-orange-"]):not(:where(button, button *, [role="button"], [role="button"] *, .ace-sidebar, .ace-sidebar *)) { color: var(--ace-amber) !important; }
-:is(.App, [role="dialog"], [role="alertdialog"]) :is([class*="text-red-"], [class*="text-rose-"]):not(:where(button, button *, [role="button"], [role="button"] *, .ace-sidebar, .ace-sidebar *)) { color: var(--ace-danger) !important; }
+:is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"]) :is(.font-heading, .font-bold, .font-semibold)[class*="text-cyan-"]:not(:where(button, button *, [role="button"], [role="button"] *, .ace-sidebar, .ace-sidebar *)),
+:is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"]) :is([class*="text-teal-"], [class*="text-emerald-"], [class*="text-green-"]):not(:where(button, button *, [role="button"], [role="button"] *, .ace-sidebar, .ace-sidebar *)) { color: var(--ace-teal) !important; }
+:is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"]) :is([class*="text-purple-"], [class*="text-violet-"], [class*="text-fuchsia-"]):not(:where(button, button *, [role="button"], [role="button"] *, .ace-sidebar, .ace-sidebar *)) { color: var(--ace-violet) !important; }
+:is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"]) :is([class*="text-amber-"], [class*="text-yellow-"], [class*="text-orange-"]):not(:where(button, button *, [role="button"], [role="button"] *, .ace-sidebar, .ace-sidebar *)) { color: var(--ace-amber) !important; }
+:is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"]) :is([class*="text-red-"], [class*="text-rose-"]):not(:where(button, button *, [role="button"], [role="button"] *, .ace-sidebar, .ace-sidebar *)) { color: var(--ace-danger) !important; }
 
 /* Related, muted accent family restores the dashboard's visual landmarks. */
 :root {
   --ace-xp: #827092;
   --ace-xp-track: #eae5ee;
   --ace-progress: #438e88;
-  --ace-sidebar-muted: #91a5c1;
+  --ace-sidebar-muted: #b5c4d9;
 }
-.App .ace-xp-track { background: var(--ace-xp-track) !important; }
-.App .ace-xp-track > .ace-xp-fill { background: var(--ace-xp) !important; }
-.App .ace-sidebar .ace-xp-track { background: #344153 !important; }
-.App .ace-sidebar .ace-xp-track > .ace-xp-fill { background: #b4a3c7 !important; }
-.App [data-ace-accent] .ace-stat-value,
-.App [data-ace-accent] svg[style*="color"] {
+.App:where(:not(:has(.al))) .ace-xp-track { background: var(--ace-xp-track) !important; }
+.App:where(:not(:has(.al))) .ace-xp-track > .ace-xp-fill { background: var(--ace-xp) !important; }
+.App:where(:not(:has(.al))) .ace-sidebar .ace-xp-track { background: #344153 !important; }
+.App:where(:not(:has(.al))) .ace-sidebar .ace-xp-track > .ace-xp-fill { background: #b4a3c7 !important; }
+.App:where(:not(:has(.al))) [data-ace-accent] .ace-stat-value,
+.App:where(:not(:has(.al))) [data-ace-accent] svg[style*="color"] {
   color: var(--ace-card-accent) !important; -webkit-text-fill-color: currentColor !important;
 }
-.App [data-ace-accent] :is(.p-2, .w-10, .w-8)[style*="background"] {
+.App:where(:not(:has(.al))) [data-ace-accent] :is(.p-2, .w-10, .w-8)[style*="background"] {
   background: color-mix(in srgb, var(--ace-card-accent) 12%, white) !important;
 }
-.App :is([class*="bg-amber-"][class*="/"], [class*="bg-yellow-"][class*="/"]):not(:where(button, button *, .ace-sidebar *)) { background-color: #eee9f2 !important; }
-.App :is([class*="bg-violet-"][class*="/"], [class*="bg-purple-"][class*="/"]):not(:where(button, button *, .ace-sidebar *)) { background-color: #eee9f5 !important; }
-.App :is([class*="bg-cyan-"][class*="/"], [class*="bg-teal-"][class*="/"], [class*="bg-emerald-"][class*="/"]):not(:where(button, button *, .ace-sidebar *)) { background-color: #e4efed !important; }
-.App .ace-sidebar :is(p.text-white, strong.text-white) { color: #eef3fc !important; -webkit-text-fill-color: #eef3fc !important; }
-.App .ace-sidebar :is(.text-zinc-500, .text-zinc-600) { color: var(--ace-sidebar-muted) !important; -webkit-text-fill-color: var(--ace-sidebar-muted) !important; }
-.App .ace-sidebar nav a:not([aria-current="page"]) span { color: #c2cee0 !important; -webkit-text-fill-color: #c2cee0 !important; }
-.App .ace-sidebar nav a[aria-current="page"] :is(span, svg) { color: #9fc6ee !important; -webkit-text-fill-color: #9fc6ee !important; }
-.App .ace-sidebar :is([class*="text-amber-"], [class*="text-yellow-"]) { color: #c6b6d7 !important; -webkit-text-fill-color: #c6b6d7 !important; }
-.App .ace-sidebar [class*="text-orange-"] { color: #a5cfca !important; -webkit-text-fill-color: #a5cfca !important; }
-.App .ace-sidebar :is([class*="text-violet-"], [class*="text-purple-"]) { color: #baa9d6 !important; -webkit-text-fill-color: #baa9d6 !important; }
-.App .ace-sidebar [class*="bg-amber-"] { background: #343447 !important; }
-.App .ace-sidebar #sidebar-upgrade-btn,
-.App .ace-sidebar [data-testid="sidebar-upgrade-btn"] *,
-.App .ace-sidebar button[data-ace-primary="true"] * { color: white !important; -webkit-text-fill-color: white !important; }
+.App:where(:not(:has(.al))) :is([class*="bg-amber-"][class*="/"], [class*="bg-yellow-"][class*="/"]):not(:where(button, button *, .ace-sidebar *)) { background-color: #eee9f2 !important; }
+.App:where(:not(:has(.al))) :is([class*="bg-violet-"][class*="/"], [class*="bg-purple-"][class*="/"]):not(:where(button, button *, .ace-sidebar *)) { background-color: #eee9f5 !important; }
+.App:where(:not(:has(.al))) :is([class*="bg-cyan-"][class*="/"], [class*="bg-teal-"][class*="/"], [class*="bg-emerald-"][class*="/"]):not(:where(button, button *, .ace-sidebar *)) { background-color: #e4efed !important; }
+.App:where(:not(:has(.al))) .ace-sidebar :is(p.text-white, strong.text-white) { color: #eef3fc !important; -webkit-text-fill-color: #eef3fc !important; }
+.App:where(:not(:has(.al))) .ace-sidebar :is(.text-zinc-500, .text-zinc-600) { color: var(--ace-sidebar-muted) !important; -webkit-text-fill-color: var(--ace-sidebar-muted) !important; }
+.App:where(:not(:has(.al))) .ace-sidebar nav a:not([aria-current="page"]) span { color: #d0d9e8 !important; -webkit-text-fill-color: #d0d9e8 !important; }
+.App:where(:not(:has(.al))) .ace-sidebar nav a[aria-current="page"] :is(span, svg) { color: #9fc6ee !important; -webkit-text-fill-color: #9fc6ee !important; }
+.App:where(:not(:has(.al))) .ace-sidebar :is([class*="text-amber-"], [class*="text-yellow-"]) { color: #c6b6d7 !important; -webkit-text-fill-color: #c6b6d7 !important; }
+.App:where(:not(:has(.al))) .ace-sidebar [class*="text-orange-"] { color: #a5cfca !important; -webkit-text-fill-color: #a5cfca !important; }
+.App:where(:not(:has(.al))) .ace-sidebar :is([class*="text-violet-"], [class*="text-purple-"]) { color: #baa9d6 !important; -webkit-text-fill-color: #baa9d6 !important; }
+.App:where(:not(:has(.al))) .ace-sidebar [class*="bg-amber-"] { background: #343447 !important; }
+.App:where(:not(:has(.al))) .ace-sidebar #sidebar-upgrade-btn,
+.App:where(:not(:has(.al))) .ace-sidebar [data-testid="sidebar-upgrade-btn"] *,
+.App:where(:not(:has(.al))) .ace-sidebar button[data-ace-primary="true"] * { color: white !important; -webkit-text-fill-color: white !important; }
 
 /* One neutral UI typeface across pages, controls, charts and portal content. */
-:is(.App, [role="dialog"], [role="alertdialog"], [data-radix-popper-content-wrapper], [data-sonner-toaster]),
-:is(.App, [role="dialog"], [role="alertdialog"], [data-radix-popper-content-wrapper], [data-sonner-toaster]) *:not(:where(code, pre, code *, pre *, .font-mono, .font-mono *)) {
+:is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"], [data-radix-popper-content-wrapper], [data-sonner-toaster]),
+:is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"], [data-radix-popper-content-wrapper], [data-sonner-toaster]) *:not(:where(code, pre, code *, pre *, .font-mono, .font-mono *)) {
   font-family: var(--ace-font-sans) !important;
 }
-:is(.App, [role="dialog"], [role="alertdialog"]) :is(h1, h2, h3, h4, h5, h6, .font-heading) { letter-spacing: -0.015em; }
-:is(.App, [role="dialog"], [role="alertdialog"]) :is(.font-black, .font-extrabold, .heading-xl) { font-weight: 700 !important; }
-.App .ace-sidebar .ace-avatar { color: #292b33 !important; -webkit-text-fill-color: #292b33 !important; }
+:is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"]) :is(h1, h2, h3, h4, h5, h6, .font-heading) { letter-spacing: -0.015em; }
+:is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"]) :is(.font-black, .font-extrabold, .heading-xl) { font-weight: 700 !important; }
+.App:where(:not(:has(.al))) .ace-sidebar .ace-avatar { color: #292b33 !important; -webkit-text-fill-color: #292b33 !important; }
 
 /* Distinct, restrained text accents on the existing neutral surfaces. */
-:is(.App, [role="dialog"], [role="alertdialog"]) h2:not(.ace-sidebar h2) { color: var(--ace-teal) !important; }
-:is(.App, [role="dialog"], [role="alertdialog"]) h3:not(.ace-sidebar h3) { color: #42475b !important; }
-.App img[src*="aceit-logo"] {
+:is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"]) h2:not(.ace-sidebar h2) { color: var(--ace-teal) !important; }
+:is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"]) h3:not(.ace-sidebar h3) { color: #343846 !important; }
+.App:where(:not(:has(.al))) img[src*="aceit-logo"] {
   filter: brightness(0) saturate(100%) invert(31%) sepia(32%) saturate(1013%) hue-rotate(229deg) brightness(92%) contrast(92%);
 }
-.App .ace-sidebar img[src*="aceit-logo"] {
+.App:where(:not(:has(.al))) .ace-sidebar img[src*="aceit-logo"] {
   filter: brightness(0) saturate(100%) invert(81%) sepia(19%) saturate(463%) hue-rotate(217deg) brightness(100%) contrast(92%);
 }
-.App .ace-sidebar [class*="text-violet-"], .App .ace-sidebar [class*="text-purple-"] { color: #c9b8ec !important; -webkit-text-fill-color: #c9b8ec !important; }
-.App .ace-sidebar nav a[aria-current="page"] :is(span, svg) { color: #9ed7d2 !important; -webkit-text-fill-color: #9ed7d2 !important; }
+.App:where(:not(:has(.al))) .ace-sidebar [class*="text-violet-"], .App:where(:not(:has(.al))) .ace-sidebar [class*="text-purple-"] { color: #c9b8ec !important; -webkit-text-fill-color: #c9b8ec !important; }
+.App:where(:not(:has(.al))) .ace-sidebar nav a[aria-current="page"] :is(span, svg) { color: #9ed7d2 !important; -webkit-text-fill-color: #9ed7d2 !important; }
 
 /* Short UI motion; avoid continuously moving reading content.
    Individual translate/scale properties preserve existing Framer transforms. */
@@ -476,26 +476,26 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
   from { opacity: 0.65; scale: 0.98; }
   to { opacity: 1; scale: 1; }
 }
-:is(.App, [role="dialog"], [role="alertdialog"], [data-radix-popper-content-wrapper], [data-sonner-toaster])
+:is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"], [data-radix-popper-content-wrapper], [data-sonner-toaster])
 :is(button, [role="button"], a, input, textarea, select, [role="checkbox"], [role="switch"], [role="slider"]) {
   transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease, outline-color 160ms ease, translate 160ms ease, scale 120ms ease !important;
 }
-.App :is(.glass-surface, .ace-feature, .message-user, .message-ai) { animation: ace-surface-in 240ms ease-out both; }
+.App:where(:not(:has(.al))) :is(.glass-surface, .ace-feature, .message-user, .message-ai) { animation: ace-surface-in 240ms ease-out both; }
 :is([role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"], [data-sonner-toast]) { animation: ace-menu-in 180ms ease-out both; }
-.App .ace-sidebar nav a { transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease, translate 160ms ease !important; }
-.App .ace-sidebar nav a:hover { translate: 2px 0; }
-:is(.App, [role="dialog"], [role="alertdialog"]) :is(button, [role="button"]):not(:disabled):active { scale: 0.98; }
-.App img[src*="aceit-logo"] { transition: filter 180ms ease, scale 180ms ease; }
-.App img[src*="aceit-logo"]:hover { scale: 1.025; }
-.App :is(.ace-xp-fill, [role="progressbar"], .progress-animated) { transition: width 500ms ease, background-color 180ms ease !important; }
+.App:where(:not(:has(.al))) .ace-sidebar nav a { transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease, translate 160ms ease !important; }
+.App:where(:not(:has(.al))) .ace-sidebar nav a:hover { translate: 2px 0; }
+:is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"]) :is(button, [role="button"]):not(:disabled):active { scale: 0.98; }
+.App:where(:not(:has(.al))) img[src*="aceit-logo"] { transition: filter 180ms ease, scale 180ms ease; }
+.App:where(:not(:has(.al))) img[src*="aceit-logo"]:hover { scale: 1.025; }
+.App:where(:not(:has(.al))) :is(.ace-xp-fill, [role="progressbar"], .progress-animated) { transition: width 500ms ease, background-color 180ms ease !important; }
 @media (hover: hover) and (pointer: fine) {
-  :is(.App, [role="dialog"], [role="alertdialog"]) :is(button, [role="button"]):not(:disabled):hover { translate: 0 -1px; }
-  .App .card-3d { transition: translate 180ms ease, border-color 180ms ease !important; }
-  .App .card-3d:hover { translate: 0 -2px; }
+  :is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"]) :is(button, [role="button"]):not(:disabled):hover { translate: 0 -1px; }
+  .App:where(:not(:has(.al))) .card-3d { transition: translate 180ms ease, border-color 180ms ease !important; }
+  .App:where(:not(:has(.al))) .card-3d:hover { translate: 0 -2px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  :is(.App, [role="dialog"], [role="alertdialog"], [data-radix-popper-content-wrapper], [data-sonner-toaster]),
-  :is(.App, [role="dialog"], [role="alertdialog"], [data-radix-popper-content-wrapper], [data-sonner-toaster]) * {
+  :is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"], [data-radix-popper-content-wrapper], [data-sonner-toaster]),
+  :is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"], [data-radix-popper-content-wrapper], [data-sonner-toaster]) * {
     animation: none !important; transition: none !important; translate: none !important; scale: none !important; scroll-behavior: auto !important;
   }
 }
@@ -516,41 +516,44 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
   from { opacity: 0.5; scale: 0.8; rotate: -8deg; }
   to { opacity: 1; scale: 1; rotate: 0deg; }
 }
-.App .ace-route :is(.glass-surface, .ace-feature, .card-3d) {
+.App:where(:not(:has(.al))) .ace-route :is(.glass-surface, .ace-feature, .card-3d) {
   animation: ace-card-reveal 460ms cubic-bezier(.16,1,.3,1) backwards;
 }
-.App .ace-route :is(.glass-surface, .ace-feature, .card-3d):nth-child(2) { animation-delay: 45ms; }
-.App .ace-route :is(.glass-surface, .ace-feature, .card-3d):nth-child(3) { animation-delay: 85ms; }
-.App .ace-route :is(.glass-surface, .ace-feature, .card-3d):nth-child(4) { animation-delay: 125ms; }
-.App .ace-route :is(.glass-surface, .ace-feature, .card-3d):nth-child(n+5) { animation-delay: 160ms; }
+.App:where(:not(:has(.al))) .ace-route :is(.glass-surface, .ace-feature, .card-3d):nth-child(2) { animation-delay: 45ms; }
+.App:where(:not(:has(.al))) .ace-route :is(.glass-surface, .ace-feature, .card-3d):nth-child(3) { animation-delay: 85ms; }
+.App:where(:not(:has(.al))) .ace-route :is(.glass-surface, .ace-feature, .card-3d):nth-child(4) { animation-delay: 125ms; }
+.App:where(:not(:has(.al))) .ace-route :is(.glass-surface, .ace-feature, .card-3d):nth-child(n+5) { animation-delay: 160ms; }
 :is([role="dialog"], [role="alertdialog"]) { animation: ace-dialog-reveal 320ms cubic-bezier(.16,1,.3,1) both; }
 :is([role="menu"], [role="listbox"]) { transform-origin: top center; animation: ace-menu-in 220ms cubic-bezier(.16,1,.3,1) both; }
 :is([role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"])[data-state="closed"] { animation: ace-dismiss 140ms ease-in both; }
-.App .ace-sidebar .ace-nav-indicator {
+.App:where(:not(:has(.al))) .ace-sidebar .ace-nav-indicator {
   position: absolute; left: 3px; top: 25%; height: 50%; width: 3px;
   border-radius: 3px; background: #9ed7d2 !important; pointer-events: none;
 }
-.App .ace-sidebar nav a[aria-current="page"] { border-left-width: 1px !important; }
-:is(.App, [role="dialog"], [role="alertdialog"]) :is(button, [role="button"]):not(:disabled):active { scale: 0.955; translate: 0 1px; }
-:is(.App, [role="dialog"], [role="alertdialog"]) :is(button, a) svg {
+.App:where(:not(:has(.al))) .ace-sidebar nav a[aria-current="page"] { border-left-width: 1px !important; }
+:is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"]) :is(button, [role="button"]):not(:disabled):active { scale: 0.955; translate: 0 1px; }
+:is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"]) :is(button, a) svg {
   transition: scale 240ms cubic-bezier(.34,1.56,.64,1), rotate 240ms cubic-bezier(.34,1.56,.64,1), color 160ms ease;
 }
-.App .ace-prompt:focus-within { border-top-color: var(--ace-teal) !important; }
-.App :is(.ace-prompt textarea, input, select) {
+.App:where(:not(:has(.al))) .ace-prompt:focus-within { border-top-color: var(--ace-teal) !important; }
+.App:where(:not(:has(.al))) :is(.ace-prompt textarea, input, select) {
   transition: border-color 180ms ease, background-color 180ms ease, outline-offset 180ms ease !important;
 }
-.App [data-ace-accent] svg { animation: ace-icon-arrive 420ms cubic-bezier(.16,1,.3,1) backwards; }
+.App:where(:not(:has(.al))) [data-ace-accent] svg { animation: ace-icon-arrive 420ms cubic-bezier(.16,1,.3,1) backwards; }
 @media (hover: hover) and (pointer: fine) {
-  :is(.App, [role="dialog"], [role="alertdialog"]) :is(button, [role="button"]):not(:disabled):hover { translate: 0 -2px; }
-  :is(.App, [role="dialog"], [role="alertdialog"]) :is(button, a):hover > svg { scale: 1.1; rotate: -3deg; }
-  .App .card-3d { transition: translate 260ms cubic-bezier(.16,1,.3,1), scale 260ms cubic-bezier(.16,1,.3,1), border-color 180ms ease !important; }
-  .App .card-3d:hover { translate: 0 -4px; scale: 1.008; border-color: var(--ace-teal) !important; }
-  .App .ace-sidebar nav a:hover { translate: 4px 0; }
-  .App img[src*="aceit-logo"]:hover { scale: 1.045; }
+  :is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"]) :is(button, [role="button"]):not(:disabled):hover { translate: 0 -2px; }
+  :is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"]) :is(button, a):hover > svg { scale: 1.1; rotate: -3deg; }
+  .App:where(:not(:has(.al))) .card-3d { transition: translate 260ms cubic-bezier(.16,1,.3,1), scale 260ms cubic-bezier(.16,1,.3,1), border-color 180ms ease !important; }
+  .App:where(:not(:has(.al))) .card-3d:hover { translate: 0 -4px; scale: 1.008; border-color: var(--ace-teal) !important; }
+  .App:where(:not(:has(.al))) .ace-sidebar nav a:hover { translate: 4px 0; }
+  .App:where(:not(:has(.al))) img[src*="aceit-logo"]:hover { scale: 1.045; }
 }
 @media (prefers-reduced-motion: reduce) {
-  :is(.App, [role="dialog"], [role="alertdialog"], [data-radix-popper-content-wrapper], [data-sonner-toaster]) *,
+  :is(.App:where(:not(:has(.al))), [role="dialog"], [role="alertdialog"], [data-radix-popper-content-wrapper], [data-sonner-toaster]) *,
   :is([role="dialog"], [role="alertdialog"], [role="menu"], [role="listbox"]) {
     animation: none !important; transition: none !important; translate: none !important; scale: none !important; rotate: none !important;
   }
 }
+
+/* LandingPage retains its original embedded theme; app paint stays scoped. */
+.App:has(.al) { background: #090c18; color: #f6f5ff; }
