@@ -169,19 +169,18 @@ export default function OnboardingModal({ onComplete }) {
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md" data-testid="onboarding-modal">
+    <div className="ace-onboarding-overlay fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md" data-testid="onboarding-modal">
       <motion.div
         initial={{ opacity: 0, y: 20, scale: 0.96 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
-        className="w-full max-w-lg rounded-3xl glass border-2 p-6 relative overflow-hidden"
-        style={{ borderColor: current.color + '60' }}>
+        role="dialog" aria-modal="true" aria-labelledby="ace-onboarding-title"
+        className="ace-onboarding-panel w-full max-w-lg rounded-3xl glass border-2 p-6 relative overflow-hidden">
         <div className="absolute -top-20 -right-20 w-48 h-48 rounded-full blur-3xl opacity-30 pointer-events-none" style={{ background: current.color }} />
 
         {/* Step dots */}
         <div className="flex gap-1.5 mb-5">
           {STEPS.map((_, i) => (
-            <div key={i} className="flex-1 h-1 rounded-full transition-all"
-              style={{ background: i <= step ? current.color : 'rgba(255,255,255,0.15)' }} />
+            <div key={i} className={`ace-onboarding-progress flex-1 h-1 rounded-full transition-all ${i <= step ? 'is-complete' : ''}`} />
           ))}
         </div>
 
@@ -189,13 +188,12 @@ export default function OnboardingModal({ onComplete }) {
           <motion.div key={step}
             initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
             <div className="flex items-center gap-3 mb-3">
-              <div className="w-11 h-11 rounded-2xl flex items-center justify-center"
-                style={{ background: current.color + '22', border: `2px solid ${current.color}55` }}>
-                <current.icon size={22} style={{ color: current.color }} />
+              <div className="ace-onboarding-icon w-11 h-11 rounded-2xl flex items-center justify-center">
+                <current.icon size={22} />
               </div>
               <span className="text-zinc-500 text-xs font-body uppercase tracking-widest">Step {step + 1} of {STEPS.length}</span>
             </div>
-            <h2 className="text-white text-2xl sm:text-3xl font-heading font-black mb-1">{current.title}</h2>
+            <h2 id="ace-onboarding-title" className="text-white text-2xl sm:text-3xl font-heading font-black mb-1">{current.title}</h2>
             <p className="text-zinc-400 text-sm font-body mb-5">{current.subtitle}</p>
 
             <div className="mb-6">{current.content}</div>
@@ -212,9 +210,8 @@ export default function OnboardingModal({ onComplete }) {
           <button
             onClick={() => step < STEPS.length - 1 ? setStep(s => s + 1) : submit()}
             disabled={!current.canProceed() || submitting}
-            data-testid="onb-next-btn"
-            className="ml-auto px-5 py-2.5 rounded-xl font-heading font-bold text-sm flex items-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-            style={{ background: current.color, color: 'white' }}>
+            data-testid="onb-next-btn" data-ace-primary="true"
+            className="ml-auto px-5 py-2.5 rounded-xl font-heading font-bold text-sm flex items-center gap-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
             {submitting ? <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> :
               step < STEPS.length - 1 ? <>Continue <ArrowRight size={14} /></> : <>Get Started <Sparkles size={14} /></>}
           </button>
