@@ -812,3 +812,8 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
  .App .ace-tutor .ace-visual-message { gap: 8px; }
  .App .ace-tutor .ace-visual-message .message-ai { padding: 10px !important; }
 }
+
+.App .ace-cheat-summary { display: grid; gap: 12px; margin-block: 16px; }
+.App .ace-cheat-summary p { display: grid; gap: 4px; font-size: 13px; line-height: 1.65; }
+.App .ace-cheat-summary strong { color: var(--ace-heading) !important; -webkit-text-fill-color: currentColor !important; font-weight: 650; }
+.App .ace-cheat-summary span { color: var(--ace-label) !important; -webkit-text-fill-color: currentColor !important; }

@@ -670,6 +670,11 @@ export default function ChatPage() {
         full = ''; streamBufferRef.current = ''; setStreamingContent(''); setVisualReady(false); readyVisualRef.current = ''; return;
       }
       if (d.type === 'error') throw new Error(d.message || 'The tutor could not finish this reply. Please try again.');
+      if (d.type === 'visual_partial' && typeof d.content === 'string') {
+        full = d.content; streamBufferRef.current = full;
+        if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
+        setStreamingContent(full); setVisualReady(false); return;
+      }
       if (d.type === 'visual_ready' && typeof d.content === 'string') {
         full = d.content; streamBufferRef.current = full; readyVisualRef.current = full;
         if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }

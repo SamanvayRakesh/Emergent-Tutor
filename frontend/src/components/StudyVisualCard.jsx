@@ -264,73 +264,85 @@ export async function makeStudyPdf(data) {
   const d = validateStudyVisual(data);
   if (!d || d.kind === 'graph') throw new Error('Choose chapter notes or a cheat sheet to export a PDF.');
   if (document.fonts?.ready) await document.fonts.ready;
-  const images = []; let canvas, ctx, y, page = 0;
-  const newPage = () => {
-    canvas = document.createElement('canvas'); canvas.width = 1190; canvas.height = 1684;
-    ctx = canvas.getContext('2d'); if (!ctx) throw new Error('PDF rendering is unavailable in this browser.');
-    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, 1190, 1684);
-    ctx.fillStyle = '#3159cd'; ctx.font = 'bold 24px Arial'; ctx.fillText('ACE-IT • CHAPTER REVISION', 72, 66);
-    ctx.fillStyle = '#7b879a'; ctx.font = '20px Arial'; ctx.fillText(`Page ${++page}`, 1020, 1620); y = 125;
+  const images = [], margin = 72, width = 503, gap = 40, bottom = 1535;
+  let canvas, ctx, y, column = 0, page = 0, top = 150, currentHeading = '';
+  const x = () => margin + column * (width + gap);
+  const font = (size, bold = false) => `${bold ? 'bold ' : ''}${size}px sans-serif`;
+  const lines = (value, size, available = width - 28, bold = false) => {
+    ctx.font = font(size, bold); const out = [];
+    for (const paragraph of String(value).split('\n')) {
+      let row = '';
+      for (const word of paragraph.split(/\s+/)) {
+        if (row && ctx.measureText(`${row} ${word}`).width > available) { out.push(row); row = ''; }
+        for (const char of word) {
+          if (ctx.measureText(row + char).width > available && row) { out.push(row); row = ''; }
+          row += char;
+        }
+        row += ' ';
+      }
+      if (row.trim()) out.push(row.trim());
+    }
+    return out;
   };
   const finish = () => {
-    const raw = atob(canvas.toDataURL('image/jpeg', 0.94).split(',')[1]);
+    const raw = atob(canvas.toDataURL('image/jpeg', .96).split(',')[1]);
     images.push(Uint8Array.from(raw, c => c.charCodeAt(0)));
   };
-  const ensure = height => { if (y + height > 1550) { finish(); newPage(); } };
-  const line = (value, size = 24, bold = false, color = '#172033') => {
-    const font = `${bold ? 'bold ' : ''}${size}px Arial`;
-    ctx.font = font; let current = '';
-    const flush = () => { ensure(size * 1.5); ctx.font = font; ctx.fillStyle = color; ctx.fillText(current.trimEnd(), 72, y); y += size * 1.5; current = ''; };
-    for (const paragraph of String(value).split('\n')) {
-      for (const word of paragraph.split(/\s+/)) {
-        const candidate = current ? `${current} ${word}` : word;
-        if (ctx.measureText(candidate).width <= 1046) { current = candidate; continue; }
-        if (current) flush();
-        for (const c of word) { if (ctx.measureText(current + c).width > 1046) flush(); current += c; }
-      }
-      if (current) flush();
-    }
+  const newPage = () => {
+    canvas = document.createElement('canvas'); canvas.width = 1190; canvas.height = 1684;
+    ctx = canvas.getContext('2d'); if (!ctx) throw new Error('PDF rendering is unavailable.');
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, 1190, 1684); page++;
+    ctx.fillStyle = '#14233B'; ctx.font = font(27, true); ctx.fillText('ACE IT', margin, 65);
+    ctx.fillStyle = '#64748B'; ctx.font = font(18); ctx.fillText('CHAPTER STUDY GUIDE', margin + 150, 64);
+    ctx.strokeStyle = '#E2E8F0'; ctx.beginPath(); ctx.moveTo(margin, 90); ctx.lineTo(1118, 90); ctx.stroke();
+    ctx.font = font(18); ctx.fillText('Learn clearly. Revise confidently.', margin, 1615); ctx.fillText(String(page), 1090, 1615);
+    column = 0; top = 150; y = top;
   };
-  const drawVisual = visual => {
-    const layout = topicLayout(visual), scale = Math.min(1046 / layout.width, 620 / layout.height);
-    const height = layout.height * scale;
-    ensure(height + 30); ctx.save(); ctx.translate(72 + (1046 - layout.width * scale) / 2, y); ctx.scale(scale, scale);
-    ctx.lineWidth = 2; ctx.strokeStyle = '#3159cd';
-    const arrow = (x1, y1, x2, y2) => {
-      ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
-      const angle = Math.atan2(y2 - y1, x2 - x1); ctx.beginPath(); ctx.moveTo(x2, y2);
-      ctx.lineTo(x2 - 9 * Math.cos(angle - 0.5), y2 - 9 * Math.sin(angle - 0.5));
-      ctx.lineTo(x2 - 9 * Math.cos(angle + 0.5), y2 - 9 * Math.sin(angle + 0.5)); ctx.closePath(); ctx.fillStyle = '#3159cd'; ctx.fill();
-    };
-    if (layout.hub) {
-      layout.nodes.forEach(n => { ctx.beginPath(); ctx.moveTo(350, layout.height / 2); ctx.lineTo(n.x, n.y); ctx.stroke(); });
-      ctx.beginPath(); ctx.arc(350, layout.height / 2, 38, 0, Math.PI * 2); ctx.fillStyle = '#ffffff'; ctx.fill(); ctx.stroke();
-      ctx.font = '14px Arial'; ctx.textAlign = 'center'; ctx.fillStyle = '#3159cd'; ctx.fillText('Concept', 350, layout.height / 2 + 5);
-    }
-    layout.edges.forEach(([a, b]) => arrow(...edgeEnds(layout.nodes[a], layout.nodes[b])));
-    layout.nodes.forEach(n => {
-      ctx.fillStyle = '#ffffff'; ctx.fillRect(n.x - n.w / 2, n.y - n.h / 2, n.w, n.h);
-      ctx.strokeStyle = '#3159cd'; ctx.strokeRect(n.x - n.w / 2, n.y - n.h / 2, n.w, n.h);
-      ctx.fillStyle = '#172033'; ctx.font = '15px Arial'; ctx.textAlign = 'center';
-      const lines = wrapText(n.label, visual.type === 'cycle' ? 17 : (n.w > 400 ? 48 : 27)).slice(0, 3);
-      lines.forEach((value, i) => ctx.fillText(value, n.x, n.y + 5 + (i - (lines.length - 1) / 2) * 18));
-    });
-    ctx.restore(); y += height + 25;
+  const advance = () => {
+    if (column === 0) { column = 1; y = top; } else { finish(); newPage(); }
+    if (currentHeading) { for (const row of lines(`${currentHeading} (continued)`,18,width-28,true)) { ctx.font=font(18,true);ctx.fillStyle='#64748B';ctx.fillText(row,x()+14,y);y+=27; } y+=10; }
   };
-  newPage(); line(d.title, 36, true); line(d.summary); y += 15;
-  if (d.coverage) { line(`${d.coverage.status === 'complete' ? 'Chapter coverage' : 'Partial source coverage'}: ${d.coverage.note}`, 21, false, '#3159cd'); y += 15; }
-  line('Topic index', 28, true); d.sections.forEach((s, i) => line(`${i + 1}. ${s.heading}`, 22)); y += 25;
-  for (const [i, section] of d.sections.entries()) {
-    ensure(170); line(`${i + 1}. ${section.heading}`, 29, true, '#3159cd');
-    section.points.forEach(point => line(`• ${point}`)); y += 15;
-    line(section.visual.title, 23, true); drawVisual(section.visual);
-    // Export every explanation, including details hidden behind interactive nodes.
-    section.visual.items.forEach(item => { line(item.label, 23, true); line(item.detail, 22); });
-    if (section.recall) { line(`Recall: ${section.recall.question}`, 23, true); line(`Answer: ${section.recall.answer}`, 22); }
-    y += 30;
-    await new Promise(resolve => setTimeout(resolve, 0));
+  const ensure = height => { if (y + height > bottom) advance(); };
+  const write = (value, size = 21, bold = false, color = '#172033') => {
+    const rows = lines(value, size, width - 28, bold);
+    for (const row of rows) { ensure(size * 1.5); ctx.font = font(size, bold); ctx.fillStyle = color; ctx.fillText(row, x() + 14, y); y += size * 1.5; }
+  };
+  const diagram = visual => {
+    const layout = topicLayout(visual), scale = Math.min((width - 28) / layout.width, 230 / layout.height), height = layout.height * scale;
+    ensure(height + 26); ctx.save(); ctx.translate(x() + 14 + (width - 28 - layout.width * scale) / 2, y); ctx.scale(scale, scale);
+    ctx.lineWidth = 2; ctx.strokeStyle = '#315FEA';
+    const edge = (a, b) => { const [x1,y1,x2,y2] = edgeEnds(a,b); ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke(); const angle = Math.atan2(y2-y1,x2-x1);ctx.beginPath();ctx.moveTo(x2,y2);ctx.lineTo(x2-9*Math.cos(angle-.5),y2-9*Math.sin(angle-.5));ctx.lineTo(x2-9*Math.cos(angle+.5),y2-9*Math.sin(angle+.5));ctx.fillStyle='#315FEA';ctx.fill(); };
+    if (layout.hub) layout.nodes.forEach(n => {ctx.beginPath();ctx.moveTo(350,layout.height/2);ctx.lineTo(n.x,n.y);ctx.stroke();});
+    layout.edges.forEach(([a,b]) => edge(layout.nodes[a],layout.nodes[b]));
+    layout.nodes.forEach(n => { ctx.fillStyle='#EEF3FF';ctx.fillRect(n.x-n.w/2,n.y-n.h/2,n.w,n.h);ctx.strokeRect(n.x-n.w/2,n.y-n.h/2,n.w,n.h);ctx.fillStyle='#172033';ctx.font=font(18,true);ctx.textAlign='center';wrapText(n.label,n.w>400?38:22).slice(0,3).forEach((row,i,all)=>ctx.fillText(row,n.x,n.y+6+(i-(all.length-1)/2)*21)); });
+    ctx.restore();y += height + 26;
+  };
+  newPage();
+  let introY = 145;
+  for (const row of lines(d.title, 36, 1046, true)) { ctx.font=font(36,true);ctx.fillStyle='#172033';ctx.fillText(row,margin,introY);introY+=46; }
+  for (const row of lines(d.summary, 22, 1046)) { ctx.font=font(22);ctx.fillStyle='#64748B';ctx.fillText(row,margin,introY);introY+=31; }
+  ctx.font=font(18);ctx.fillStyle='#315FEA';ctx.fillText(`${d.sections.length} topics • ${d.coverage?.status === 'complete' ? 'Chapter coverage verified' : 'Available chapter excerpts'}`,margin,introY+12);
+  top = introY+65;y=top;
+  for (const [index, section] of d.sections.entries()) {
+    const layout = topicLayout(section.visual);
+    const hasDiagram = ['concept','cycle','steps','timeline','compare'].includes(section.visual.type);
+    const diagramHeight = hasDiagram ? Math.min((width-28)/layout.width,230/layout.height)*layout.height+26 : section.visual.type === 'formula' ? 75 : 0;
+    const detailSet = new Set(section.visual.items.map(item => item.detail));
+    const estimated = lines(`${index+1} ${section.heading}`,26,width-28,true).length*39+8+diagramHeight+
+      section.visual.items.reduce((sum,item)=>sum+lines(item.label,22,width-28,true).length*33+lines(item.detail,21).length*31.5+12,0)+
+      section.points.filter(point=>!detailSet.has(point)).reduce((sum,point)=>sum+lines(`• ${point}`,21).length*31.5+8,0)+
+      (section.recall ? 27+lines(section.recall.question,21).length*31.5+lines(section.recall.answer,21).length*31.5 : 0)+30;
+    currentHeading = '';ensure(Math.min(estimated,bottom-top));currentHeading = section.heading;ctx.strokeStyle='#E2E8F0';ctx.beginPath();ctx.moveTo(x(),y-30);ctx.lineTo(x()+width,y-30);ctx.stroke();
+    write(`${String(index+1).padStart(2,'0')}  ${section.heading}`,26,true,'#14233B');y+=8;
+    if (['concept','cycle','steps','timeline','compare'].includes(section.visual.type)) diagram(section.visual);
+    if (section.visual.type === 'formula') { ensure(75);ctx.fillStyle='#EEF3FF';ctx.fillRect(x()+14,y-20,width-28,52);write(section.visual.items[0].label,24,true,'#315FEA');y+=22; }
+    for (const item of section.visual.items) { ensure(85);write(item.label,22,true,'#315FEA');write(item.detail,21);y+=12; }
+    const details = new Set(section.visual.items.map(item => item.detail));
+    for (const point of section.points.filter(point => !details.has(point))) { write(`• ${point}`,21);y+=8; }
+    if (section.recall) { ensure(90);write('CHECK YOUR RECALL',18,true,'#64748B');write(section.recall.question,21,true);write(section.recall.answer,21); }
+    y+=30;await new Promise(resolve=>setTimeout(resolve,0));
   }
-  finish(); return pdfFromJpegs(images);
+  finish();return pdfFromJpegs(images);
 }
 
 function ChapterVisual({ data: d, preview = false }) {
@@ -358,6 +370,7 @@ function ChapterVisual({ data: d, preview = false }) {
         <div className="flex items-start justify-between gap-3"><h4 className="text-cyan-100 font-semibold">{i + 1}. {s.heading}</h4>
           <label className="flex shrink-0 items-center gap-2 text-xs text-zinc-400"><input type="checkbox" checked={Boolean(reviewed[i])} onChange={e => setReviewed(v => ({ ...v, [i]: e.target.checked }))} />Reviewed</label></div>
         {d.kind === 'quickrevision' && <button type="button" aria-expanded={Boolean(revealed[i])} className="mt-3 text-xs text-cyan-300" onClick={() => setRevealed(v => ({ ...v, [i]: !v[i] }))}>{revealed[i] ? 'Hide answer' : 'Reveal answer'}</button>}
+        {d.kind === 'cheatsheet' && <div className="ace-cheat-summary">{s.visual.items.map((item, j) => <p key={j}><strong>{item.label}</strong><span>{item.detail}</span></p>)}</div>}
         {d.kind === 'keypoints' ? <>
           <p className="ace-key-takeaway">{s.points[0]}</p>
           <button type="button" className="ace-study-disclosure" aria-expanded={Boolean(expanded[i])} onClick={() => setExpanded(v => ({ ...v, [i]: !v[i] }))}>{expanded[i] ? 'Collapse topic' : 'Explore key ideas'} <span aria-hidden="true">{expanded[i] ? '−' : '+'}</span></button>
