@@ -865,7 +865,7 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
                     "message": "The chapter source could not be prepared. No credits were charged. Please retry."})
             # Bound provider input while retaining excerpts from every chapter topic.
             visual_source = {**visual_source, "text": _compact_visual_source(visual_source["text"], 10000)}
-            desired = min(7000, max(1400, len(visual_source["topics"]) * 160 + 400)) if study_kind != "graph" else 1000
+            desired = min(7000, max(1800, len(visual_source["topics"]) * 240 + 400)) if study_kind != "graph" else 1000
             max_tokens = desired
             input_estimate = len(visual_source["text"]) // 3 + len(body.content) // 3 + 1500
             max_tokens = min(max_tokens, max(0, budget["remaining"] - input_estimate))
@@ -1085,28 +1085,53 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
             full_content = ""
             stream = None
             try:
-                stream = await asyncio.wait_for(
-                    openai_client.chat.completions.create(
-                        model=ai_model, messages=ai_messages, stream=True,
-                        max_tokens=generation_tokens, temperature=0.25 if is_studyvisual else 0.75,
-                        extra_body={"include_reasoning": False},
-                    ), timeout=min(25, max(0.01, deadline - asyncio.get_running_loop().time())),
-                )
-                iterator = stream.__aiter__()
-                while True:
-                    if asyncio.get_running_loop().time() >= deadline:
-                        raise asyncio.TimeoutError()
-                    try:
-                        chunk = await asyncio.wait_for(iterator.__anext__(), timeout=min(20, max(0.01, deadline - asyncio.get_running_loop().time())))
-                    except StopAsyncIteration:
+                provider_messages = ai_messages
+                provider_limit = generation_tokens
+                # One continuation can finish JSON cut off by the output limit.
+                # Append real deltas; do not reset completed topic previews.
+                for segment in range(2 if is_studyvisual else 1):
+                    stream = await asyncio.wait_for(
+                        openai_client.chat.completions.create(
+                            model=ai_model, messages=provider_messages, stream=True,
+                            max_tokens=provider_limit, temperature=0.25 if is_studyvisual else 0.75,
+                            extra_body={"include_reasoning": False},
+                        ), timeout=min(25, max(0.01, deadline - asyncio.get_running_loop().time())),
+                    )
+                    iterator = stream.__aiter__()
+                    finish_reason = None
+                    while True:
+                        if asyncio.get_running_loop().time() >= deadline:
+                            raise asyncio.TimeoutError()
+                        try:
+                            chunk = await asyncio.wait_for(iterator.__anext__(), timeout=min(20, max(0.01, deadline - asyncio.get_running_loop().time())))
+                        except StopAsyncIteration:
+                            break
+                        if not chunk.choices:
+                            continue
+                        choice = chunk.choices[0]
+                        finish_reason = getattr(choice, "finish_reason", None) or finish_reason
+                        delta = choice.delta.content
+                        if isinstance(delta, str) and delta:
+                            full_content += delta
+                            word_count = len(full_content.split())
+                            yield f"data: {json.dumps({'type':'chunk','content':delta})}\n\n"
+                    await asyncio.wait_for(stream.close(), timeout=2)
+                    stream = None
+                    if finish_reason != "length" or not is_studyvisual:
                         break
-                    if not chunk.choices:
-                        continue
-                    delta = chunk.choices[0].delta.content
-                    if isinstance(delta, str) and delta:
-                        full_content += delta
-                        word_count = len(full_content.split())
-                        yield f"data: {json.dumps({'type':'chunk','content':delta})}\n\n"
+                    if segment == 1:
+                        raise ValueError("Visual exceeded its continuation limit")
+                    provider_messages = ai_messages + [
+                        {"role": "assistant", "content": full_content},
+                        {"role": "user", "content": "Continue exactly where the unfinished JSON stopped. Output only the remaining characters, missing chapter topics and closing [/STUDYVISUAL]. Do not restart, repeat any existing text, or add Markdown fences."},
+                    ]
+                    continuation_input = sum(len(m["content"]) for m in provider_messages) // 3 + 500
+                    first_input = sum(len(m["content"]) for m in ai_messages) // 3 + 500
+                    spent_output = len(full_content) // 3 + 200
+                    provider_limit = min(2000, max(0, budget["remaining"] - first_input - spent_output - continuation_input))
+                    if provider_limit < 400:
+                        raise ValueError("Insufficient budget to finish visual JSON")
+                    input_tokens_est += continuation_input
                 if not full_content.strip():
                     raise ValueError("AI provider returned an empty response")
                 if is_studyvisual:

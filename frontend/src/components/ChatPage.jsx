@@ -185,7 +185,7 @@ export function VisualReplyProgress({ request, content, ready = false }) {
   const complete = /\[\/(?:STUDYVISUAL|MINDMAP|FLOWCHART)\]/.test(content);
   const parts = complete ? parseQuizBlocks(content) : [];
   const visual = parts.find(part => ['studyvisual', 'mindmap', 'flowchart'].includes(part.type));
-  return <div className="flex gap-3" data-testid="visual-progress">
+  return <div className="ace-visual-message flex gap-3" data-testid="visual-progress">
     <div className="w-7 h-7 rounded-full bg-gradient-to-br from-violet-500 to-fuchsia-600 flex-shrink-0 flex items-center justify-center mt-1"><Sparkles size={14} className="text-white" /></div>
     <div className="message-ai p-3.5 w-full max-w-[82%]">
       <div role="status" aria-live="polite" className="flex items-center gap-2 text-xs text-violet-200">
@@ -306,7 +306,7 @@ function MessageBubble({ msg, receipt, isStreaming, isNios, feedbackState, onFee
 
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-      className={`flex gap-3 ${isUser ? 'flex-row-reverse' : ''}`}>
+      className={`flex gap-3 ${isUser ? 'flex-row-reverse' : parts?.some(p => ['studyvisual', 'mindmap', 'flowchart'].includes(p.type)) || msg.visualPreview ? 'ace-visual-message' : ''}`}>
       {/* Avatar */}
       <div className={`w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center mt-1 ${isUser ? 'bg-cyan-500 text-black' : 'bg-gradient-to-br from-violet-500 to-fuchsia-600'}`}>
         {isUser ? <span className="text-xs font-heading font-black">U</span> : <Sparkles size={14} className="text-white" />}

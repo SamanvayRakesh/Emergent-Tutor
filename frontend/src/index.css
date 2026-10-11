@@ -793,3 +793,22 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
 .App .ace-visual-receipt { align-self: flex-end; font-size: 11px; color: var(--ace-label) !important; -webkit-text-fill-color: currentColor !important; }
 @container (max-width: 620px) { .App .ace-study-cheatsheet { grid-template-columns: 1fr; } }
 @media (max-width: 480px) { .App .ace-topic-compare { grid-template-columns: 1fr; } .App .ace-study-notes .ace-study-topic { padding: 16px !important; } }
+
+/* Give learning visuals the conversation width instead of the prose bubble cap. */
+.App .ace-tutor .ace-visual-message { width: 100%; max-width: 1140px; margin-inline: auto; }
+.App .ace-tutor .ace-visual-message > .message-ai,
+.App .ace-tutor .ace-visual-message > div:last-child { flex: 1; min-width: 0; max-width: none !important; }
+.App .ace-tutor .ace-visual-message .message-ai { padding: 16px !important; }
+.App .ace-tutor .ace-feature { font-family: var(--ace-font-sans) !important; line-height: 1.6; }
+.App .ace-tutor .ace-feature svg text { font-family: var(--ace-font-sans) !important; }
+.App .ace-flow-diagram { max-width: 620px; margin-inline: auto; }
+.App .ace-tutor .ace-tutor-header[class] { padding-block: 9px; }
+.App .ace-tutor .ace-tutor-composer { padding: 14px; margin-block: 10px 14px; }
+.App .ace-tutor .ace-tutor-composer textarea[data-testid="chat-input"][class] { min-height: 50px !important; }
+.App .ace-tutor .ace-tutor-tools { margin-top: 9px; padding-top: 8px; }
+.App .ace-tutor .ace-study-topic { padding: 18px !important; }
+.App .ace-tutor .ace-study-sections { gap: 20px; }
+@media (max-width: 640px) {
+ .App .ace-tutor .ace-visual-message { gap: 8px; }
+ .App .ace-tutor .ace-visual-message .message-ai { padding: 10px !important; }
+}

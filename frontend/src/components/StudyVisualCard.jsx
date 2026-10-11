@@ -1,4 +1,5 @@
 import { memo, useId, useRef, useState } from 'react';
+import { plainVisualText } from './MindMapCard';
 
 export const STUDY_FORMATS = [
   { id: 'graph', label: 'Graph' },
@@ -18,7 +19,14 @@ function validateTopicVisual(v) {
   return { type: v.type, title: v.title.trim(), items: v.items.map(item => ({ label: item.label.trim(), detail: item.detail.trim() })) };
 }
 
+function cleanVisualPayload(value) {
+  if (typeof value === 'string') return plainVisualText(value);
+  if (Array.isArray(value)) return value.map(cleanVisualPayload);
+  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, cleanVisualPayload(item)]));
+  return value;
+}
 export function validateStudyVisual(d) {
+  d = cleanVisualPayload(d);
   if (!d || !STUDY_FORMATS.some(f => f.id === d.kind) || !text(d.title, 160) || !text(d.summary, 1200)) return null;
   const base = { kind: d.kind, title: d.title.trim(), summary: d.summary.trim() };
   if (d.kind === 'graph') {
@@ -148,7 +156,7 @@ function TopicVisual({ visual, compact = false }) {
             fill={active === i ? '#eaf0ff' : '#ffffff'} stroke={active === i ? '#3159cd' : '#7b879a'} strokeWidth="2" />
           <title>{n.detail}</title>
           {wrapText(n.label, visual.type === 'cycle' ? 17 : (n.w > 400 ? 48 : 27)).slice(0, 3).map((line, j, all) =>
-            <text key={j} x={n.x} y={n.y + 5 + (j - (all.length - 1) / 2) * 18} textAnchor="middle" fill="#172033" fontSize="14" fontFamily="Arial, sans-serif">{line}</text>)}
+            <text key={j} x={n.x} y={n.y + 5 + (j - (all.length - 1) / 2) * 18} textAnchor="middle" fill="#172033" fontSize="14" fontFamily="ui-sans-serif, system-ui, -apple-system, Segoe UI, Arial, sans-serif">{line}</text>)}
         </g>)}
       </svg>
     </div>

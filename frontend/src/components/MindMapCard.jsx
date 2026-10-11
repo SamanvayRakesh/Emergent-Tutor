@@ -1,7 +1,25 @@
 import { useState } from 'react';
 
 const COLORS = Array(6).fill('#3159cd');
-const clean = (value, limit) => typeof value === 'string' ? value.trim().slice(0, limit) : '';
+
+// SVG and PDF text are plain text: convert common textbook math rather than
+// displaying raw dollar delimiters and LaTeX commands in diagram labels.
+export function plainVisualText(value) {
+  if (typeof value !== 'string') return value;
+  let out = value.replace(/\$\$([\s\S]+?)\$\$/g, '$1').replace(/\$([^$]+)\$/g, '$1');
+  for (let i = 0; i < 4; i++) {
+    out = out.replace(/\\(?:text|mathrm|mathbf|operatorname)\{([^{}]*)\}/g, '$1')
+      .replace(/\\(?:dfrac|frac)\{([^{}]*)\}\{([^{}]*)\}/g, '($1)/($2)')
+      .replace(/\\sqrt\{([^{}]*)\}/g, '√($1)');
+  }
+  const symbols = {angle:'∠',perp:'⊥',parallel:'∥',quad:' ',qquad:' ',theta:'θ',alpha:'α',beta:'β',gamma:'γ',pi:'π',Delta:'Δ',triangle:'△',circ:'°',degree:'°',times:'×',cdot:'·',div:'÷',leq:'≤',geq:'≥',neq:'≠',approx:'≈',infty:'∞',rightarrow:'→',leftarrow:'←',pm:'±',sin:'sin',cos:'cos',tan:'tan',cot:'cot',sec:'sec',csc:'csc',left:'',right:''};
+  out = out.replace(/\\([A-Za-z]+)/g, (match, name) => symbols[name] ?? match)
+    .replace(/\^\{([^{}]+)\}/g, '^($1)').replace(/_\{([^{}]+)\}/g, '_($1)')
+    .replace(/\^°|\^\(°\)/g, '°').replace(/\\[,;! ]/g, ' ').replace(/\$\$/g, '').trim();
+  return out;
+}
+
+const clean = (value, limit) => typeof value === 'string' ? plainVisualText(value).trim().slice(0, limit) : '';
 export function validateMindMap(value) {
   if (!value || !Array.isArray(value.branches) || !clean(value.title, 100)) return null;
   if (!value.branches.length || value.branches.length > 6) return null;
@@ -74,9 +92,9 @@ export default function MindMapCard({ data }) {
             fill="none" stroke={COLORS[i]} strokeWidth="1.5" opacity="1" />;
         }))}
         <rect x="530" y={centerY - 60} width="220" height="120" rx="28" fill="#eaf0ff" stroke="#3159cd" strokeWidth="2" />
-        <text x="640" y={centerY - 34} textAnchor="middle" fill="#172033" fontSize="10" letterSpacing="2" fontFamily="Arial, sans-serif">MAIN TOPIC</text>
+        <text x="640" y={centerY - 34} textAnchor="middle" fill="#172033" fontSize="10" letterSpacing="2" fontFamily="ui-sans-serif, system-ui, -apple-system, Segoe UI, Arial, sans-serif">MAIN TOPIC</text>
         {wrapVisualText(map.title, 24).map((line, i, all) => <text key={i} x="640" y={centerY + 7 + (i - (all.length - 1) / 2) * 20}
-          textAnchor="middle" fill="#172033" fontSize="16" fontWeight="bold" fontFamily="Arial, sans-serif">{line}</text>)}
+          textAnchor="middle" fill="#172033" fontSize="16" fontWeight="bold" fontFamily="ui-sans-serif, system-ui, -apple-system, Segoe UI, Arial, sans-serif">{line}</text>)}
         {map.branches.map((branch, i) => {
           const p = positions[i];
           return <g key={i}>
@@ -84,16 +102,16 @@ export default function MindMapCard({ data }) {
               onClick={() => setSelected(i)} onKeyDown={event => { if (['Enter', ' '].includes(event.key)) { event.preventDefault(); setSelected(i); } }}>
               <rect x={p.x - 90} y={p.y - 54} width="180" height="108" rx="18"
                 fill={active === i ? '#eaf0ff' : '#ffffff'} stroke={COLORS[i]} strokeWidth={active === i ? 3 : 1.5} />
-              <text x={p.x} y={p.y - 33} textAnchor="middle" fill={COLORS[i]} fontSize="10" fontFamily="Arial, sans-serif">{branch.relation}</text>
+              <text x={p.x} y={p.y - 33} textAnchor="middle" fill={COLORS[i]} fontSize="10" fontFamily="ui-sans-serif, system-ui, -apple-system, Segoe UI, Arial, sans-serif">{branch.relation}</text>
               {wrapVisualText(branch.label, 20).map((line, j, all) => <text key={j} x={p.x} y={p.y + 7 + (j - (all.length - 1) / 2) * 18}
-                textAnchor="middle" fill="#172033" fontSize="14" fontWeight="bold" fontFamily="Arial, sans-serif">{line}</text>)}
+                textAnchor="middle" fill="#172033" fontSize="14" fontWeight="bold" fontFamily="ui-sans-serif, system-ui, -apple-system, Segoe UI, Arial, sans-serif">{line}</text>)}
             </g>
             {branch.points.map((point, j) => {
               const x = p.left ? 120 : 1160, y = p.y + (j - (branch.points.length - 1) / 2) * 98;
               return <g key={j}>
                 <rect x={x - 110} y={y - 42} width="220" height="84" rx="14" fill="#ffffff" stroke={COLORS[i]} strokeOpacity="1" />
                 {wrapVisualText(point, 32).map((line, k, all) => <text key={k} x={x} y={y + 4 + (k - (all.length - 1) / 2) * 16}
-                  textAnchor="middle" fill="#172033" fontSize="12" fontFamily="Arial, sans-serif">{line}</text>)}
+                  textAnchor="middle" fill="#172033" fontSize="12" fontFamily="ui-sans-serif, system-ui, -apple-system, Segoe UI, Arial, sans-serif">{line}</text>)}
               </g>;
             })}
           </g>;
