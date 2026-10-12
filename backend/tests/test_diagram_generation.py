@@ -58,19 +58,21 @@ class Tests(unittest.IsolatedAsyncioTestCase):
    messages=NS(insert_one=AsyncMock(),find=lambda *a:Cursor())
    credit=AsyncMock(return_value={'deducted':2,'balance':98})
    ns.update({'StreamingResponse':Response,'db':NS(chat_sessions=NS(find_one=AsyncMock(return_value=session),update_one=AsyncMock()),messages=messages,users=NS(find_one=AsyncMock(return_value={'xp':10,'level':1}),update_one=AsyncMock())),
-    'get_current_user':AsyncMock(return_value={'user_id':'u','class_level':'10','school':'nios'}),'ensure_credits':AsyncMock(),'get_user_plan':AsyncMock(return_value={'id':'free'}),'check_budget':AsyncMock(return_value={'over_budget':False,'near_budget':False,'critical':False,'remaining':30000}),
+    'get_current_user':AsyncMock(return_value={'user_id':'u','class_level':'10','school':'nios'}),'ensure_credits':AsyncMock(),'get_user_plan':AsyncMock(return_value={'id':'free'}),'check_budget':AsyncMock(side_effect=AssertionError('Monthly tokens must not gate credited requests')),
     'build_routing_decision':lambda *a,**k:{'category':'C','model':'fixture','max_tokens':3500},'get_verified_chapters':lambda *a:[],'find_kb_answer':AsyncMock(return_value=None),'get_student_profile':AsyncMock(return_value={}), 'build_compact_memory':lambda p:{},
     '_get_mapped_nios_math_context':AsyncMock(return_value='Fractions: numerator and denominator.'),'_compact_visual_source':lambda text,limit:text,'_NIOS_DETAIL_RE':re.compile('detail'), '_build_nios_system_prompt':lambda *a:'Use this chapter JSON schema.',
     'deduct_credits_for_chat':credit,'increment_usage':AsyncMock(),'record_token_usage':AsyncMock()})
    response=await ns['send_message']('s',NS(content='Visualize: Mind map for Fractions\n\n[MINDMAP INSTRUCTIONS]'),None)
+   ns['check_budget'].assert_not_awaited()
    events=[json.loads(e[6:]) for e in [e async for e in response.body_iterator] if e.startswith('data:')]
    self.assertEqual(events[0]['type'],'accepted');self.assertFalse(any(e['type']=='chunk' for e in events))
    if valid:
     self.assertEqual([e['type'] for e in events],['accepted','visual_ready','done']);self.assertEqual(messages.insert_one.await_count,2);credit.assert_awaited_once();self.assertEqual(messages.insert_one.call_args.args[0]['content'],events[1]['content'])
    else:self.assertEqual(events[-1]['type'],'error');self.assertEqual(messages.insert_one.await_count,1);credit.assert_not_awaited()
- async def test_monthly_limit_has_exact_counts_and_no_saved_reply(self):
+ async def test_insufficient_credits_blocks_before_generation(self):
   provider=AsyncMock();ns=namespace(provider);messages=NS(insert_one=AsyncMock(),insert_many=AsyncMock())
-  ns.update({'db':NS(chat_sessions=NS(find_one=AsyncMock(return_value={'class_level':'10'})),messages=messages),'get_current_user':AsyncMock(return_value={'user_id':'u','class_level':'10'}),'ensure_credits':AsyncMock(),'get_user_plan':AsyncMock(return_value={'id':'free'}),'check_budget':AsyncMock(return_value={'over_budget':True,'used':41000,'cap':40000})})
+  monthly=AsyncMock(side_effect=AssertionError('No monthly restriction'))
+  ns.update({'db':NS(chat_sessions=NS(find_one=AsyncMock(return_value={'class_level':'10'})),messages=messages),'get_current_user':AsyncMock(return_value={'user_id':'u','class_level':'10'}),'ensure_credits':AsyncMock(side_effect=HTTPException(402,{'message':'Not enough credits'})),'get_user_plan':AsyncMock(return_value={'id':'free'}),'check_budget':monthly})
   with self.assertRaises(HTTPException) as caught:await ns['send_message']('s',NS(content='Map fractions.'),None)
-  detail=caught.exception.detail;self.assertEqual(caught.exception.status_code,429);self.assertEqual(detail['used_tokens'],41000);self.assertEqual(detail['limit_tokens'],40000);self.assertEqual(detail['upgrade_to'],'starter');self.assertEqual(datetime.fromisoformat(detail['resets_at']).day,1);messages.insert_one.assert_not_awaited();messages.insert_many.assert_not_awaited();provider.assert_not_awaited()
+  self.assertEqual(caught.exception.status_code,402);monthly.assert_not_awaited();messages.insert_one.assert_not_awaited();messages.insert_many.assert_not_awaited();provider.assert_not_awaited()
 if __name__=='__main__':unittest.main()

@@ -3,7 +3,7 @@ Cost-optimised stack:
   1. Category A  → curriculum DB, zero LLM cost
   2. KB hit      → rephrase stored answer, ~130 tokens (~₹0.01)
   3. KB miss     → full LLM, capped by budget tier
-  4. Over budget → static fallback, zero LLM cost
+  4. Credit balance → the only student usage allowance
 """
 
 import uuid
@@ -24,7 +24,7 @@ from credits import ensure_credits, deduct_credits, deduct_credits_for_chat, cal
 from models import ChatSessionCreate, ChatMessageRequest
 from adaptive_engine import (
     get_student_profile, build_compact_memory,
-    record_token_usage, check_budget, update_topic_performance,
+    record_token_usage, get_monthly_tokens, update_topic_performance,
 )
 from ai_router import build_routing_decision
 from knowledge_base import find_kb_answer, get_kb_stats
@@ -35,13 +35,6 @@ _KB_CACHE: dict = {}          # key → (context_str, timestamp)
 _KB_CACHE_TTL: int = 300      # 5 minutes
 
 router = APIRouter()
-
-# Static fallback when token cap is fully exhausted
-_BUDGET_EXHAUSTED_MSG = (
-    "You've reached your monthly AI limit for this plan. "
-    "Your limit resets at the start of next month, or you can upgrade your plan "
-    "to continue learning right now. 📚"
-)
 
 
 # ── Session CRUD ─────────────────────────────────────────────────────────────
@@ -839,7 +832,7 @@ async def _generate_diagram(messages, tag, model, remaining, deadline):
     for attempt in range(3):
         stream, raw, started, reason = None, "", False, None
         estimate = sum(len(m["content"]) for m in prompt) // 3 + 500
-        limit = min(1800 + 400 * attempt, max(0, remaining - spent - estimate))
+        limit = 1800 + 400 * attempt if remaining is None else min(1800 + 400 * attempt, max(0, remaining - spent - estimate))
         if limit < 500:
             raise ValueError("Insufficient AI allowance for a complete diagram")
         options = {}
@@ -928,7 +921,7 @@ async def _generate_study_batches(ai_messages, kind, source, model, remaining, d
         estimate = sum(len(m["content"]) for m in batch_messages) // 3 + 500
         result = None
         for attempt in range(2):
-            allowance = min(1800, max(0, remaining - spent - estimate))
+            allowance = 1800 if remaining is None else min(1800, max(0, remaining - spent - estimate))
             if allowance < 600:
                 raise ValueError("Not enough AI budget to finish all chapter topics")
             stream, raw, finish = None, "", None
@@ -1014,19 +1007,9 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
 
     # Daily message limit check — REMOVED: no limit for AI tutor
 
-    # Budget check — determines model + token ceiling
+    # Credits are the only usage allowance; token counts remain analytics.
     plan_info = await get_user_plan(user["user_id"])
-    plan_id   = plan_info["id"]
-    budget    = await check_budget(user["user_id"], plan_id)
-
-    # Hard block — token cap exhausted
-    if budget["over_budget"]:
-        current = datetime.now(timezone.utc)
-        reset = datetime(current.year + (current.month == 12), 1 if current.month == 12 else current.month + 1, 1, tzinfo=timezone.utc)
-        raise HTTPException(status_code=429, detail={"feature": "monthly_ai_tokens", "code": "MONTHLY_AI_LIMIT",
-            "message": f"Your plan's monthly AI token allowance is used up ({budget['used']:,} / {budget['cap']:,} tokens). This is separate from message credits. It resets on {reset:%d %B %Y} at 00:00 UTC.",
-            "used_tokens": budget["used"], "limit_tokens": budget["cap"], "resets_at": reset.isoformat(),
-            "upgrade_to": {"free": "starter", "starter": "pro", "pro": "elite"}.get(plan_id)})
+    plan_id = plan_info["id"]
 
     is_mindmap = body.content.startswith("Visualize: Mind map for ") and "[MINDMAP INSTRUCTIONS]" in body.content
 
@@ -1042,8 +1025,8 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
     # Route request
     routing = build_routing_decision(
         "Explain thoroughly this chapter as a structured mind map." if is_visual else body.content, plan_id,
-        near_budget=budget["near_budget"],
-        critical=budget["critical"],
+        near_budget=False,
+        critical=False,
         over_budget=False,
     )
     category   = routing["category"]
@@ -1071,13 +1054,8 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
             visual_source = {**visual_source, "text": _compact_visual_source(visual_source["text"], 10000)}
             desired = min(7000, max(1800, len(visual_source["topics"]) * 240 + 400)) if study_kind != "graph" else 1000
             max_tokens = desired
-            input_estimate = len(visual_source["text"]) // 3 + len(body.content) // 3 + 1500
-            max_tokens = min(max_tokens, max(0, budget["remaining"] - input_estimate))
-            if max_tokens < min(desired, 1000):
-                raise HTTPException(status_code=429, detail={"feature": "visualize",
-                    "message": "There is not enough remaining AI budget for this chapter visual. No credits were charged.", "upgrade_to": "pro"})
         else:
-            max_tokens = 1800  # Diagram helper checks remaining allowance including source input.
+            max_tokens = 1800  # Per-response size; this is not a monthly allowance.
 
     # ── Category A: curriculum lookup, no LLM ────────────────────────────────
     if category == "A" and not is_visual:
@@ -1291,7 +1269,7 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
         if is_mindmap or is_flowchart:
             try:
                 full_content, input_tokens_est, generated_output_est = await _generate_diagram(
-                    ai_messages, "MINDMAP" if is_mindmap else "FLOWCHART", ai_model, budget["remaining"], deadline)
+                    ai_messages, "MINDMAP" if is_mindmap else "FLOWCHART", ai_model, None, deadline)
                 yield f"data: {json.dumps({'type':'visual_ready','content':full_content})}\n\n"
             except Exception:
                 logger.exception("Diagram generation failed for session %s", session_id)
@@ -1299,7 +1277,7 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
                 return
         elif use_batches:
             try:
-                async for event in _generate_study_batches(ai_messages, study_kind, visual_source, ai_model, budget["remaining"], deadline):
+                async for event in _generate_study_batches(ai_messages, study_kind, visual_source, ai_model, None, deadline):
                     full_content = event["content"]
                     input_tokens_est = event.pop("input_tokens_est")
                     generated_output_est = event.pop("output_tokens_est")
@@ -1357,7 +1335,7 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
                         continuation_input = sum(len(m["content"]) for m in provider_messages) // 3 + 500
                         first_input = sum(len(m["content"]) for m in ai_messages) // 3 + 500
                         spent_output = len(full_content) // 3 + 200
-                        provider_limit = min(2000, max(0, budget["remaining"] - first_input - spent_output - continuation_input))
+                        provider_limit = 2000
                         if provider_limit < 400:
                             raise ValueError("Insufficient budget to finish visual JSON")
                         input_tokens_est += continuation_input
@@ -1375,7 +1353,7 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
                     retryable = status is None or status in (408, 429) or status >= 500
                     if attempt == 0 and is_studyvisual and isinstance(exc, (ValueError, json.JSONDecodeError)) and asyncio.get_running_loop().time() < deadline:
                         repair_input = sum(len(m["content"]) for m in ai_messages) // 3 + 700
-                        retry_limit = min(generation_tokens, max(0, budget["remaining"] - 2 * repair_input - len(full_content) // 3 - 200))
+                        retry_limit = generation_tokens
                         if retry_limit >= 600:
                             generation_tokens = retry_limit
                             retry_messages = ai_messages + [{"role": "user", "content": "The previous output did not validate. Regenerate ONE complete valid JSON block using the exact schema. Keep every required chapter heading, use short items and finite numeric graph values. No Markdown fences. Never invent graph measurements. If a numerical graph is unsupported, explain that plainly."}]
@@ -1491,7 +1469,7 @@ async def my_ai_analytics(request: Request):
     user = await get_current_user(request)
     uid  = user["user_id"]
     plan_info = await get_user_plan(uid)
-    budget    = await check_budget(uid, plan_info["id"])
+    tokens_used = await get_monthly_tokens(uid)
     profile   = await get_student_profile(uid)
     memory    = build_compact_memory(profile)
 
@@ -1506,17 +1484,13 @@ async def my_ai_analytics(request: Request):
         "plan":   plan_info["id"],
         "month":  month,
         "credits_remaining": credits_left,
-        "tokens_used":  budget["used"],
-        "tokens_cap":   budget["cap"],
-        "pct_used":     budget["pct_used"],
+        "tokens_used": tokens_used,
+        "tokens_cap": None,
+        "pct_used": None,
+        "usage_policy": "credits_only",
         "cost_inr":     round(month_data.get("cost_inr", 0.0), 2),
         "requests":     month_data.get("requests", 0),
-        "budget_status": (
-            "over"     if budget["over_budget"] else
-            "critical" if budget["critical"]    else
-            "near"     if budget["near_budget"] else
-            "normal"
-        ),
+        "budget_status": "normal",  # Legacy clients; no token-based restriction.
         "adaptive_profile": {
             "difficulty":     profile.get("difficulty", "medium"),
             "weak_topics":    memory["weak_topics"],
