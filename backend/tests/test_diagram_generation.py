@@ -17,8 +17,8 @@ class HTTPException(Exception):
 MAP={'title':'Fractions','summary':'Parts of a whole.','branches':[{'label':'Numerator','relation':'counts','points':['The selected parts.']},{'label':'Denominator','relation':'counts','points':['Equal parts in the whole.']}]}
 FLOW={'title':'Solve a fraction problem','summary':'A learning sequence.','steps':[{'label':'Read','detail':'Read the quantities.'},{'label':'Solve','detail':'Apply the relevant operation.'}]}
 def namespace(provider):
- ns={'uuid':uuid,'json':json,'re':re,'asyncio':asyncio,'datetime':datetime,'timezone':timezone,'logger':logging.getLogger('diagram-tests'),'HTTPException':HTTPException,'openai_client':NS(chat=NS(completions=NS(create=provider)))}
- names={'_diagram_schema','_normalize_diagram_reply','_generate_diagram','send_message'}
+ ns={'_VISUAL_TYPES':{'concept','steps','compare','formula','timeline','cycle'},'uuid':uuid,'json':json,'re':re,'asyncio':asyncio,'datetime':datetime,'timezone':timezone,'logger':logging.getLogger('diagram-tests'),'HTTPException':HTTPException,'openai_client':NS(chat=NS(completions=NS(create=provider)))}
+ names={'_normal_title','_normalize_study_reply','_validate_study_reply','_generate_visual_object','_study_response_schema','_diagram_schema','_normalize_diagram_reply','_generate_diagram','send_message'}
  nodes=[n for n in tree.body if isinstance(n,(ast.FunctionDef,ast.AsyncFunctionDef)) and n.name in names]
  for n in nodes:
   n.decorator_list=[];n.returns=None
@@ -69,6 +69,18 @@ class Tests(unittest.IsolatedAsyncioTestCase):
    if valid:
     self.assertEqual([e['type'] for e in events],['accepted','visual_ready','done']);self.assertEqual(messages.insert_one.await_count,2);credit.assert_awaited_once();self.assertEqual(messages.insert_one.call_args.args[0]['content'],events[1]['content'])
    else:self.assertEqual(events[-1]['type'],'error');self.assertEqual(messages.insert_one.await_count,1);credit.assert_not_awaited()
+ async def test_all_study_formats_share_schema_validation(self):
+  source={'text':'Chapter facts and the formula y=x.','topics':['Definitions','Applications'],'complete':True}
+  for kind in ['cheatsheet','notes','keypoints','quickrevision','graph']:
+   if kind=='graph':
+    data={'kind':kind,'title':'Illustrative y=x','summary':'An example from the formula.','chartType':'line','xLabel':'x','yLabel':'y','basis':'y=x with chosen inputs 1 and 2.','illustrative':True,'points':[{'label':str(x),'x':x,'y':x,'detail':'A chosen example.'}for x in [1,2]],'unavailable_reason':None}
+   else:
+    data={'kind':kind,'title':'Chapter','summary':'Chapter essentials.','sections':[{'heading':topic,'type':'concept','items':[{'label':'Definition','detail':'A chapter definition.'},{'label':'Application','detail':'A source-supported application.'}]}for topic in source['topics']]}
+   provider=AsyncMock(return_value=Stream(json.dumps(data)));ns=namespace(provider)
+   result,_,_=await ns['_generate_visual_object']([{'role':'system','content':'Grounded JSON schema.'},{'role':'user','content':'Active chapter.'}],'STUDYVISUAL','fixture',None,asyncio.get_running_loop().time()+20,kind=kind,source=source,exact_topics=kind!='graph')
+   self.assertTrue(result.startswith('[STUDYVISUAL]'));normalized=json.loads(result[13:-14]);self.assertEqual(normalized['kind'],kind)
+   schema=provider.call_args.kwargs['response_format']['json_schema']['schema'];self.assertEqual(schema['properties']['kind']['enum'],[kind]);self.assertFalse(schema['additionalProperties'])
+   if kind!='graph':self.assertEqual(normalized['coverage']['status'],'complete');self.assertEqual([s['heading']for s in normalized['sections']],source['topics'])
  async def test_insufficient_credits_blocks_before_generation(self):
   provider=AsyncMock();ns=namespace(provider);messages=NS(insert_one=AsyncMock(),insert_many=AsyncMock())
   monthly=AsyncMock(side_effect=AssertionError('No monthly restriction'))

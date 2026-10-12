@@ -824,12 +824,35 @@ def _normalize_diagram_reply(raw, tag):
     return "[" + tag + "]" + json.dumps(normalized, ensure_ascii=False, separators=(",", ":")) + "[/" + tag + "]"
 
 
-async def _generate_diagram(messages, tag, model, remaining, deadline):
+def _study_response_schema(kind, source):
+    def text(limit):
+        return {"type": "string", "description": f"Non-empty plain Unicode text, at most {limit} characters."}
+    def obj(fields):
+        return {"type": "object", "properties": fields, "required": list(fields), "additionalProperties": False}
+    fields = {"kind": {"type": "string", "enum": [kind]}, "title": text(160), "summary": text(1200)}
+    if kind == "graph":
+        fields.update({"chartType": {"type": ["string", "null"], "enum": ["bar", "line", "scatter", None]},
+            "xLabel": {"type": ["string", "null"]}, "yLabel": {"type": ["string", "null"]},
+            "basis": {"type": ["string", "null"]}, "illustrative": {"type": "boolean"},
+            "points": {"type": "array", "items": obj({"label": text(90), "x": {"type": ["number", "null"]}, "y": {"type": "number"}, "detail": {"type": "string"}})},
+            "unavailable_reason": {"type": ["string", "null"], "description": "Only supply a reason if the source has no meaningful numerical graph. Never invent numeric scores for concepts."}})
+    else:
+        heading = text(160)
+        if source["topics"]:
+            heading["enum"] = source["topics"]
+        item = obj({"label": text(60), "detail": text(180)})
+        section = obj({"heading": heading, "type": {"type": "string", "enum": sorted(_VISUAL_TYPES)}, "items": {"type": "array", "description": "2–3 useful teaching items.", "items": item}})
+        fields["sections"] = {"type": "array", "description": "Every requested topic once, in chapter order.", "items": section}
+    return obj(fields)
+
+
+async def _generate_visual_object(messages, tag, model, remaining, deadline, kind=None, source=None, exact_topics=False):
     """Only complete, locally validated structured data can reach the UI or DB."""
     prompt = [dict(m) for m in messages]
     prompt[0]["content"] += "\nReturn a single JSON object matching the diagram schema. No tags, Markdown fences or extra prose. Keep every text field short."
     spent, input_est, output_est, mode = 0, 0, 0, 0
-    for attempt in range(3):
+    generation_failures = 0
+    for attempt in range(5):
         stream, raw, started, reason = None, "", False, None
         estimate = sum(len(m["content"]) for m in prompt) // 3 + 500
         limit = 1800 + 400 * attempt if remaining is None else min(1800 + 400 * attempt, max(0, remaining - spent - estimate))
@@ -838,7 +861,7 @@ async def _generate_diagram(messages, tag, model, remaining, deadline):
         options = {}
         extra = {"include_reasoning": False}
         if mode == 0:
-            options["response_format"] = {"type": "json_schema", "json_schema": {"name": tag.lower(), "strict": True, "schema": _diagram_schema(tag)}}
+            options["response_format"] = {"type": "json_schema", "json_schema": {"name": tag.lower(), "strict": True, "schema": _study_response_schema(kind, source) if tag == "STUDYVISUAL" else _diagram_schema(tag)}}
             extra["provider"] = {"require_parameters": True}
         elif mode == 1:
             options["response_format"] = {"type": "json_object"}
@@ -865,17 +888,36 @@ async def _generate_diagram(messages, tag, model, remaining, deadline):
                         raw += choice.delta.content
             if reason == "length":
                 raise ValueError("Diagram was truncated")
-            normalized = _normalize_diagram_reply(raw, tag)
+            if tag == "STUDYVISUAL":
+                candidate = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw.strip())
+                if kind == "graph" and candidate.startswith("{"):
+                    graph = json.loads(candidate)
+                    unavailable = graph.get("unavailable_reason") if isinstance(graph, dict) else None
+                    if isinstance(unavailable, str) and unavailable.strip():
+                        normalized = unavailable.strip()
+                    else:
+                        normalized = _normalize_study_reply(candidate, kind, source)
+                else:
+                    normalized = _normalize_study_reply(candidate, kind, source)
+                _validate_study_reply(normalized, kind, source)
+                if exact_topics:
+                    decoded = json.loads(normalized[13:-14])
+                    if {_normal_title(sec["heading"]) for sec in decoded["sections"]} != {_normal_title(topic) for topic in source["topics"]}:
+                        raise ValueError("Study group omitted or added a topic")
+            else:
+                normalized = _normalize_diagram_reply(raw, tag)
             return normalized, input_est + estimate, output_est + len(raw) // 3 + 100
         except Exception as exc:
             status = getattr(exc, "status_code", None)
             unsupported = status in (400, 404, 422) and re.search(r"schema|response_format|parameter|endpoint|provider", str(exc), re.I)
             if unsupported and mode < 2 and not started:
                 mode += 1
-            elif status in (401, 402, 403) or attempt == 2 or asyncio.get_running_loop().time() >= deadline:
-                raise
-            elif status is not None and status not in (408, 429) and status < 500:
-                raise
+            else:
+                generation_failures += 1
+                if status in (401, 402, 403) or generation_failures >= (2 if tag == "STUDYVISUAL" else 3) or asyncio.get_running_loop().time() >= deadline:
+                    raise
+                if status is not None and status not in (408, 429) and status < 500:
+                    raise
             logger.warning("Retrying %s structured generation", tag, exc_info=True)
         finally:
             if started:
@@ -887,6 +929,10 @@ async def _generate_diagram(messages, tag, model, remaining, deadline):
                 except Exception:
                     logger.warning("Could not close diagram stream", exc_info=True)
     raise ValueError("Diagram could not be completed")
+
+
+async def _generate_diagram(messages, tag, model, remaining, deadline):
+    return await _generate_visual_object(messages, tag, model, remaining, deadline)
 
 
 def _study_group_excerpt(text, topics):
@@ -918,61 +964,11 @@ async def _generate_study_batches(ai_messages, kind, source, model, remaining, d
             ai_messages[-1]["content"] + "\nGenerate ONLY these topics, using each heading EXACTLY once: "
             + json.dumps(group, ensure_ascii=False)
             + ". Return one complete compact STUDYVISUAL block. Keep 2–3 concise items per topic; no other sections."}]
-        estimate = sum(len(m["content"]) for m in batch_messages) // 3 + 500
-        result = None
-        for attempt in range(2):
-            allowance = 1800 if remaining is None else min(1800, max(0, remaining - spent - estimate))
-            if allowance < 600:
-                raise ValueError("Not enough AI budget to finish all chapter topics")
-            stream, raw, finish = None, "", None
-            try:
-                left = deadline - asyncio.get_running_loop().time()
-                if left <= 0:
-                    raise asyncio.TimeoutError()
-                stream = await asyncio.wait_for(openai_client.chat.completions.create(
-                    model=model, messages=batch_messages, stream=True, max_tokens=allowance,
-                    temperature=0.15, extra_body={"include_reasoning": False}), timeout=min(20, left))
-                iterator = stream.__aiter__()
-                while True:
-                    left = deadline - asyncio.get_running_loop().time()
-                    if left <= 0:
-                        raise asyncio.TimeoutError()
-                    try:
-                        chunk = await asyncio.wait_for(iterator.__anext__(), timeout=min(20, left))
-                    except StopAsyncIteration:
-                        break
-                    if chunk.choices:
-                        choice = chunk.choices[0]
-                        finish = getattr(choice, "finish_reason", None) or finish
-                        delta = choice.delta.content
-                        if isinstance(delta, str):
-                            raw += delta
-                if finish == "length":
-                    raise ValueError("Topic group was truncated")
-                raw = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw.strip())
-                if raw.startswith("{"):
-                    raw = "[STUDYVISUAL]" + raw + "[/STUDYVISUAL]"
-                normalized = _normalize_study_reply(raw, kind, batch_source)
-                _validate_study_reply(normalized, kind, batch_source)
-                result = json.loads(normalized[13:-14])
-                actual = {_normal_title(sec["heading"]) for sec in result["sections"]}
-                if actual != {_normal_title(topic) for topic in group}:
-                    raise ValueError("Topic group omitted or added a heading")
-                break
-            except Exception:
-                if attempt == 1 or asyncio.get_running_loop().time() >= deadline:
-                    raise
-                logger.warning("Retrying study topic group %s", group, exc_info=True)
-            finally:
-                used = len(raw) // 3 + 100
-                spent += estimate + used
-                input_est += estimate
-                output_est += used
-                if stream is not None:
-                    try:
-                        await asyncio.wait_for(stream.close(), timeout=2)
-                    except Exception:
-                        logger.warning("Could not close study group stream", exc_info=True)
+        normalized, group_input, group_output = await _generate_visual_object(
+            batch_messages, "STUDYVISUAL", model, None if remaining is None else remaining - spent,
+            deadline, kind=kind, source=batch_source, exact_topics=True)
+        input_est += group_input; output_est += group_output; spent += group_input + group_output
+        result = json.loads(normalized[13:-14])
         ordered = {_normal_title(sec["heading"]): sec for sec in result["sections"]}
         sections.extend(ordered[_normal_title(topic)] for topic in group)
         chapter_title = chapter_title or result["title"]
@@ -1286,81 +1282,45 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
                 logger.exception("Study topic generation failed for session %s", session_id)
                 yield f"data: {json.dumps({'type':'error','code':'GENERATION_FAILED','message':'Some chapter topics could not be completed. Finished topics remain available; no credits were charged. Please retry.'})}\n\n"
                 return
+        elif is_studyvisual:
+            try:
+                full_content, input_tokens_est, generated_output_est = await _generate_visual_object(
+                    ai_messages, "STUDYVISUAL", ai_model, None, deadline, kind=study_kind, source=visual_source)
+                yield f"data: {json.dumps({'type':'visual_ready','content':full_content})}\n\n"
+            except Exception:
+                logger.exception("Study visual generation failed for session %s", session_id)
+                yield f"data: {json.dumps({'type':'error','code':'GENERATION_FAILED','message':'The study visual could not be completed. No credits were charged. Please retry.'})}\n\n"
+                return
         else:
-            retry_messages = ai_messages
+            # Normal tutoring streams prose; all visual formats use the validated path above.
             for attempt in range(2):
-                full_content = ""
-                stream = None
+                full_content, stream = "", None
                 try:
-                    provider_messages = retry_messages
-                    provider_limit = generation_tokens
-                    # One continuation can finish JSON cut off by the output limit.
-                    # Append real deltas; do not reset completed topic previews.
-                    for segment in range(2 if is_studyvisual else 1):
-                        stream = await asyncio.wait_for(
-                            openai_client.chat.completions.create(
-                                model=ai_model, messages=provider_messages, stream=True,
-                                max_tokens=provider_limit, temperature=0.25 if is_studyvisual else 0.75,
-                                extra_body={"include_reasoning": False},
-                            ), timeout=min(25, max(0.01, deadline - asyncio.get_running_loop().time())),
-                        )
-                        iterator = stream.__aiter__()
-                        finish_reason = None
-                        while True:
-                            if asyncio.get_running_loop().time() >= deadline:
-                                raise asyncio.TimeoutError()
-                            try:
-                                chunk = await asyncio.wait_for(iterator.__anext__(), timeout=min(20, max(0.01, deadline - asyncio.get_running_loop().time())))
-                            except StopAsyncIteration:
-                                break
-                            if not chunk.choices:
-                                continue
-                            choice = chunk.choices[0]
-                            finish_reason = getattr(choice, "finish_reason", None) or finish_reason
-                            delta = choice.delta.content
-                            if isinstance(delta, str) and delta:
-                                full_content += delta
-                                word_count = len(full_content.split())
-                                yield f"data: {json.dumps({'type':'chunk','content':delta})}\n\n"
-                        await asyncio.wait_for(stream.close(), timeout=2)
-                        stream = None
-                        if finish_reason != "length" or not is_studyvisual:
+                    stream = await asyncio.wait_for(openai_client.chat.completions.create(
+                        model=ai_model, messages=ai_messages, stream=True, max_tokens=generation_tokens,
+                        temperature=.75, extra_body={"include_reasoning": False}),
+                        timeout=min(25, max(.01, deadline - asyncio.get_running_loop().time())))
+                    iterator = stream.__aiter__()
+                    while True:
+                        left = deadline - asyncio.get_running_loop().time()
+                        if left <= 0:
+                            raise asyncio.TimeoutError()
+                        try:
+                            chunk = await asyncio.wait_for(iterator.__anext__(), timeout=min(20, left))
+                        except StopAsyncIteration:
                             break
-                        if segment == 1:
-                            raise ValueError("Visual exceeded its continuation limit")
-                        provider_messages = ai_messages + [
-                            {"role": "assistant", "content": full_content},
-                            {"role": "user", "content": "Continue exactly where the unfinished JSON stopped. Output only the remaining characters, missing chapter topics and closing [/STUDYVISUAL]. Do not restart, repeat any existing text, or add Markdown fences."},
-                        ]
-                        continuation_input = sum(len(m["content"]) for m in provider_messages) // 3 + 500
-                        first_input = sum(len(m["content"]) for m in ai_messages) // 3 + 500
-                        spent_output = len(full_content) // 3 + 200
-                        provider_limit = 2000
-                        if provider_limit < 400:
-                            raise ValueError("Insufficient budget to finish visual JSON")
-                        input_tokens_est += continuation_input
+                        if chunk.choices and isinstance(chunk.choices[0].delta.content, str):
+                            delta = chunk.choices[0].delta.content
+                            full_content += delta
+                            yield f"data: {json.dumps({'type':'chunk','content':delta})}\n\n"
                     if not full_content.strip():
                         raise ValueError("AI provider returned an empty response")
-                    if is_studyvisual:
-                        normalized = _normalize_study_reply(full_content, study_kind, visual_source)
-                        _validate_study_reply(normalized, study_kind, visual_source)
-                        full_content = normalized
-                        yield f"data: {json.dumps({'type':'visual_ready','content':full_content})}\n\n"
                     break
                 except Exception as exc:
                     logger.exception("Tutor generation attempt %s failed for session %s", attempt + 1, session_id)
                     status = getattr(exc, "status_code", None)
                     retryable = status is None or status in (408, 429) or status >= 500
-                    if attempt == 0 and is_studyvisual and isinstance(exc, (ValueError, json.JSONDecodeError)) and asyncio.get_running_loop().time() < deadline:
-                        repair_input = sum(len(m["content"]) for m in ai_messages) // 3 + 700
-                        retry_limit = generation_tokens
-                        if retry_limit >= 600:
-                            generation_tokens = retry_limit
-                            retry_messages = ai_messages + [{"role": "user", "content": "The previous output did not validate. Regenerate ONE complete valid JSON block using the exact schema. Keep every required chapter heading, use short items and finite numeric graph values. No Markdown fences. Never invent graph measurements. If a numerical graph is unsupported, explain that plainly."}]
-                            input_tokens_est += repair_input
-                            yield f"data: {json.dumps({'type':'reset'})}\n\n"
-                            continue
-                    if attempt == 0 and not full_content and retryable and not isinstance(exc, (ValueError, json.JSONDecodeError)) and asyncio.get_running_loop().time() < deadline:
+                    if attempt == 0 and not full_content and retryable and not isinstance(exc, ValueError) and asyncio.get_running_loop().time() < deadline:
                         yield f"data: {json.dumps({'type':'reset'})}\n\n"
                         continue
                     yield f"data: {json.dumps({'type':'error','code':'GENERATION_FAILED','message':'The tutor could not finish this reply. No credits were charged. Please retry your question.'})}\n\n"

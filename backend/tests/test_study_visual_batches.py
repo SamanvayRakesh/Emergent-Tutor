@@ -3,7 +3,7 @@ from pathlib import Path
 from types import SimpleNamespace as NS
 from unittest.mock import AsyncMock
 sourcecode=(Path(__file__).resolve().parents[1]/'routes'/'chat.py').read_text();tree=ast.parse(sourcecode)
-names={'_normal_title','_study_visual_schema','_normalize_study_reply','_validate_study_reply','_study_group_excerpt','_generate_study_batches'}
+names={'_generate_visual_object','_study_response_schema','_normal_title','_study_visual_schema','_normalize_study_reply','_validate_study_reply','_study_group_excerpt','_generate_study_batches'}
 class Stream:
  def __init__(self,raw):self.raw=raw;self.closed=False
  def __aiter__(self):return self.iterate()
