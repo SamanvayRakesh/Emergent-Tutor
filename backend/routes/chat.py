@@ -784,6 +784,118 @@ def _validate_study_reply(content, kind, source):
         raise ValueError("Cheat sheet omitted a source topic")
 
 
+def _diagram_schema(tag):
+    def string(limit):
+        return {"type": "string", "description": f"Non-empty plain Unicode text, at most {limit} characters."}
+    def obj(fields):
+        return {"type": "object", "properties": fields, "required": list(fields), "additionalProperties": False}
+    if tag == "MINDMAP":
+        item = obj({"label": string(60), "relation": string(24), "points": {"type": "array", "description": "1–4 concise chapter facts.", "items": string(220)}})
+        return obj({"title": string(100), "summary": string(240), "branches": {"type": "array", "description": "3–6 distinct chapter concepts.", "items": item}})
+    item = obj({"label": string(70), "detail": string(320)})
+    return obj({"title": string(100), "summary": string(240), "steps": {"type": "array", "description": "2–8 steps in learning order.", "items": item}})
+
+
+def _normalize_diagram_reply(raw, tag):
+    raw = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw.strip())
+    if raw.startswith("[" + tag + "]"):
+        raw = raw[len(tag) + 2:]
+        raw = re.sub(r"\s*\[/" + tag + r"\]\s*$", "", raw)
+    data = json.loads(raw)
+    def text(value, limit):
+        if not isinstance(value, str) or not value.strip() or len(value) > limit:
+            raise ValueError("Invalid diagram text")
+        return value.strip()
+    if not isinstance(data, dict):
+        raise ValueError("Diagram must be an object")
+    normalized = {"title": text(data.get("title"), 100), "summary": text(data.get("summary"), 240)}
+    if tag == "MINDMAP":
+        branches = data.get("branches")
+        if not isinstance(branches, list) or not 1 <= len(branches) <= 6:
+            raise ValueError("Invalid mind-map branches")
+        result = []
+        for branch in branches:
+            if not isinstance(branch, dict) or not isinstance(branch.get("points"), list) or not 1 <= len(branch["points"]) <= 4:
+                raise ValueError("Invalid mind-map points")
+            result.append({"label": text(branch.get("label"), 60), "relation": text(branch.get("relation", "includes"), 24),
+                           "points": [text(point, 220) for point in branch["points"]]})
+        normalized["branches"] = result
+    else:
+        steps = data.get("steps")
+        if not isinstance(steps, list) or not 2 <= len(steps) <= 8:
+            raise ValueError("Invalid flowchart steps")
+        normalized["steps"] = [{"label": text(step.get("label"), 70), "detail": text(step.get("detail"), 320)}
+                               for step in steps if isinstance(step, dict)]
+        if len(normalized["steps"]) != len(steps):
+            raise ValueError("Invalid flowchart step")
+    return "[" + tag + "]" + json.dumps(normalized, ensure_ascii=False, separators=(",", ":")) + "[/" + tag + "]"
+
+
+async def _generate_diagram(messages, tag, model, remaining, deadline):
+    """Only complete, locally validated structured data can reach the UI or DB."""
+    prompt = [dict(m) for m in messages]
+    prompt[0]["content"] += "\nReturn a single JSON object matching the diagram schema. No tags, Markdown fences or extra prose. Keep every text field short."
+    spent, input_est, output_est, mode = 0, 0, 0, 0
+    for attempt in range(3):
+        stream, raw, started, reason = None, "", False, None
+        estimate = sum(len(m["content"]) for m in prompt) // 3 + 500
+        limit = min(1800 + 400 * attempt, max(0, remaining - spent - estimate))
+        if limit < 500:
+            raise ValueError("Insufficient AI allowance for a complete diagram")
+        options = {}
+        extra = {"include_reasoning": False}
+        if mode == 0:
+            options["response_format"] = {"type": "json_schema", "json_schema": {"name": tag.lower(), "strict": True, "schema": _diagram_schema(tag)}}
+            extra["provider"] = {"require_parameters": True}
+        elif mode == 1:
+            options["response_format"] = {"type": "json_object"}
+        try:
+            left = deadline - asyncio.get_running_loop().time()
+            if left <= 0:
+                raise asyncio.TimeoutError()
+            stream = await asyncio.wait_for(openai_client.chat.completions.create(model=model, messages=prompt, stream=True,
+                max_tokens=limit, temperature=.15, extra_body=extra, **options), timeout=min(20, left))
+            started = True
+            iterator = stream.__aiter__()
+            while True:
+                left = deadline - asyncio.get_running_loop().time()
+                if left <= 0:
+                    raise asyncio.TimeoutError()
+                try:
+                    chunk = await asyncio.wait_for(iterator.__anext__(), timeout=min(20, left))
+                except StopAsyncIteration:
+                    break
+                if chunk.choices:
+                    choice = chunk.choices[0]
+                    reason = getattr(choice, "finish_reason", None) or reason
+                    if isinstance(choice.delta.content, str):
+                        raw += choice.delta.content
+            if reason == "length":
+                raise ValueError("Diagram was truncated")
+            normalized = _normalize_diagram_reply(raw, tag)
+            return normalized, input_est + estimate, output_est + len(raw) // 3 + 100
+        except Exception as exc:
+            status = getattr(exc, "status_code", None)
+            unsupported = status in (400, 404, 422) and re.search(r"schema|response_format|parameter|endpoint|provider", str(exc), re.I)
+            if unsupported and mode < 2 and not started:
+                mode += 1
+            elif status in (401, 402, 403) or attempt == 2 or asyncio.get_running_loop().time() >= deadline:
+                raise
+            elif status is not None and status not in (408, 429) and status < 500:
+                raise
+            logger.warning("Retrying %s structured generation", tag, exc_info=True)
+        finally:
+            if started:
+                used = len(raw) // 3 + 100
+                spent += estimate + used; input_est += estimate; output_est += used
+            if stream is not None:
+                try:
+                    await asyncio.wait_for(stream.close(), timeout=2)
+                except Exception:
+                    logger.warning("Could not close diagram stream", exc_info=True)
+    raise ValueError("Diagram could not be completed")
+
+
 def _study_group_excerpt(text, topics):
     """Keep teaching blocks for this group; preserve full source if headings cannot be located."""
     boundaries = list(re.finditer(r"(?m)^\s*(?:\d{1,2}\.\d{1,2}\s+|Topic:\s*)([^\n]+)", text))
@@ -909,23 +1021,12 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
 
     # Hard block — token cap exhausted
     if budget["over_budget"]:
-        now = datetime.now(timezone.utc).isoformat()
-        await db.messages.insert_many([
-            {"session_id": session_id, "role": "user",      "content": body.content,           "timestamp": now},
-            {"session_id": session_id, "role": "assistant", "content": _BUDGET_EXHAUSTED_MSG,  "timestamp": now},
-        ])
-        await db.chat_sessions.update_one(
-            {"session_id": session_id},
-            {"$set": {"updated_at": now}, "$inc": {"message_count": 2}},
-        )
-        return StreamingResponse(
-            iter([
-                f"data: {json.dumps({'type':'chunk','content':_BUDGET_EXHAUSTED_MSG})}\n\n",
-                f"data: {json.dumps({'type':'done'})}\n\n",
-            ]),
-            media_type="text/event-stream",
-            headers={"Cache-Control":"no-cache","X-Accel-Buffering":"no"},
-        )
+        current = datetime.now(timezone.utc)
+        reset = datetime(current.year + (current.month == 12), 1 if current.month == 12 else current.month + 1, 1, tzinfo=timezone.utc)
+        raise HTTPException(status_code=429, detail={"feature": "monthly_ai_tokens", "code": "MONTHLY_AI_LIMIT",
+            "message": f"Your plan's monthly AI token allowance is used up ({budget['used']:,} / {budget['cap']:,} tokens). This is separate from message credits. It resets on {reset:%d %B %Y} at 00:00 UTC.",
+            "used_tokens": budget["used"], "limit_tokens": budget["cap"], "resets_at": reset.isoformat(),
+            "upgrade_to": {"free": "starter", "starter": "pro", "pro": "elite"}.get(plan_id)})
 
     is_mindmap = body.content.startswith("Visualize: Mind map for ") and "[MINDMAP INSTRUCTIONS]" in body.content
 
@@ -957,9 +1058,6 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
         study_kind = next(value for label, value in formats.items()
                           if body.content.startswith(f"Visualize: {label} for "))
     if is_visual:
-        if max_tokens < 400 and not is_studyvisual:
-            raise HTTPException(status_code=429, detail={"feature": "visualize",
-                "message": "Your remaining response budget is too small for a complete visual. Try after it resets.", "upgrade_to": "pro"})
         if is_studyvisual:
             try:
                 visual_source = await _get_visual_source(session, user.get("school") or "")
@@ -979,7 +1077,7 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
                 raise HTTPException(status_code=429, detail={"feature": "visualize",
                     "message": "There is not enough remaining AI budget for this chapter visual. No credits were charged.", "upgrade_to": "pro"})
         else:
-            max_tokens = min(max_tokens, 1200)
+            max_tokens = 1800  # Diagram helper checks remaining allowance including source input.
 
     # ── Category A: curriculum lookup, no LLM ────────────────────────────────
     if category == "A" and not is_visual:
@@ -1056,7 +1154,7 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
         math_visual_source = ""
         if is_visual and not is_studyvisual and is_nios and session["subject"] == "Mathematics":
             math_visual_source = await _get_mapped_nios_math_context(session["chapter"])
-            if is_flowchart and math_visual_source:
+            if math_visual_source:
                 math_visual_source = _compact_visual_source(math_visual_source, 10000)
             if not math_visual_source:
                 raise HTTPException(status_code=422, detail={
@@ -1190,7 +1288,16 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
         use_batches = is_studyvisual and study_kind != "graph" and bool(visual_source["topics"]) and (
             study_kind == "cheatsheet" or "\nFocus:" not in body.content)
         generated_output_est = None
-        if use_batches:
+        if is_mindmap or is_flowchart:
+            try:
+                full_content, input_tokens_est, generated_output_est = await _generate_diagram(
+                    ai_messages, "MINDMAP" if is_mindmap else "FLOWCHART", ai_model, budget["remaining"], deadline)
+                yield f"data: {json.dumps({'type':'visual_ready','content':full_content})}\n\n"
+            except Exception:
+                logger.exception("Diagram generation failed for session %s", session_id)
+                yield f"data: {json.dumps({'type':'error','code':'DIAGRAM_GENERATION_FAILED','message':'The diagram could not be completed. No credits were charged. Please retry.'})}\n\n"
+                return
+        elif use_batches:
             try:
                 async for event in _generate_study_batches(ai_messages, study_kind, visual_source, ai_model, budget["remaining"], deadline):
                     full_content = event["content"]

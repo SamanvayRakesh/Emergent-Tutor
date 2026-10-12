@@ -71,8 +71,16 @@ function fixMathDelimiters(text = '') {
   }).join('');
 }
 
+function readVisualJSON(raw) {
+  return JSON.parse(raw.trim().replace(/^```(?:json)?\s*|\s*```$/g, ''));
+}
+
 function parseQuizBlocks(content) {
   if (content.includes('[MINDMAP]') && !content.includes('[/MINDMAP]')) {
+    try {
+      const data = validateMindMap(readVisualJSON(content.split('[MINDMAP]')[1]));
+      if (data) return [{ type: 'mindmap', data }];
+    } catch { /* Never fabricate missing diagram content. */ }
     return [{ type: 'text', content: 'The mind map was incomplete. Please request it again.' }];
   }
   if (content.includes('[FLOWCHART]') && !content.includes('[/FLOWCHART]')) {
@@ -99,7 +107,7 @@ function parseQuizBlocks(content) {
     }
     if (match[3] !== undefined) {
       try {
-        const data = validateMindMap(JSON.parse(match[3].trim()));
+        const data = validateMindMap(readVisualJSON(match[3]));
         if (!data) throw new Error('Invalid mind map');
         parts.push({ type: 'mindmap', data });
       } catch {
@@ -108,7 +116,7 @@ function parseQuizBlocks(content) {
     }
     if (match[4] !== undefined) {
       try {
-        const data = validateFlowchart(JSON.parse(match[4].trim()));
+        const data = validateFlowchart(readVisualJSON(match[4]));
         if (!data) throw new Error('Invalid flowchart');
         parts.push({ type: 'flowchart', data });
       } catch {
@@ -117,7 +125,7 @@ function parseQuizBlocks(content) {
     }
     if (match[5] !== undefined) {
       try {
-        const data = validateStudyVisual(JSON.parse(match[5].trim()));
+        const data = validateStudyVisual(readVisualJSON(match[5]));
         if (!data) throw new Error('Invalid study visual');
         parts.push({ type: 'studyvisual', data });
       } catch {
@@ -822,10 +830,16 @@ export default function ChatPage() {
         // Daily limit hit — trigger upgrade modal
         const body = await res.json().catch(() => ({}));
         const detail = body?.detail || {};
-        triggerUpgrade?.({
-          feature: detail.feature, message: detail.message,
-          limit_info: detail.limit_info, upgrade_to: detail.upgrade_to || 'pro',
-        });
+        if (detail.code === 'MONTHLY_AI_LIMIT') {
+          failedRequestRef.current = text;
+          setInput(cleanVisualFocus(text));
+          const resetDate = detail.resets_at ? new Date(detail.resets_at) : null;
+          const resetText = resetDate && !Number.isNaN(resetDate.getTime()) ? ` Resets ${resetDate.toLocaleString()}.` : '';
+          setReplyError(`Monthly AI allowance: ${Number(detail.used_tokens).toLocaleString()} / ${Number(detail.limit_tokens).toLocaleString()} tokens used. Message credits are separate.${resetText}`);
+          if (detail.upgrade_to) triggerUpgrade?.({ feature: detail.feature, message: detail.message, upgrade_to: detail.upgrade_to });
+        } else {
+          triggerUpgrade?.({ feature: detail.feature, message: detail.message, limit_info: detail.limit_info, upgrade_to: detail.upgrade_to || 'pro' });
+        }
         // Remove the user's optimistic message
         setMessages(p => p.slice(0, -1));
         setStreaming(false);
