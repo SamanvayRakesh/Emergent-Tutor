@@ -16,6 +16,7 @@ import InteractiveQuizModal from './InteractiveQuizModal';
 import MindMapCard, { validateMindMap, makeMindMapPrompt } from './MindMapCard';
 import StudyVisualCard, { STUDY_FORMATS, makeStudyVisualPrompt, validateStudyVisual } from './StudyVisualCard';
 import FlowchartCard, { validateFlowchart, makeFlowchartPrompt } from './FlowchartCard';
+import { runVisualJob, pendingVisualJob, cancelVisualJob } from '../lib/visualJobs';
 
 const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
 
@@ -188,7 +189,7 @@ function cleanVisualFocus(input) {
   return /^Focus: ([^\n]+)/m.exec(input)?.[1] || '';
 }
 
-export function VisualReplyProgress({ request, content, ready = false }) {
+export function VisualReplyProgress({ request, content, ready = false, jobState }) {
   const sections = completedVisualSections(content);
   const complete = /\[\/(?:STUDYVISUAL|MINDMAP|FLOWCHART)\]/.test(content);
   const parts = complete ? parseQuizBlocks(content) : [];
@@ -198,7 +199,7 @@ export function VisualReplyProgress({ request, content, ready = false }) {
     <div className="message-ai p-3.5 w-full max-w-[82%]">
       <div role="status" aria-live="polite" className="flex items-center gap-2 text-xs text-violet-200">
         <span className="h-2 w-2 rounded-full bg-cyan-400 animate-pulse" />
-        {ready ? 'Visual ready · saving your reply…' : sections.length ? `${sections.length} topic${sections.length === 1 ? '' : 's'} ready · building the rest…` : content ? 'Building your visual…' : `Preparing ${request?.label || 'your visual'}…`}
+        {jobState?.status === 'reconnecting' ? 'Reconnecting to your saved request…' : ready ? 'Visual generated · saving your reply…' : sections.length ? `${sections.length}${jobState?.total_topics ? ` / ${jobState.total_topics}` : ''} topic${sections.length === 1 ? '' : 's'} ready · building the rest…` : content ? 'Building your visual…' : `Preparing ${request?.label || 'your visual'}…`}
       </div>
       {visual?.type === 'studyvisual' ? <StudyVisualCard data={visual.data} preview={!ready} /> :
         visual?.type === 'mindmap' ? <MindMapCard data={visual.data} /> :
@@ -372,7 +373,7 @@ function MessageBubble({ msg, receipt, isStreaming, isNios, feedbackState, onFee
           )}
         </div>
 
-        {msg.unconfirmed && <span className="text-xs text-amber-200">Connection interrupted · reload the chat to check whether this reply was saved.</span>}
+        {msg.unconfirmed && <span className="text-xs text-amber-200">{msg.visualPreview ? 'Partial visual · finished topics are kept.' : 'Visual generated · saving was not confirmed. Reconnect to check the saved result.'}</span>}
         {msg.stopped && <span className="text-xs text-zinc-500">Response stopped</span>}
         {/* Feedback & Detail row — only for finalised AI messages */}
         {!isUser && !isStreaming && (
@@ -590,6 +591,89 @@ export default function ChatPage() {
   const readyVisualRef = useRef('');
   const replyCompletedRef = useRef(false);
   const [replyError, setReplyError] = useState('');
+  const [visualJobState, setVisualJobState] = useState(null);
+  const [followLatest, setFollowLatest] = useState(true);
+  const followingRef = useRef(true);
+  const activeVisualRef = useRef(null);
+  const resumedRequestRef = useRef(null);
+
+  const keepVisualSnapshot = useCallback((request) => {
+    if (!request || replyCompletedRef.current) return;
+    const jobId = activeVisualRef.current?.job_id;
+    let snapshot;
+    if (readyVisualRef.current) snapshot = { role: 'assistant', content: readyVisualRef.current, unconfirmed: true };
+    else {
+      const sections = completedVisualSections(streamBufferRef.current);
+      if (!sections.length) return;
+      snapshot = { role: 'assistant', content: '', unconfirmed: true, visualPreview: {
+        kind: request.kind, title: request.chapter, summary: 'Finished chapter topics. This visual is not complete.', sections,
+        coverage: { status: 'partial', note: 'Some chapter topics are not yet available.', topics: sections.map(section => section.heading) },
+      } };
+    }
+    snapshot.timestamp = new Date().toISOString(); snapshot.visual_job_id = jobId;
+    setMessages(previous => [...previous.filter(message => !(jobId && message.visual_job_id === jobId && message.role === 'assistant')), snapshot]);
+  }, []);
+
+  const executeVisualJob = useCallback(async (sid, text, controller, resuming = false) => {
+    return runVisualJob({ api: API, sessionId: sid, content: text, signal: controller.signal,
+      onIdentity: identity => {
+        if (controller.signal.aborted || activeRequestRef.current !== controller) return;
+        activeVisualRef.current = identity;
+        setMessages(previous => {
+          if (previous.some(message => message.role === 'user' && (message.visual_request_id === identity.request_id || identity.job_id && message.visual_job_id === identity.job_id))) return previous;
+          let index = previous.length - 1;
+          while (index >= 0 && !(previous[index].role === 'user' && previous[index].content === text && !previous[index].visual_request_id)) index--;
+          if (index < 0) return [...previous, { role: 'user', content: text, timestamp: new Date().toISOString(), visual_request_id: identity.request_id, visual_job_id: identity.job_id }];
+          return previous.map((message, i) => i === index ? { ...message, visual_request_id: identity.request_id, visual_job_id: identity.job_id } : message);
+        });
+      },
+      onUpdate: job => {
+        if (controller.signal.aborted || activeRequestRef.current !== controller) return;
+        setVisualJobState(job);
+        if (job.status !== 'queued' && job.status !== 'reconnecting') setMessages(previous => previous.map(message =>
+          message.role === 'user' && message.visual_request_id === activeVisualRef.current?.request_id ? { ...message, visualSeen: true, visual_job_id: job.job_id } : message));
+        if (typeof job.content === 'string' && job.content) {
+          streamBufferRef.current = job.content; setStreamingContent(job.content);
+          setVisualReady(Boolean(job.ready));
+          if (job.ready) readyVisualRef.current = job.content;
+        }
+        if (job.status === 'completed' && job.content && !replyCompletedRef.current) {
+          replyCompletedRef.current = true;
+          const receipt = job.receipt || {};
+          setMessages(previous => {
+            const response = { role: 'assistant', content: job.content, timestamp: job.updated_at || new Date().toISOString(), message_id: receipt.message_id, visual_job_id: job.job_id };
+            return [...previous.filter(message => !(message.role === 'assistant' && (message.visual_job_id === job.job_id || receipt.message_id && message.message_id === receipt.message_id))), response];
+          });
+          setStreamingContent(''); setReplyError('');
+          if (!resuming && receipt.credits_used) toast.success(`Visual saved · −${receipt.credits_used} credits`, { id: 'credit-deduct', duration: 1800 });
+        }
+      },
+    });
+  }, []);
+
+  // Recover the same server job after a reload, without generating or charging again.
+  useEffect(() => {
+    const sid = session?.session_id;
+    if (!sid || sendingRef.current) return;
+    const pending = pendingVisualJob(API, sid);
+    if (!pending || resumedRequestRef.current === pending.request_id) return;
+    resumedRequestRef.current = pending.request_id;
+    const controller = new AbortController();
+    activeRequestRef.current = controller; sendingRef.current = true; stoppedRef.current = false;
+    replyCompletedRef.current = false; readyVisualRef.current = ''; streamBufferRef.current = '';
+    setVisualRequest(visualRequestInfo(pending.content)); setVisualReady(false); setStreaming(true); setReplyError('');
+    executeVisualJob(sid, pending.content, controller, true).catch(error => {
+      if (activeRequestRef.current !== controller) return;
+      keepVisualSnapshot(visualRequestInfo(pending.content));
+      if (error.name !== 'AbortError') { failedRequestRef.current = pending.content; setReplyError(error.message); }
+    }).finally(() => {
+      if (activeRequestRef.current !== controller) return;
+      activeRequestRef.current = null; sendingRef.current = false;
+      setStreaming(false); setStreamingContent(''); setVisualRequest(null); setVisualReady(false); setVisualJobState(null);
+      refreshCredits?.(); refreshSub?.();
+    });
+  }, [session?.session_id, executeVisualJob, keepVisualSnapshot, refreshCredits, refreshSub]);
+
 
   // Cleanup RAF on unmount
   useEffect(() => () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); }, []);
@@ -649,7 +733,7 @@ export default function ChatPage() {
   }, [paramId, loadSession, nav]);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: streaming ? 'instant' : 'smooth' });
+    if (followingRef.current) bottomRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' });
   }, [messages, streamingContent, streaming]);
 
   const processStream = async (res) => {
@@ -769,13 +853,23 @@ export default function ChatPage() {
     }
   }, [session]);
 
-  const stopReply = () => {
+  const stopReply = async () => {
     if (!activeRequestRef.current || stoppedRef.current) return;
     stoppedRef.current = true;
-    activeRequestRef.current.abort();
+    const controller = activeRequestRef.current;
+    if (activeVisualRef.current && session?.session_id) {
+      try {
+        const result = await cancelVisualJob(API, session.session_id);
+        if (result?.status === 'completed') { stoppedRef.current = false; return; }
+      } catch { toast.info('Stopped waiting. Reconnect to check the saved request.'); }
+    }
+    controller.abort();
   };
 
-  useEffect(() => () => activeRequestRef.current?.abort(), []);
+  useEffect(() => {
+    setStreaming(false); setStreamingContent(''); setVisualRequest(null); setVisualJobState(null);
+    return () => { activeRequestRef.current?.abort(); activeRequestRef.current = null; activeVisualRef.current = null; sendingRef.current = false; };
+  }, [paramId]);
 
   const sendMessage = async (forced) => {
     const text = (forced !== undefined ? forced : input).trim();
@@ -783,7 +877,8 @@ export default function ChatPage() {
     stoppedRef.current = false;
     readyVisualRef.current = ''; replyCompletedRef.current = false;
     sendingRef.current = true;
-    setReplyError('');
+    setReplyError(''); followingRef.current = true; setFollowLatest(true);
+    activeVisualRef.current = null; setVisualJobState(null);
     if (forced === undefined) setInput('');
 
     // Detect quiz intent → open quiz modal
@@ -799,7 +894,9 @@ export default function ChatPage() {
       // Fallback: quiz failed — continue as normal chat message
     }
 
-    setMessages(p => [...p, { role: 'user', content: text, timestamp: new Date().toISOString() }]);
+    const pending = visualRequestInfo(text) ? pendingVisualJob(API, session.session_id) : null;
+    setMessages(previous => pending?.content === text && previous.some(message => message.role === 'user' && (message.visual_request_id === pending.request_id || pending.job_id && message.visual_job_id === pending.job_id))
+      ? previous : [...previous, { role: 'user', content: text, timestamp: new Date().toISOString() }]);
     setVisualRequest(visualRequestInfo(text));
     setVisualReady(false);
     setStreaming(true);
@@ -807,39 +904,20 @@ export default function ChatPage() {
     streamBufferRef.current = '';
     const controller = new AbortController();
     activeRequestRef.current = controller;
-    const timeout = setTimeout(() => controller.abort(), 120000);
+    const timeout = visualRequestInfo(text) ? null : setTimeout(() => controller.abort(), 120000);
 
-    const retainVisualPreview = () => {
-      const request = visualRequestInfo(text);
-      if (!request || replyCompletedRef.current) return;
-      if (readyVisualRef.current) {
-        setMessages(p => [...p, { role: 'assistant', content: readyVisualRef.current,
-          timestamp: new Date().toISOString(), unconfirmed: true }]);
-        return;
-      }
-      const sections = completedVisualSections(streamBufferRef.current);
-      if (!sections.length) return;
-      setMessages(p => [...p, { role: 'assistant', content: '', unconfirmed: true,
-        timestamp: new Date().toISOString(), visualPreview: { kind: request.kind,
-          title: request.chapter, summary: 'Generation was interrupted. These finished topics are still available.',
-          sections, coverage: { status: 'partial', note: 'Incomplete preview; some chapter topics are missing.', topics: sections.map(s => s.heading) } } }]);
-    };
+    const retainVisualPreview = () => keepVisualSnapshot(visualRequestInfo(text));
     try {
+      if (visualRequestInfo(text)) {
+        await executeVisualJob(session.session_id, text, controller);
+        refreshSub?.(); refreshCredits?.(); return;
+      }
       const res = await requestTutorReply(session.session_id, text, controller.signal);
       if (res.status === 429) {
         // Daily limit hit — trigger upgrade modal
         const body = await res.json().catch(() => ({}));
         const detail = body?.detail || {};
-        if (detail.code === 'MONTHLY_AI_LIMIT') {
-          failedRequestRef.current = text;
-          setInput(cleanVisualFocus(text));
-          const resetDate = detail.resets_at ? new Date(detail.resets_at) : null;
-          const resetText = resetDate && !Number.isNaN(resetDate.getTime()) ? ` Resets ${resetDate.toLocaleString()}.` : '';
-          setReplyError(`Monthly AI allowance: ${Number(detail.used_tokens).toLocaleString()} / ${Number(detail.limit_tokens).toLocaleString()} tokens used. Message credits are separate.${resetText}`);
-          if (detail.upgrade_to) triggerUpgrade?.({ feature: detail.feature, message: detail.message, upgrade_to: detail.upgrade_to });
-        } else {
-          triggerUpgrade?.({ feature: detail.feature, message: detail.message, limit_info: detail.limit_info, upgrade_to: detail.upgrade_to || 'pro' });
-        }
+        triggerUpgrade?.({ feature: detail.feature, message: detail.message, limit_info: detail.limit_info, upgrade_to: detail.upgrade_to || 'pro' });
         // Remove the user's optimistic message
         setMessages(p => p.slice(0, -1));
         setStreaming(false);
@@ -863,6 +941,7 @@ export default function ChatPage() {
       refreshSub?.();
       refreshCredits?.();
     } catch (e) {
+      if (activeRequestRef.current !== controller) return;
       retainVisualPreview();
       if (stoppedRef.current) {
         const partial = streamBufferRef.current;
@@ -873,6 +952,7 @@ export default function ChatPage() {
         return;
       }
       console.error(e);
+      if (e.status === 402) triggerUpgrade?.({ feature: 'credits', message: e.message, upgrade_to: 'pro' });
       if (e.code === 'SESSION_EXPIRED') setMessages(p => p.slice(0, -1));
       failedRequestRef.current = text;
       setInput(cleanVisualFocus(text));
@@ -880,14 +960,15 @@ export default function ChatPage() {
       toast.error(e.name === 'AbortError' ? 'The tutor took too long to respond. Please try again.' :
         e.message || 'The tutor could not reply. Please try again.', { id: 'tutor-error', duration: 6000 });
     } finally {
+      if (timeout) clearTimeout(timeout);
+      if (activeRequestRef.current !== controller) return;
       activeRequestRef.current = null;
       sendingRef.current = false;
-      clearTimeout(timeout);
       if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
       streamBufferRef.current = '';
       setStreamingContent('');
       setStreaming(false);
-      setVisualRequest(null); setVisualReady(false);
+      setVisualRequest(null); setVisualReady(false); setVisualJobState(null);
       refreshCredits?.();
     }
   };
@@ -979,7 +1060,10 @@ export default function ChatPage() {
       </div>
 
       {/* Messages */}
-      <div className="ace-tutor-messages flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="ace-tutor-messages flex-1 overflow-y-auto p-4 space-y-4" onScroll={event => {
+        const node = event.currentTarget, nearBottom = node.scrollHeight - node.scrollTop - node.clientHeight < 100;
+        followingRef.current = nearBottom; setFollowLatest(nearBottom);
+      }}>
       {messages.length === 0 && !streaming && (
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
             className="ace-tutor-intro flex flex-col items-center justify-center h-full gap-3 text-center px-4">
@@ -993,7 +1077,7 @@ export default function ChatPage() {
         )}
         {messages.map((msg, i) => (
           <MessageBubble
-            key={msg.timestamp || i}
+            key={msg.message_id || (msg.visual_job_id ? `${msg.visual_job_id}:${msg.role}` : `${msg.timestamp || 'message'}:${i}`)}
             msg={msg}
             receipt={msg.role === 'user' && visualRequestInfo(msg.content) ? (msg.visualSeen || messages.slice(i + 1).some(m => m.role === 'assistant') ? 'Seen ✓✓' : streaming && i === messages.length - 1 ? 'Sent · waiting to be seen' : 'Not seen') : null}
             isStreaming={false}
@@ -1003,7 +1087,7 @@ export default function ChatPage() {
             onDetailRequest={() => sendMessage('Explain in detail')}
           />
         ))}
-        {streaming && visualRequest && <VisualReplyProgress request={visualRequest} content={streamingContent} ready={visualReady} />}
+        {streaming && visualRequest && <VisualReplyProgress request={visualRequest} content={streamingContent} ready={visualReady} jobState={visualJobState} />}
         {streaming && !visualRequest && streamingContent && (
           <MessageBubble
             msg={{ role: 'assistant', content: streamingContent }}
@@ -1028,6 +1112,7 @@ export default function ChatPage() {
             </div>
           </div>
         )}
+        {!followLatest && <button type="button" className="ace-tutor-jump" onClick={() => { followingRef.current = true; setFollowLatest(true); bottomRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' }); }}>Jump to latest ↓</button>}
         <div ref={bottomRef} />
       </div>
 

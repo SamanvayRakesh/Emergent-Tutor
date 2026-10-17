@@ -29,12 +29,14 @@ from adaptive_engine import (
 from ai_router import build_routing_decision
 from knowledge_base import find_kb_answer, get_kb_stats
 from school_curriculum import get_chapter_context_hint
+from visual_jobs import router as visual_jobs_router
 
 # ── Simple in-memory KB context cache (cuts repeat DB lookups for same chapter) ─
 _KB_CACHE: dict = {}          # key → (context_str, timestamp)
 _KB_CACHE_TTL: int = 300      # 5 minutes
 
 router = APIRouter()
+router.include_router(visual_jobs_router)
 
 
 # ── Session CRUD ─────────────────────────────────────────────────────────────
@@ -700,7 +702,7 @@ def _normalize_study_reply(content, kind, source):
     for section in sections:
         if "visual" not in section and isinstance(section.get("items"), list):
             section["visual"] = {"type": section.get("type", "concept"),
-                                 "title": section["heading"], "items": section["items"]}
+                                 "title": section["heading"][:140], "items": section["items"]}
             section["points"] = [item.get("detail", "") for item in section["items"] if isinstance(item, dict)]
             section.pop("items", None)
             section.pop("type", None)
@@ -850,7 +852,10 @@ async def _generate_visual_object(messages, tag, model, remaining, deadline, kin
     """Only complete, locally validated structured data can reach the UI or DB."""
     prompt = [dict(m) for m in messages]
     prompt[0]["content"] += "\nReturn a single JSON object matching the diagram schema. No tags, Markdown fences or extra prose. Keep every text field short."
-    spent, input_est, output_est, mode = 0, 0, 0, 0
+    modes = globals().setdefault("_VISUAL_FORMAT_MODES", {})
+    cached = modes.get(model)
+    mode = cached[0] if cached and cached[1] > asyncio.get_running_loop().time() else 0
+    spent, input_est, output_est = 0, 0, 0
     generation_failures = 0
     for attempt in range(5):
         stream, raw, started, reason = None, "", False, None
@@ -906,6 +911,9 @@ async def _generate_visual_object(messages, tag, model, remaining, deadline, kin
                         raise ValueError("Study group omitted or added a topic")
             else:
                 normalized = _normalize_diagram_reply(raw, tag)
+            if len(modes) > 32:
+                modes.pop(next(iter(modes)))
+            modes[model] = (mode, asyncio.get_running_loop().time() + 600)
             return normalized, input_est + estimate, output_est + len(raw) // 3 + 100
         except Exception as exc:
             status = getattr(exc, "status_code", None)
@@ -918,6 +926,8 @@ async def _generate_visual_object(messages, tag, model, remaining, deadline, kin
                     raise
                 if status is not None and status not in (408, 429) and status < 500:
                     raise
+            if isinstance(exc, (ValueError, json.JSONDecodeError)):
+                prompt[0]["content"] += "\nThe previous attempt did not validate: " + str(exc)[:180] + ". Return the full corrected JSON object. Keep every required topic, with short complete text fields."
             logger.warning("Retrying %s structured generation", tag, exc_info=True)
         finally:
             if started:
@@ -982,11 +992,53 @@ async def _generate_study_batches(ai_messages, kind, source, model, remaining, d
                "input_tokens_est": input_est, "output_tokens_est": output_est}
 
 
+def _queue_tutor_activity(user_id, ts, ai_model, input_tokens_est, output_tokens_est):
+    async def update():
+        try:
+            today_str = datetime.now(timezone.utc).date().isoformat()
+            user_fresh = await db.users.find_one(
+                {"user_id": user_id},
+                {"_id": 0, "last_daily_chat_xp": 1, "xp": 1, "level": 1},
+            )
+            already_got_chat_xp = (user_fresh or {}).get("last_daily_chat_xp") == today_str
+            chat_xp = 0 if already_got_chat_xp else 10
+
+            xp_update: dict = {"$set": {"last_active": ts}}
+            if chat_xp > 0:
+                xp_update["$inc"] = {"xp": chat_xp}
+                xp_update["$set"]["last_daily_chat_xp"] = today_str
+            await db.users.update_one({"user_id": user_id}, xp_update)
+
+            updated = await db.users.find_one({"user_id": user_id}, {"_id": 0})
+            if updated:
+                new_level = max(1, updated.get("xp", 0) // 500 + 1)
+                if new_level > updated.get("level", 1):
+                    await db.users.update_one(
+                        {"user_id": user_id}, {"$set": {"level": new_level}}
+                    )
+
+            # Usage + token tracking
+            await increment_usage(user_id, "ai_messages", 1)
+            await record_token_usage(user_id, ai_model, input_tokens_est, output_tokens_est)
+
+        except Exception:
+            logger.exception("Tutor activity counters failed")
+    tasks = globals().setdefault("_ACTIVITY_TASKS", set())
+    task = asyncio.create_task(asyncio.wait_for(update(), timeout=10))
+    tasks.add(task)
+    def finished(done):
+        tasks.discard(done)
+        if not done.cancelled() and done.exception():
+            logger.warning("Tutor activity update did not finish: %s", done.exception())
+    task.add_done_callback(finished)
+
+
 # ── Main message handler ──────────────────────────────────────────────────────
 
 @router.post("/chat/sessions/{session_id}/message")
 async def send_message(session_id: str, body: ChatMessageRequest, request: Request):
     user = await get_current_user(request)
+    visual_job_id = getattr(getattr(request, "state", None), "visual_job_id", None)
 
     session = await db.chat_sessions.find_one(
         {"session_id": session_id, "user_id": user["user_id"]}, {"_id": 0}
@@ -1097,8 +1149,9 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
         ai_messages = [{"role": "system", "content": system_prompt},
                        {"role": "user", "content": body.content.split("\n\n[STUDYVISUAL INSTRUCTIONS]")[0]}]
         try:
-            await db.messages.insert_one({"session_id": session_id, "role": "user", "content": body.content,
-                                          "timestamp": datetime.now(timezone.utc).isoformat()})
+            if not visual_job_id:
+                await db.messages.insert_one({"session_id": session_id, "role": "user", "content": body.content,
+                                              "timestamp": datetime.now(timezone.utc).isoformat()})
         except Exception:
             logger.exception("Could not save visual request for session %s", session_id)
             raise HTTPException(status_code=503, detail={"code": "REQUEST_SAVE_FAILED",
@@ -1139,9 +1192,10 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
 
         # Persist user message
         now = datetime.now(timezone.utc).isoformat()
-        await db.messages.insert_one(
-            {"session_id": session_id, "role": "user", "content": body.content, "timestamp": now}
-        )
+        if not visual_job_id:
+            await db.messages.insert_one(
+                {"session_id": session_id, "role": "user", "content": body.content, "timestamp": now}
+            )
 
         # Build AI messages
         if kb_match and not is_visual:
@@ -1249,16 +1303,17 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
     # ── Stream response ───────────────────────────────────────────────────────
     async def generate():
         if is_visual:
-            yield f"data: {json.dumps({'type':'accepted'})}\n\n"
+            total = len(visual_source["topics"]) if is_studyvisual and study_kind != "graph" and (study_kind == "cheatsheet" or "\nFocus:" not in body.content) else None
+            yield f"data: {json.dumps({'type':'accepted','total_topics':total})}\n\n"
         full_content = ""
         word_count = 0
         input_tokens_est = int(sum(len(m["content"].split()) * 1.3 for m in ai_messages))
-        msg_id = f"msg_{uuid.uuid4().hex[:12]}"
+        msg_id = "msg_" + visual_job_id if visual_job_id else f"msg_{uuid.uuid4().hex[:12]}"
 
         # Reserve generous headroom so the model can always finish its response
         generation_tokens = max_tokens  # no artificial cap — trust the router limits
 
-        deadline = asyncio.get_running_loop().time() + 85
+        deadline = asyncio.get_running_loop().time() + (180 if visual_job_id else 85)
         use_batches = is_studyvisual and study_kind != "graph" and bool(visual_source["topics"]) and (
             study_kind == "cheatsheet" or "\nFocus:" not in body.content)
         generated_output_est = None
@@ -1335,7 +1390,7 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
             ts = datetime.now(timezone.utc).isoformat()
             await db.messages.insert_one(
                 {"message_id": msg_id, "session_id": session_id, "role": "assistant",
-                 "content": full_content, "timestamp": ts}
+                 "content": full_content, "timestamp": ts, **({"visual_job_id": visual_job_id} if visual_job_id else {})}
             )
             await db.chat_sessions.update_one(
                 {"session_id": session_id},
@@ -1357,40 +1412,16 @@ async def send_message(session_id: str, body: ChatMessageRequest, request: Reque
             yield f"data: {json.dumps({'type':'error','code':'CREDIT_UPDATE_FAILED','message':'The reply was saved, but the credit update failed. Please reload this chat before sending another message.'})}\n\n"
             return
 
-        try:
-            # XP: once per day only (not spammable) — encourages daily use without reward farming
-            today_str = datetime.now(timezone.utc).date().isoformat()
-            user_fresh = await db.users.find_one(
-                {"user_id": user["user_id"]},
-                {"_id": 0, "last_daily_chat_xp": 1, "xp": 1, "level": 1},
-            )
-            already_got_chat_xp = (user_fresh or {}).get("last_daily_chat_xp") == today_str
-            chat_xp = 0 if already_got_chat_xp else 10
-
-            xp_update: dict = {"$set": {"last_active": ts}}
-            if chat_xp > 0:
-                xp_update["$inc"] = {"xp": chat_xp}
-                xp_update["$set"]["last_daily_chat_xp"] = today_str
-            await db.users.update_one({"user_id": user["user_id"]}, xp_update)
-
-            updated = await db.users.find_one({"user_id": user["user_id"]}, {"_id": 0})
-            if updated:
-                new_level = max(1, updated.get("xp", 0) // 500 + 1)
-                if new_level > updated.get("level", 1):
-                    await db.users.update_one(
-                        {"user_id": user["user_id"]}, {"$set": {"level": new_level}}
-                    )
-
-            # Usage + token tracking
-            await increment_usage(user["user_id"], "ai_messages", 1)
-            output_tokens_est = generated_output_est if generated_output_est is not None else int(len(full_content.split()) * 1.3)
-            await record_token_usage(user["user_id"], ai_model, input_tokens_est, output_tokens_est)
-
-        except Exception:
-            logger.exception("Tutor activity counters failed for session %s", session_id)
-
-        credits_used = credit_result["deducted"]
-        yield f"data: {json.dumps({'type':'done','message_id':msg_id,'word_count':final_word_count,'credits_used':credits_used,'balance':credit_result.get('balance',0)})}\n\n"
+        receipt = {"type": "done", "message_id": msg_id, "word_count": final_word_count,
+                   "credits_used": credit_result["deducted"], "balance": credit_result.get("balance", 0)}
+        if visual_job_id:
+            try:
+                await db.messages.update_one({"message_id": msg_id}, {"$set": {"receipt": receipt}})
+            except Exception:
+                logger.exception("Could not attach visual receipt; saved result remains recoverable")
+        output_est = generated_output_est if generated_output_est is not None else int(len(full_content.split()) * 1.3)
+        _queue_tutor_activity(user["user_id"], ts, ai_model, input_tokens_est, output_est)
+        yield f"data: {json.dumps(receipt)}\n\n"
 
     async def with_keepalive():
         iterator = generate().__aiter__()

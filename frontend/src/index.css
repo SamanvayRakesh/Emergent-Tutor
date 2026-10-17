@@ -817,3 +817,9 @@ code, pre { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
 .App .ace-cheat-summary p { display: grid; gap: 4px; font-size: 13px; line-height: 1.65; }
 .App .ace-cheat-summary strong { color: var(--ace-heading) !important; -webkit-text-fill-color: currentColor !important; font-weight: 650; }
 .App .ace-cheat-summary span { color: var(--ace-label) !important; -webkit-text-fill-color: currentColor !important; }
+
+/* Long responses stay readable while new topics arrive below the student's viewport. */
+.App .ace-tutor .ace-tutor-jump { position: sticky; bottom: 12px; display: block; margin: 12px auto; z-index: 2; padding: 8px 14px; font-size: 12px; box-shadow: var(--ace-shadow-card) !important; }
+.App .ace-tutor .ace-visual-message .message-ai:has(.ace-feature) { border: 0 !important; background: transparent !important; box-shadow: none !important; padding: 0 !important; }
+.App .ace-tutor .ace-note-body p { font-size: 15px; line-height: 1.7; }
+.App .ace-tutor .ace-study-topic h4 { font-size: 15px; line-height: 1.5; }

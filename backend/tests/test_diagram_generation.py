@@ -18,7 +18,7 @@ MAP={'title':'Fractions','summary':'Parts of a whole.','branches':[{'label':'Num
 FLOW={'title':'Solve a fraction problem','summary':'A learning sequence.','steps':[{'label':'Read','detail':'Read the quantities.'},{'label':'Solve','detail':'Apply the relevant operation.'}]}
 def namespace(provider):
  ns={'_VISUAL_TYPES':{'concept','steps','compare','formula','timeline','cycle'},'uuid':uuid,'json':json,'re':re,'asyncio':asyncio,'datetime':datetime,'timezone':timezone,'logger':logging.getLogger('diagram-tests'),'HTTPException':HTTPException,'openai_client':NS(chat=NS(completions=NS(create=provider)))}
- names={'_normal_title','_normalize_study_reply','_validate_study_reply','_generate_visual_object','_study_response_schema','_diagram_schema','_normalize_diagram_reply','_generate_diagram','send_message'}
+ names={'_normal_title','_normalize_study_reply','_validate_study_reply','_generate_visual_object','_study_response_schema','_diagram_schema','_normalize_diagram_reply','_generate_diagram','_queue_tutor_activity','send_message'}
  nodes=[n for n in tree.body if isinstance(n,(ast.FunctionDef,ast.AsyncFunctionDef)) and n.name in names]
  for n in nodes:
   n.decorator_list=[];n.returns=None
@@ -35,6 +35,11 @@ class Tests(unittest.IsolatedAsyncioTestCase):
   provider=AsyncMock(side_effect=[ProviderError(400,'response_format json_schema unsupported'),ProviderError(400,'response_format json_object unsupported'),Stream(json.dumps(FLOW))]);ns=namespace(provider)
   result,_,_=await ns['_generate_diagram']([{'role':'system','content':'JSON schema.'},{'role':'user','content':'Study path.'}],'FLOWCHART','fixture',20000,asyncio.get_running_loop().time()+20)
   self.assertEqual(json.loads(result[11:-12]),FLOW);self.assertEqual(provider.await_count,3);self.assertNotIn('response_format',provider.call_args.kwargs)
+ async def test_provider_format_fallback_is_reused_for_later_groups(self):
+  provider=AsyncMock(side_effect=[ProviderError(400,'response_format json_schema unsupported'),Stream(json.dumps(FLOW)),Stream(json.dumps(FLOW))]);ns=namespace(provider)
+  messages=[{'role':'system','content':'JSON schema.'},{'role':'user','content':'Study path.'}]
+  for _ in range(2):await ns['_generate_diagram'](messages,'FLOWCHART','fixture',None,asyncio.get_running_loop().time()+20)
+  self.assertEqual(provider.await_count,3);self.assertEqual(provider.call_args.kwargs['response_format']['type'],'json_object')
  async def test_malformed_objects_cannot_complete(self):
   provider=AsyncMock(side_effect=[Stream('{bad') for _ in range(3)]);ns=namespace(provider)
   with self.assertRaises(json.JSONDecodeError):await ns['_generate_diagram']([{'role':'system','content':'JSON schema.'},{'role':'user','content':'Map.'}],'MINDMAP','fixture',20000,asyncio.get_running_loop().time()+20)
